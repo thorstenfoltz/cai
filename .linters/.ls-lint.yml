@@ -1,0 +1,16 @@
+ls:
+  .sql: lowercase | snake_case
+  .py: lowercase | snake_case
+  .tf: lowercase | snake_case
+  .sh: lowercase | snake_case
+  .yml: lowercase | snake_case
+  .json: lowercase | snake_case
+  .txt: lowercase | snake_case
+  .hcl: lowercase | snake_case
+  .toml: lowercase | snake_case
+  .config: lowercase | snake_case
+  .env: lowercase | snake_case
+
+ignore:
+  - .git
+  - .venv

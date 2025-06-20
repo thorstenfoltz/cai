@@ -1,0 +1,9 @@
+[project]
+name = "gcai"
+version = "0.1.0"
+description = "Use AI to create git commits"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "python-dotenv>=1.1.0",
+]
