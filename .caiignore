@@ -1,0 +1,5 @@
+# files
+*.lock
+*.ipynb
+
+# directories

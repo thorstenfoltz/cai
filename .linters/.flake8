@@ -3,3 +3,5 @@
 exclude =
     test_copy_files_fsb.py,
     __pycache__
+max-line-length = 256
+
