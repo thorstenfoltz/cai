@@ -3,3 +3,7 @@
 megalinter-reports/
 .ipynb_checkpoints/
 .venv
+
+# files
+
+*.ipynb
