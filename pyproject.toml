@@ -12,3 +12,10 @@ dependencies = [
 
 [project.scripts]
 git-cai = "cai.cli:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]

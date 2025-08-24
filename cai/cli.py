@@ -7,12 +7,12 @@ from .core.config import load_config, load_token
 from .core.gitutils import find_git_root, git_diff_excluding
 from .core.openai_utils import get_commit_message
 
-
 logging.basicConfig(
     level=logging.INFO,  # show INFO and above
     format="%(levelname)s: %(message)s",
 )
 log = logging.getLogger(__name__)
+
 
 def main() -> None:
     # Ensure invoked as 'git cai'
@@ -38,7 +38,7 @@ def main() -> None:
     diff = git_diff_excluding(repo_root, log=log)
     if not diff.strip():
         log.info("No changes to commit. Did you run 'git add'? Files must be staged.")
-        sys.exit(0)   
+        sys.exit(0)
 
     # Generate commit message
     commit_message = get_commit_message(token, config, diff)
