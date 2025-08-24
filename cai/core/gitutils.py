@@ -1,7 +1,7 @@
+import logging
 import subprocess
 import sys
 from pathlib import Path
-import logging
 from typing import Callable
 
 log = logging.getLogger(__name__)

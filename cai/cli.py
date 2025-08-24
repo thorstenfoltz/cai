@@ -1,6 +1,6 @@
+import logging
 import subprocess
 import sys
-import logging
 
 from .core.config import load_config, load_token
 from .core.gitutils import find_git_root, git_diff_excluding
@@ -30,6 +30,7 @@ def main() -> None:
 
     # Open git commit editor with the generated message
     subprocess.run(["git", "commit", "--edit", "-m", commit_message])
+
 
 if __name__ == "__main__":
     main()

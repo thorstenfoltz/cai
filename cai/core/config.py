@@ -40,7 +40,9 @@ def load_config(
             log.error(f"Failed to parse repo config: {e}")
 
     if not fallback_config_file.exists() or fallback_config_file.stat().st_size == 0:
-        log.warning(f"{fallback_config_file} missing or empty. Creating default config.")
+        log.warning(
+            f"{fallback_config_file} missing or empty. Creating default config."
+        )
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
         with open(fallback_config_file, "w") as f:
             yaml.safe_dump(default_config, f)
