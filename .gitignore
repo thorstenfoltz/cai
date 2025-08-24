@@ -1,8 +1,9 @@
 # directories
-
 megalinter-reports/
 .ipynb_checkpoints/
-.venv
+.ruff_cache/
+.venv/
+__pycache__/
 
 # files
 
