@@ -4,6 +4,8 @@ megalinter-reports/
 .ruff_cache/
 .venv/
 __pycache__/
+cai.egg-info/
+build/
 
 # files
 
