@@ -7,6 +7,7 @@
 ## Table of Contents
 
 - [About](#about-section)
+- [Prerequisites](#prerequisites)
 - [Features](#features-section)
 - [Installation](#installation-section)
 - [Usage](#usage-section)
@@ -16,6 +17,12 @@
 `cai` is designed to simplify your Git workflow by automatically generating commit messages using an LLM. No more struggling to summarize changes—`git cai` does it for you.  
 
 Currently, the only supported backend is the OpenAI API, but additional LLM integrations may be added in the future.
+
+<h2 id="prerequisites">Prerequisites</h2>
+
+- Python 3.11 or higher
+- [Pip](https://pypi.org/project/pip/) or better [Pipx](https://pypi.org/project/pipx/)
+- OpenAI API key
 
 <h2 id="features-section">Features</h2>
 
@@ -27,12 +34,23 @@ Currently, the only supported backend is the OpenAI API, but additional LLM inte
 
 <h2 id="installation-section">Installation</h2>
 
+- Currently by using pipx from local clone
+- Clone the repo, change into the directory and install
+
+ ```sh
+ git clone https://github.com/thorstenfoltz/cai.git
+ cd cai
+ pipx install .
+ ```
+
 <h2 id="usage-section">Usage</h2>
 Once installed, you can use `cai` like a normal Git command:
 
 ```sh
 git cai
 ```
+
+`cai` will create a  
 
 <h2 id="license-section">License</h2>
 This project is licensed under the MIT License.
