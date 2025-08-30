@@ -32,8 +32,9 @@ Once installed, you can use `cai` like a normal Git command:
 
 ```bash
 git cai
+```
 
 <h2 id="license-section">License</h2>
 <!-- markdownlint-disable-next-line -->
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](#LICENSE) file for details.
 
