@@ -34,8 +34,9 @@ Currently, the only supported backend is the OpenAI API, but additional LLM inte
 
 <h2 id="installation-section">Installation</h2>
 
- - Currently by using pipx from local clone
- - Clone the repo, change into the directory and install
+- Currently by using pipx from local clone
+- Clone the repo, change into the directory and install
+
  ```sh
  git clone https://github.com/thorstenfoltz/cai.git
  cd cai
@@ -48,8 +49,8 @@ Once installed, you can use `cai` like a normal Git command:
 ```sh
 git cai
 ```
-`cai` will create a  
 
+`cai` will create a  
 
 <h2 id="license-section">License</h2>
 This project is licensed under the MIT License.
