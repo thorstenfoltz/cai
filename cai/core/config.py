@@ -41,7 +41,7 @@ def load_config(
 
     if not fallback_config_file.exists() or fallback_config_file.stat().st_size == 0:
         log.warning(
-            f"{fallback_config_file} missing or empty. Creating default config."
+            f"No config file provided and default config missing or empty. Creating default config in {fallback_config_file}"
         )
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
         with open(fallback_config_file, "w") as f:

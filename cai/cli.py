@@ -3,9 +3,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .core.config import load_config, load_token
-from .core.gitutils import find_git_root, git_diff_excluding
-from .core.openai_utils import get_commit_message
+from cai.core.config import load_config, load_token
+from cai.core.gitutils import find_git_root, git_diff_excluding
+from cai.core.openai_utils import get_commit_message
 
 logging.basicConfig(
     level=logging.INFO,  # show INFO and above
