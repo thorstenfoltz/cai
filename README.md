@@ -5,6 +5,7 @@
 `cai` leverages a **large language model (LLM)** to generate meaningful and context-aware commit messages. Currently, it supports the **OpenAI API** for generating commit messages.
 
 ## Table of Contents
+
 - [About](#about-section)
 - [Features](#features-section)
 - [Installation](#installation-section)
@@ -17,6 +18,7 @@
 Currently, the only supported backend is the OpenAI API, but additional LLM integrations may be added in the future.
 
 <h2 id="features-section">Features</h2>
+
 - Automatically detects added, modified, and deleted files
 - Generates meaningful commit messages using an LLM
 - Currently uses **OpenAI API** for commit message generation
@@ -25,16 +27,12 @@ Currently, the only supported backend is the OpenAI API, but additional LLM inte
 
 <h2 id="installation-section">Installation</h2>
 
-
-
 <h2 id="usage-section">Usage</h2>
 Once installed, you can use `cai` like a normal Git command:
 
-```bash
+```sh
 git cai
 ```
 
 <h2 id="license-section">License</h2>
-<!-- markdownlint-disable-next-line -->
-This project is licensed under the MIT License. See the [LICENSE](#LICENSE) file for details.
-
+This project is licensed under the MIT License.
