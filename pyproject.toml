@@ -1,21 +1,33 @@
 [project]
-name = "cai"
+name = "gitcai"
 version = "0.1.0"
 description = "Use LLM to create git commits"
 authors = [{ name = "Thorsten Foltz", email = "thorsten.foltz@live.com" }]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0,<6.1",
     "openai>=1.0",
 ]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+]
+
+[project.urls]
+Homepage = "https://github.com/thorstenfoltz/cai"
+Issues = "https://github.com/thorstenfoltz/cai/issues"
 
 [project.scripts]
 git-cai = "cai.cli:main"
 
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build >= 0.7.19"]
+build-backend = "uv_build"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
