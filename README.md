@@ -42,10 +42,13 @@ Currently, the only supported backend is the OpenAI API, but additional LLM inte
  cd cai
  pipx install .
  ```
-Afterwards set cai to PATH by 
+
+Afterwards set cai to PATH by
+
 ```sh
 pipx ensurepath
 ```
+
 Perhaps a restart of your shell is required.
 
 <h2 id="usage-section">Usage</h2>
