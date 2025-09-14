@@ -35,6 +35,7 @@ Currently, the only supported backend is the OpenAI API, but additional LLM inte
 <h2 id="installation-section">Installation</h2>
 
 Install by
+
 ```sh
 pipx install gitcai
 ```
