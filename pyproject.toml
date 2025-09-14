@@ -1,6 +1,6 @@
 [project]
 name = "gitcai"
-version = "0.1.0"
+version = "0.1.0a1"
 description = "Use LLM to create git commits"
 authors = [{ name = "Thorsten Foltz", email = "thorsten.foltz@live.com" }]
 keywords = ["Git", "LLM", "Commit"]
