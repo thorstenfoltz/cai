@@ -13,7 +13,8 @@ CROSS_MARK="${RED}✖${NC}"
 BRANCH_NAME=${1:-$(git rev-parse --abbrev-ref HEAD)}
 
 # Define the branch name pattern
-BRANCH_NAME_REGEX="^(feature|fix|hotfix|chore|refactor|test|docs)/[a-z0-9._-]+$"
+BRANCH_NAME_REGEX="^(master|(feature|fix|hotfix|chore|refactor|test|docs)/[a-z0-9._-]+)$"
+
 
 # Check the branch name against the pattern
 if [[ ! $BRANCH_NAME =~ $BRANCH_NAME_REGEX && $BRANCH_NAME != "main" ]]; then
