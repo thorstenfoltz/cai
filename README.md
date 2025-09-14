@@ -34,14 +34,11 @@ Currently, the only supported backend is the OpenAI API, but additional LLM inte
 
 <h2 id="installation-section">Installation</h2>
 
-- Currently by using pipx from local clone
-- Clone the repo, change into the directory and install
+Install by
 
- ```sh
- git clone https://github.com/thorstenfoltz/cai.git
- cd cai
- pipx install .
- ```
+```sh
+pipx install gitcai
+```
 
 Afterwards set cai to PATH by
 
@@ -49,7 +46,7 @@ Afterwards set cai to PATH by
 pipx ensurepath
 ```
 
-Perhaps a restart of your shell is required.
+Restart your shell by executing `bash` or `zsh` or whatever else is your used shell.
 
 <h2 id="usage-section">Usage</h2>
 Once installed, you can use `cai` like a normal Git command:
@@ -60,7 +57,8 @@ git cai
 
 `cai` automatically creates a configuration file at: `~/.config/cai/token.yml`
 This file stores your OpenAI API key, which is used every time you run `git cai`.
-If a `cai_config.yml` file exists in the root of your repository, `cai` will use the settings defined there. Otherwise, it falls back to default settings, which are automatically created in the same directory as `token.yml` if they don’t already exist.  
+Open `~/.config/cai/token.yml` and store your token from OpenAI.
+If a `cai_config.yml` file exists in the root of your repository, `cai` will use the settings defined there. Otherwise, it falls back to default settings, which are automatically created in the same directory as `token.yml` if they don’t already exist.
 Currently, the only configurable options are:
 
 - OpenAI model

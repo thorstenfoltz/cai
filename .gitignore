@@ -1,11 +1,12 @@
 # directories
-megalinter-reports/
+build/
+dist/
+cai.egg-info/
 .ipynb_checkpoints/
+megalinter-reports/
+__pycache__/
 .ruff_cache/
 .venv/
-__pycache__/
-cai.egg-info/
-build/
 
 # files
 
