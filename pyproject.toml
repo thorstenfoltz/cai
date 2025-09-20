@@ -1,5 +1,5 @@
 [project]
-name = "gitcai"
+name = "git-cai-cli"
 version = "0.1.0"
 description = "Use LLM to create git commits"
 authors = [{ name = "Thorsten Foltz", email = "thorsten.foltz@live.com" }]
@@ -9,12 +9,11 @@ requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
     "openai>=1.0",
-    "build>=1.3.0",
 ]
 license = "MIT"
 license-files = ["LICENSE"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
@@ -32,7 +31,7 @@ Homepage = "https://github.com/thorstenfoltz/cai"
 Issues = "https://github.com/thorstenfoltz/cai/issues"
 
 [project.scripts]
-git-cai = "gitcai.cli:main"
+git-cai = "git_cai_cli.cli:main"
 
 [build-system]
 requires = ["uv_build >= 0.7.19"]
