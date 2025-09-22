@@ -14,13 +14,14 @@
 - [License](#license-section)
 
 <h2 id="about-section">About</h2>
-`cai` is designed to simplify your Git workflow by automatically generating commit messages using an LLM. No more struggling to summarize changes—`git cai` does it for you.  
+
+`cai` is designed to simplify your Git workflow by automatically generating commit messages using an LLM. No more struggling to summarize changes — `git cai` does it for you.  
 
 Currently, the only supported backend is the OpenAI API, but additional LLM integrations may be added in the future.
 
 <h2 id="prerequisites">Prerequisites</h2>
 
-- Python 3.11 or higher
+- Python 3.10 or higher
 - [Pip](https://pypi.org/project/pip/) or better [Pipx](https://pypi.org/project/pipx/)
 - OpenAI API key
 
@@ -37,7 +38,7 @@ Currently, the only supported backend is the OpenAI API, but additional LLM inte
 Install by
 
 ```sh
-pipx install gitcai
+pipx install git-cai-cli
 ```
 
 Afterwards set cai to PATH by
