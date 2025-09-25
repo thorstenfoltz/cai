@@ -3,7 +3,7 @@ import os
 import stat
 from pathlib import Path
 from typing import Any
-
+from git_cai_cli.core.gitutils import find_git_root
 import yaml
 
 log = logging.getLogger(__name__)
