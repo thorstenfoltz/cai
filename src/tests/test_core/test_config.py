@@ -1,12 +1,11 @@
-import builtins
 import logging
-from pathlib import Path
 from unittest import mock
-
+from pathlib import Path
 import pytest
 import yaml
-
-from git_cai_cli.core import config  # adjust import path as needed
+from pathlib import Path
+import yaml
+import git_cai_cli.core.config as config
 
 
 @pytest.fixture
@@ -24,16 +23,39 @@ def temp_tokens_file(tmp_path):
     return tmp_path / "tokens.yml"
 
 
-#def test_load_config_repo_file_exists(monkeypatch, mock_logger, tmp_path):
-#    repo_config_path = tmp_path / "cai_config.yml"
-#    repo_config_path.write_text(yaml.safe_dump({"openai": {"model": "gpt-test"}}))
-#
-#    monkeypatch.setattr(config, "find_git_root", lambda: tmp_path)
-#    
-#    cfg = config.load_config(log=mock_logger)
-#    assert cfg["openai"]["model"] == "gpt-test"
-#
-#
+
+
+
+def test_load_config_repo_file_exists(monkeypatch, mock_logger, tmp_path):
+    # Simulate repo root
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+
+    # Repo-local config
+    repo_config = repo_root / "cai_config.yml"
+    repo_config.write_text(yaml.safe_dump({"openai": {"model": "gpt-test"}}))
+
+    # Patch the actual function load_config calls
+    monkeypatch.setattr(
+        "git_cai_cli.core.gitutils.find_git_root",
+        lambda: str(repo_root)
+    )
+
+    # Patch fallback so home is never read
+    monkeypatch.setattr(
+        config,
+        "FALLBACK_CONFIG_FILE",
+        tmp_path / "fake_home" / "cai_config.yml"
+    )
+
+    cfg = config.load_config(log=mock_logger)
+
+    assert cfg["openai"]["model"] == "gpt-test"
+
+
+
+
+
 #def test_load_config_fallback_file_created(monkeypatch, mock_logger, tmp_path):
 #    fallback_path = tmp_path / "cai_config.yml"
 #    monkeypatch.setattr(config, "FALLBACK_CONFIG_FILE", fallback_path)
