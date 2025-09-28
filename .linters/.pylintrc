@@ -90,13 +90,8 @@ logging-modules=logging                    # Logging library to check against
 [MESSAGES CONTROL]
 confidence=HIGH,CONTROL_FLOW,INFERENCE,INFERENCE_FAILURE,UNDEFINED
                                            # Only show warnings with these confidence levels
-disable=raw-checker-failed,
-        useless-suppression,
-        use-symbolic-message-instead,
-        deprecated-pragma,
-        import-error,
-        missing-module-docstring,
-        unused-argument
+disable=logging-too-many-args,
+        import-error
                                            # Disable noisy/meta warnings
 
 

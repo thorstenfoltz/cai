@@ -1,11 +1,9 @@
 import logging
 from unittest import mock
-from pathlib import Path
+
+import git_cai_cli.core.config as config
 import pytest
 import yaml
-from pathlib import Path
-import yaml
-import git_cai_cli.core.config as config
 
 
 @pytest.fixture
@@ -23,9 +21,6 @@ def temp_tokens_file(tmp_path):
     return tmp_path / "tokens.yml"
 
 
-
-
-
 def test_load_config_repo_file_exists(monkeypatch, mock_logger, tmp_path):
     # Simulate repo root
     repo_root = tmp_path / "repo"
@@ -37,15 +32,12 @@ def test_load_config_repo_file_exists(monkeypatch, mock_logger, tmp_path):
 
     # Patch the actual function load_config calls
     monkeypatch.setattr(
-        "git_cai_cli.core.gitutils.find_git_root",
-        lambda: str(repo_root)
+        "git_cai_cli.core.gitutils.find_git_root", lambda: str(repo_root)
     )
 
     # Patch fallback so home is never read
     monkeypatch.setattr(
-        config,
-        "FALLBACK_CONFIG_FILE",
-        tmp_path / "fake_home" / "cai_config.yml"
+        config, "FALLBACK_CONFIG_FILE", tmp_path / "fake_home" / "cai_config.yml"
     )
 
     cfg = config.load_config(log=mock_logger)
@@ -53,10 +45,7 @@ def test_load_config_repo_file_exists(monkeypatch, mock_logger, tmp_path):
     assert cfg["openai"]["model"] == "gpt-test"
 
 
-
-
-
-#def test_load_config_fallback_file_created(monkeypatch, mock_logger, tmp_path):
+# def test_load_config_fallback_file_created(monkeypatch, mock_logger, tmp_path):
 #    fallback_path = tmp_path / "cai_config.yml"
 #    monkeypatch.setattr(config, "FALLBACK_CONFIG_FILE", fallback_path)
 #    monkeypatch.setattr(config, "find_git_root", lambda: None)
@@ -67,7 +56,7 @@ def test_load_config_repo_file_exists(monkeypatch, mock_logger, tmp_path):
 #    mock_logger.warning.assert_called()
 #
 #
-#def test_load_config_fallback_file_existing(monkeypatch, tmp_path, mock_logger):
+# def test_load_config_fallback_file_existing(monkeypatch, tmp_path, mock_logger):
 #    fallback_path = tmp_path / "cai_config.yml"
 #    fallback_path.write_text(yaml.safe_dump({"openai": {"model": "existing"}}))
 #    monkeypatch.setattr(config, "FALLBACK_CONFIG_FILE", fallback_path)
@@ -86,9 +75,11 @@ def test_load_token_file_creation(monkeypatch, tmp_path, mock_logger):
     assert tokens_path.exists()
     mock_logger.warning.assert_called()
     mock_logger.info.assert_called()
+
+
 #
 #
-#def test_load_token_existing_key(monkeypatch, tmp_path, mock_logger):
+# def test_load_token_existing_key(monkeypatch, tmp_path, mock_logger):
 #    tokens_path = tmp_path / "tokens.yml"
 #    tokens_path.write_text(yaml.safe_dump({"openai": "abc123"}))
 #
@@ -98,7 +89,7 @@ def test_load_token_file_creation(monkeypatch, tmp_path, mock_logger):
 #    assert token == "abc123"
 #
 #
-#def test_load_token_missing_key(monkeypatch, tmp_path, mock_logger):
+# def test_load_token_missing_key(monkeypatch, tmp_path, mock_logger):
 #    tokens_path = tmp_path / "tokens.yml"
 #    tokens_path.write_text(yaml.safe_dump({"huggingface": "xyz"}))
 #

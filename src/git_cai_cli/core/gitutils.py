@@ -1,3 +1,6 @@
+"""
+Check git repo and run git diff
+"""
 import logging
 import subprocess
 import sys
@@ -25,7 +28,6 @@ def find_git_root(
 
 def git_diff_excluding(
     repo_root: Path,
-    log: logging.Logger = log,
     run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
     exit_func: Callable[[int], None] = sys.exit,
 ) -> str:
@@ -34,21 +36,21 @@ def git_diff_excluding(
 
     exclude_files: list[str] = []
     if ignore_file.exists():
-        with open(ignore_file, "r") as f:
+        with open(ignore_file, "r", encoding="utf-8") as f:
             exclude_files = [
                 line.strip()
                 for line in f
                 if line.strip() and not line.strip().startswith("#")
             ]
         if not exclude_files:
-            log.info(f"{ignore_file} is empty. No files excluded.")
+            log.info("%s is empty. No files excluded.", ignore_file)
 
     cmd = ["git", "diff", "HEAD", "--", "."]
     cmd.extend(f":!{pattern}" for pattern in exclude_files)
 
-    result = run_cmd(cmd, capture_output=True, text=True)
+    result = run_cmd(cmd, capture_output=True, text=True, check=True)
     if result.returncode != 0:
-        log.error(f"git diff failed: {result.stderr.strip()}")
+        log.error("git diff failed: %s", result.stderr.strip())
         exit_func(1)
 
     return result.stdout
