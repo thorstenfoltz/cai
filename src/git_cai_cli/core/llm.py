@@ -1,7 +1,9 @@
 """
 Settings and connection of LLM
 """
+
 from typing import Any, Dict, Type
+
 from openai import OpenAI
 
 
