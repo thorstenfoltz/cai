@@ -1,14 +1,15 @@
 """
 Set configuration
 """
+
 import logging
 import os
 import stat
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+
 import yaml
 from git_cai_cli.core.gitutils import find_git_root
-
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ TOKEN_TEMPLATE = {
 
 def load_config(
     fallback_config_file: Path = FALLBACK_CONFIG_FILE,
-    default_config: dict[str, Any] = None,
+    default_config: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
     Load configuration of LLM
@@ -49,7 +50,8 @@ def load_config(
 
     if not fallback_config_file.exists() or fallback_config_file.stat().st_size == 0:
         log.warning(
-            "No config file provided and default config missing or empty. Creating default config in %s", fallback_config_file
+            "No config file provided and default config missing or empty. Creating default config in %s",
+            fallback_config_file,
         )
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
         with open(fallback_config_file, "w", encoding="utf-8") as f:
@@ -67,7 +69,7 @@ def load_config(
 def load_token(
     key_name: str,
     tokens_file: Path = TOKENS_FILE,
-    token_template: dict[str, Any] = None
+    token_template: Optional[dict[str, Any]] = None,
 ) -> str | None:
     """
     Load token to connecto to LLM

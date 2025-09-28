@@ -1,6 +1,7 @@
 """
 Check git repo and run git diff
 """
+
 import logging
 import subprocess
 import sys

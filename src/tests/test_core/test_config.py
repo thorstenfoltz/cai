@@ -40,7 +40,7 @@ def test_load_config_repo_file_exists(monkeypatch, mock_logger, tmp_path):
         config, "FALLBACK_CONFIG_FILE", tmp_path / "fake_home" / "cai_config.yml"
     )
 
-    cfg = config.load_config(log=mock_logger)
+    cfg = config.load_config()
 
     assert cfg["openai"]["model"] == "gpt-test"
 
@@ -70,7 +70,7 @@ def test_load_token_file_creation(monkeypatch, tmp_path, mock_logger):
     tokens_path = tmp_path / "tokens.yml"
     monkeypatch.setattr(config, "TOKENS_FILE", tokens_path)
 
-    token = config.load_token("openai", tokens_file=tokens_path, log=mock_logger)
+    token = config.load_token("openai", tokens_file=tokens_path)
     assert token is None
     assert tokens_path.exists()
     mock_logger.warning.assert_called()

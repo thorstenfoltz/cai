@@ -1,8 +1,11 @@
 """
 Settings and connection of LLM
 """
+
 from typing import Any, Dict, Type
+
 from openai import OpenAI
+
 
 class CommitMessageGenerator:
     """
@@ -26,11 +29,15 @@ class CommitMessageGenerator:
             "Your task is to generate a concise, professional git commit message "
             "summarizing the provided git diff changes. "
             "Keep the message clear and focused on what was changed and why."
+            "Make always a list of changes, but use a headline."
         )
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Generate a commit message for:\n\n{git_diff}"},
+            {
+                "role": "user",
+                "content": f"Generate a commit message for:\n\n{git_diff}",
+            },
         ]
 
         completion = client.chat.completions.create(
