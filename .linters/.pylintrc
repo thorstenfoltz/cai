@@ -1,0 +1,112 @@
+[MAIN]
+fail-under=10                   # Require a perfect 10/10 score or exit with error
+analyse-fallback-blocks=no      # Don’t analyze import fallback blocks (legacy Python 2/3 support)
+clear-cache-post-run=no         # Keep caches after linting (faster subsequent runs)
+jobs=0                          # Use all CPU cores (parallel analysis)
+persistent=yes                  # Save data between runs (improves inference caching)
+suggestion-mode=yes             # Provide friendly hints instead of false positives
+unsafe-load-any-extension=no    # Prevent loading arbitrary C extensions for safety
+
+ignore=venv,build,dist,__pycache__         # Ignore common generated/virtual dirs
+ignore-paths=.*[/\\](\.venv|\.mypy_cache|\.pytest_cache|build|dist|docs)[/\\].*
+ignore-patterns=^\.#                       # Ignore editor lockfiles (e.g., Emacs)
+
+extension-pkg-allow-list=                  # List allowed C-extension modules (empty = none)
+fail-on=                                   # Fail immediately if these specific warnings/errors are found
+
+[REPORTS]
+reports=no                                 # Don’t show full summary report (CI-friendly)
+evaluation=max(0, 0 if fatal else 10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10))
+                                           # Formula for calculating score (out of 10)
+msg-template={path}:{line}:{column}: {msg_id} ({symbol}) {msg}
+                                           # Output format for each message (good for CI/editors)
+output-format=colorized                    # Colorized console output
+
+[BASIC]
+argument-naming-style=snake_case           # Function/method args must be snake_case
+attr-naming-style=snake_case               # Instance attributes must be snake_case
+class-naming-style=PascalCase              # Classes must be PascalCase
+const-naming-style=UPPER_CASE              # Constants must be UPPER_CASE
+function-naming-style=snake_case           # Functions must be snake_case
+method-naming-style=snake_case             # Methods must be snake_case
+module-naming-style=snake_case             # Modules (files) must be snake_case
+variable-naming-style=snake_case           # Local variables must be snake_case
+
+bad-names=foo,bar,baz,toto,tutu,tata,tmp,data1
+                                           # Forbidden names that always fail
+good-names=i,j,k,ex,_,pk,id                # Short names that are acceptable
+include-naming-hint=yes                    # Suggest the expected format when naming is wrong
+
+[FORMAT]
+max-line-length=256                        # Maximum line length
+indent-string='    '                       # Use 4 spaces per indentation level
+indent-after-paren=4                       # Hanging indent size
+max-module-lines=1000                      # Max lines per module before warning
+ignore-long-lines=^\s*(# )?<?https?://\S+>?$
+                                           # Ignore long lines if they’re URLs or comments
+expected-line-ending-format=LF             # Require LF line endings
+single-line-if-stmt=no                     # Disallow single-line ifs
+single-line-class-stmt=no                  # Disallow single-line class definitions
+function-rgx=^([a-z_][a-z0-9_]*|[a-z]+(?:[A-Z][a-z0-9]+)*|[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)*)$
+
+[IMPORTS]
+allow-wildcard-with-all=no                 # Don’t allow wildcard imports even with __all__
+allow-reexport-from-package=no             # Don’t allow alias re-exports in __init__.py
+known-third-party=requests,polars
+                                           # Declare 3rd party modules for correct grouping
+
+[CLASSES]
+defining-attr-methods=__init__,__new__,setUp,asyncSetUp,__post_init__
+                                           # Methods where attributes can be defined
+exclude-protected=_asdict,_fields,_replace,_source,_make,os._exit
+                                           # Protected names allowed to be accessed
+valid-classmethod-first-arg=cls            # Class methods must use `cls`
+valid-metaclass-classmethod-first-arg=mcs  # Metaclass methods must use `mcs`
+check-protected-access-in-special-methods=no
+                                           # Don’t warn about protected attr access in dunder methods
+
+[DESIGN]
+max-args=10                                # Max arguments per function
+max-attributes=7                           # Max attributes per class
+max-branches=12                            # Max branches per function
+max-locals=30                              # Max locals per function
+max-returns=6                              # Max return statements per function
+max-statements=50                          # Max total statements per function
+max-public-methods=20                      # Max public methods per class
+min-public-methods=1                       # Min public methods per class
+max-nested-blocks=15                       # Max nesting depth
+max-bool-expr=15                           # Max boolean subexpressions in a condition
+max-parents=7                              # Max base classes per class
+max-positional-arguments=10                 # Max positional arguments per function
+
+[EXCEPTIONS]
+overgeneral-exceptions=builtins.BaseException,builtins.Exception
+                                           # Warn when catching too broad exceptions
+
+[LOGGING]
+logging-format-style=new                   # Enforce `{}`-style logging (not `%s` or f-strings)
+logging-modules=logging                    # Logging library to check against
+
+[MESSAGES CONTROL]
+confidence=HIGH,CONTROL_FLOW,INFERENCE,INFERENCE_FAILURE,UNDEFINED
+                                           # Only show warnings with these confidence levels
+disable=logging-too-many-args,
+        import-error
+                                           # Disable noisy/meta warnings
+
+
+
+[METHOD_ARGS]
+timeout-methods=requests.api.delete,requests.api.get,requests.api.head,requests.api.options,requests.api.patch,requests.api.post,requests.api.put,requests.api.request
+                                           # Enforce timeout param in requests.* calls
+
+[MISCELLANEOUS]
+notes=FIXME,TODO,XXX,BUG,HACK              # Markers that are flagged in comments
+
+[REFACTORING]
+never-returning-functions=sys.exit,argparse.parse_error
+                                           # Functions that always exit the program
+suggest-join-with-non-empty-separator=yes  # Warn if `" - " + " - ".join(items)` could be simplified
+
+[SIMILARITIES]
+min-similarity-lines=8                      # Minimum lines of similarity to report

@@ -1,3 +1,7 @@
+"""
+Main function
+"""
+
 import logging
 import subprocess
 import sys
@@ -5,16 +9,19 @@ from pathlib import Path
 
 from git_cai_cli.core.config import load_config, load_token
 from git_cai_cli.core.gitutils import find_git_root, git_diff_excluding
-from git_cai_cli.core.openai_utils import get_commit_message
+from git_cai_cli.core.llm import CommitMessageGenerator
 
 logging.basicConfig(
-    level=logging.INFO,  # show INFO and above
+    level=logging.INFO,
     format="%(levelname)s: %(message)s",
 )
 log = logging.getLogger(__name__)
 
 
 def main() -> None:
+    """
+    Check for git repo, load access tokens and run git cai
+    """
     # Ensure invoked as 'git cai'
     invoked_as = Path(sys.argv[0]).name
     if not invoked_as.startswith("git-"):
@@ -28,23 +35,24 @@ def main() -> None:
         sys.exit(1)
 
     # Load configuration and token
-    config = load_config(log=log)
-    token = load_token("openai", log=log)
+    config = load_config()
+    token = load_token("openai")
     if not token:
         log.error("Missing OpenAI token in ~/.config/cai/tokens.yml")
         sys.exit(1)
 
     # Get git diff
-    diff = git_diff_excluding(repo_root, log=log)
+    diff = git_diff_excluding(repo_root)
     if not diff.strip():
         log.info("No changes to commit. Did you run 'git add'? Files must be staged.")
         sys.exit(0)
 
     # Generate commit message
-    commit_message = get_commit_message(token, config, diff)
+    generator = CommitMessageGenerator(token, config)
+    commit_message = generator.generate_openai(diff)
 
     # Open git commit editor with the generated message
-    subprocess.run(["git", "commit", "--edit", "-m", commit_message])
+    subprocess.run(["git", "commit", "--edit", "-m", commit_message], check=True)
 
 
 if __name__ == "__main__":
