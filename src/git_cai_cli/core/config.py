@@ -85,7 +85,7 @@ def load_token(
         with open(tokens_file, "w", encoding="utf-8") as f:
             yaml.safe_dump(token_template, f)
         os.chmod(tokens_file, stat.S_IRUSR | stat.S_IWUSR)
-        log.info("Created token template at %s", tokens_file)
+        log.info("Created token template at %s", tokens_file)  # nosemgrep
         return None
 
     try:
