@@ -5,7 +5,8 @@ Settings and connection of LLM
 from typing import Any, Dict, Type
 
 from openai import OpenAI
-
+from google import genai
+from google.genai import types
 
 class CommitMessageGenerator:
     """
@@ -46,3 +47,28 @@ class CommitMessageGenerator:
             temperature=temperature,
         )
         return completion.choices[0].message.content.strip()
+    
+    
+    def generate_gemini(self, git_diff: str, genai_cls: Type[Any] = genai.Client) -> str:
+        """
+        Generate a commit message using Gemini's API.
+        """
+        client = genai_cls(api_key=self.token)
+        model = self.config["gemini"]["model"]
+        temperature = self.config["gemini"]["temperature"]
+        system_prompt = (
+            "You are an expert software engineer assistant. "
+            "Your task is to generate a concise, professional git commit message "
+            "summarizing the provided git diff changes. "
+            "Keep the message clear and focused on what was changed and why."
+            "Make always a list of changes, but use a headline."
+        )
+        messages = git_diff
+        response = client.models.generate_content(
+            model=model,
+            contents=messages,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+            )
+        )
+        return response.text

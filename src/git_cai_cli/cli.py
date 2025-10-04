@@ -36,7 +36,8 @@ def main() -> None:
 
     # Load configuration and token
     config = load_config()
-    token = load_token("openai")
+    #token = load_token("openai")
+    token = load_token("gemini")
     if not token:
         log.error("Missing OpenAI token in ~/.config/cai/tokens.yml")
         sys.exit(1)
@@ -49,7 +50,8 @@ def main() -> None:
 
     # Generate commit message
     generator = CommitMessageGenerator(token, config)
-    commit_message = generator.generate_openai(diff)
+    #commit_message = generator.generate_openai(diff)
+    commit_message = generator.generate_gemini(diff)
 
     # Open git commit editor with the generated message
     subprocess.run(["git", "commit", "--edit", "-m", commit_message], check=True)

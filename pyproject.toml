@@ -1,17 +1,17 @@
 [project]
 name = "git-cai-cli"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Use LLM to create git commits"
 authors = [{ name = "Thorsten Foltz", email = "thorsten.foltz@live.com" }]
-keywords = ["Git", "LLM", "Commit"]
+keywords = ["Git", "LLM", "Commit", "AI", "GenAI"]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
     "openai>=1.0",
+    "google-genai>=1.41.0",
 ]
-license = "MIT"
-license-files = ["LICENSE"]
+license = { text = "MIT" }
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -22,7 +22,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
-    "License :: OSI Approved :: MIT License",
     "Topic :: Software Development :: Version Control",
 ]
 
@@ -34,11 +33,15 @@ Issues = "https://github.com/thorstenfoltz/cai/issues"
 git-cai = "git_cai_cli.cli:main"
 
 [build-system]
-requires = ["uv_build >= 0.7.19"]
-build-backend = "uv_build"
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
 
 [dependency-groups]
 dev = [

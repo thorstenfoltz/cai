@@ -21,7 +21,7 @@ DEFAULT_CONFIG = {"openai": {"model": "gpt-4.1", "temperature": 0}}
 
 TOKEN_TEMPLATE = {
     "openai": "PUT-YOUR-OPENAI-TOKEN-HERE",
-    "gemini": "PUT-YOUR-HUGGINGFACE-TOKEN-HERE",
+    "gemini": "PUT-YOUR-GEMINI-TOKEN-HERE",
 }
 
 

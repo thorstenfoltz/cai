@@ -46,7 +46,7 @@ def git_diff_excluding(
         if not exclude_files:
             log.info("%s is empty. No files excluded.", ignore_file)
 
-    cmd = ["git", "diff", "HEAD", "--", "."]
+    cmd = ["git", "diff", "--cached", "--", "."]
     cmd.extend(f":!{pattern}" for pattern in exclude_files)
 
     result = run_cmd(cmd, capture_output=True, text=True, check=True)
