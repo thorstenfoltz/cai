@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from git_cai_cli.core.config import load_config, load_token
+from git_cai_cli.core.config import load_config, load_token, get_default_config
 from git_cai_cli.core.gitutils import find_git_root, git_diff_excluding
 from git_cai_cli.core.llm import CommitMessageGenerator
 
@@ -16,7 +16,6 @@ logging.basicConfig(
     format="%(levelname)s: %(message)s",
 )
 log = logging.getLogger(__name__)
-
 
 def main() -> None:
     """
@@ -36,10 +35,11 @@ def main() -> None:
 
     # Load configuration and token
     config = load_config()
-    #token = load_token("openai")
-    token = load_token("gemini")
+    default_model = get_default_config()
+    log.debug("Default model from config: %s", default_model)
+    token = load_token(default_model)
     if not token:
-        log.error("Missing OpenAI token in ~/.config/cai/tokens.yml")
+        log.error("Missing %s token in ~/.config/cai/tokens.yml", default_model)
         sys.exit(1)
 
     # Get git diff
@@ -49,9 +49,8 @@ def main() -> None:
         sys.exit(0)
 
     # Generate commit message
-    generator = CommitMessageGenerator(token, config)
-    #commit_message = generator.generate_openai(diff)
-    commit_message = generator.generate_gemini(diff)
+    generator = CommitMessageGenerator(token, config, default_model)
+    commit_message = generator.generate(diff) 
 
     # Open git commit editor with the generated message
     subprocess.run(["git", "commit", "--edit", "-m", commit_message], check=True)

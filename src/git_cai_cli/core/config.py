@@ -17,7 +17,10 @@ CONFIG_DIR = Path.home() / ".config" / "cai"
 FALLBACK_CONFIG_FILE = CONFIG_DIR / "cai_config.yml"
 TOKENS_FILE = CONFIG_DIR / "tokens.yml"
 
-DEFAULT_CONFIG = {"openai": {"model": "gpt-4.1", "temperature": 0}}
+DEFAULT_CONFIG = {"openai": {"model": "gpt-4.1", "temperature": 0},
+                  "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
+                  "default": "openai"
+                }
 
 TOKEN_TEMPLATE = {
     "openai": "PUT-YOUR-OPENAI-TOKEN-HERE",
@@ -100,3 +103,44 @@ def load_token(
         return None
 
     return tokens[key_name]
+
+
+def get_default_config() -> str:
+    """
+    Looks for cai_config.yml in the repo root, 
+    else in ~/.config/cai/cai_config.yml.
+    Returns the value of the 'default' key if it exists.
+    Raises FileNotFoundError or KeyError otherwise.
+    """
+    repo_root = find_git_root()
+    repo_config = repo_root / "cai_config.yml" if repo_root else None
+    home_config = Path.home() / ".config" / "cai" / "cai_config.yml"
+
+    if repo_config and repo_config.is_file():
+        config_path = repo_config
+        log.info("Using config file from repo root: %s", config_path)
+    elif home_config.is_file():
+        config_path = home_config
+        log.info("Using config file from user config dir: %s", config_path)
+    else:
+        log.error("No cai_config.yml found in repo root or %s", home_config)
+        raise FileNotFoundError(f"No cai_config.yml found in repo root or {home_config}")
+
+    try:
+        with config_path.open("r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+            log.debug("Loaded configuration from %s: %s", config_path, config)
+    except yaml.YAMLError as e:
+        log.exception("Error parsing YAML file %s", config_path)
+        raise ValueError(f"Error parsing YAML file {config_path}: {e}")
+
+    if "default" not in config:
+        log.error("'default' key not found in %s", config_path)
+        raise KeyError(f"'default' key not found in {config_path}")
+
+    default_value = config["default"]
+    log.info("Default config value: %s", default_value)
+    return default_value
+
+
+
