@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from git_cai_cli.core.config import load_config, load_token, get_default_config
+from git_cai_cli.core.config import get_default_config, load_config, load_token
 from git_cai_cli.core.gitutils import find_git_root, git_diff_excluding
 from git_cai_cli.core.llm import CommitMessageGenerator
 
@@ -16,6 +16,7 @@ logging.basicConfig(
     format="%(levelname)s: %(message)s",
 )
 log = logging.getLogger(__name__)
+
 
 def main() -> None:
     """
@@ -50,7 +51,7 @@ def main() -> None:
 
     # Generate commit message
     generator = CommitMessageGenerator(token, config, default_model)
-    commit_message = generator.generate(diff) 
+    commit_message = generator.generate(diff)
 
     # Open git commit editor with the generated message
     subprocess.run(["git", "commit", "--edit", "-m", commit_message], check=True)

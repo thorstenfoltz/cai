@@ -17,10 +17,11 @@ CONFIG_DIR = Path.home() / ".config" / "cai"
 FALLBACK_CONFIG_FILE = CONFIG_DIR / "cai_config.yml"
 TOKENS_FILE = CONFIG_DIR / "tokens.yml"
 
-DEFAULT_CONFIG = {"openai": {"model": "gpt-4.1", "temperature": 0},
-                  "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
-                  "default": "openai"
-                }
+DEFAULT_CONFIG = {
+    "openai": {"model": "gpt-4.1", "temperature": 0},
+    "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
+    "default": "openai",
+}
 
 TOKEN_TEMPLATE = {
     "openai": "PUT-YOUR-OPENAI-TOKEN-HERE",
@@ -107,7 +108,7 @@ def load_token(
 
 def get_default_config() -> str:
     """
-    Looks for cai_config.yml in the repo root, 
+    Looks for cai_config.yml in the repo root,
     else in ~/.config/cai/cai_config.yml.
     Returns the value of the 'default' key if it exists.
     Raises FileNotFoundError or KeyError otherwise.
@@ -124,7 +125,9 @@ def get_default_config() -> str:
         log.info("Using config file from user config dir: %s", config_path)
     else:
         log.error("No cai_config.yml found in repo root or %s", home_config)
-        raise FileNotFoundError(f"No cai_config.yml found in repo root or {home_config}")
+        raise FileNotFoundError(
+            f"No cai_config.yml found in repo root or {home_config}"
+        )
 
     try:
         with config_path.open("r", encoding="utf-8") as f:
@@ -132,7 +135,7 @@ def get_default_config() -> str:
             log.debug("Loaded configuration from %s: %s", config_path, config)
     except yaml.YAMLError as e:
         log.exception("Error parsing YAML file %s", config_path)
-        raise ValueError(f"Error parsing YAML file {config_path}: {e}")
+        raise ValueError(f"Error parsing YAML file {config_path}: {e}") from e
 
     if "default" not in config:
         log.error("'default' key not found in %s", config_path)
@@ -141,6 +144,3 @@ def get_default_config() -> str:
     default_value = config["default"]
     log.info("Default config value: %s", default_value)
     return default_value
-
-
-
