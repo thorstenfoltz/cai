@@ -2,7 +2,7 @@
 
 `cai` is a Git extension written in Python that automates commit message creation. It allows you to run `git cai` to automatically generate a commit message based on changes and new additions in your repository.  
 
-`cai` leverages a **large language model (LLM)** to generate meaningful and context-aware commit messages. Currently, it supports the **OpenAI API** for generating commit messages.
+`cai` leverages a **large language model (LLM)** to generate meaningful and context-aware commit messages. Currently, it supports the **OpenAI** and **Gemini API** for generating commit messages.
 
 ## Table of Contents
 
@@ -17,19 +17,20 @@
 
 `cai` is designed to simplify your Git workflow by automatically generating commit messages using an LLM. No more struggling to summarize changes — `git cai` does it for you.  
 
-Currently, the only supported backend is the OpenAI API, but additional LLM integrations may be added in the future.
+Currently, the only supported backend are the OpenAI and Gemini API, but additional LLM integrations may be added in the future.
 
 <h2 id="prerequisites">Prerequisites</h2>
 
 - Python 3.10 or higher
-- [Pip](https://pypi.org/project/pip/) or better [Pipx](https://pypi.org/project/pipx/)
-- OpenAI API key
+- [Pipx](https://pypi.org/project/pipx/) or [Pip](https://pypi.org/project/pip/) if installed in a virtual environment
+- API key, currently supported
+  - OpenAI
+  - Gemini
 
 <h2 id="features-section">Features</h2>
 
 - Automatically detects added, modified, and deleted files
 - Generates meaningful commit messages using an LLM
-- Currently uses **OpenAI API** for commit message generation
 - Seamless integration with Git as a plugin/extension
 - Written in Python for easy customization
 
@@ -50,6 +51,7 @@ pipx ensurepath
 Restart your shell by executing `bash` or `zsh` or whatever else is your used shell.
 
 <h2 id="usage-section">Usage</h2>
+
 Once installed, you can use `cai` like a normal Git command:
 
 ```sh
@@ -62,7 +64,7 @@ Open `~/.config/cai/token.yml` and store your token from OpenAI.
 If a `cai_config.yml` file exists in the root of your repository, `cai` will use the settings defined there. Otherwise, it falls back to default settings, which are automatically created in the same directory as `token.yml` if they don’t already exist.
 Currently, the only configurable options are:
 
-- OpenAI model
+- LLM model
 - Temperature
 
 `cai` uses Git’s `diff` output as input for generating commit messages.  

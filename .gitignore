@@ -1,7 +1,7 @@
 # directories
 build/
 dist/
-cai.egg-info/
+src/git_cai_cli.egg-info/
 .ipynb_checkpoints/
 megalinter-reports/
 __pycache__/
