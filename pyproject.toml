@@ -1,7 +1,7 @@
 [project]
 name = "git-cai-cli"
 dynamic = ["version"]
-description = "Use LLM to create git commits"
+description = "Use LLM to create git commit messages"
 authors = [{ name = "Thorsten Foltz", email = "thorsten.foltz@live.com" }]
 keywords = ["Git", "LLM", "Commit", "AI", "GenAI"]
 readme = "README.md"
@@ -9,7 +9,7 @@ requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
     "openai>=1.0",
-    "google-genai>=1.41.0",
+    "google-genai>=1.39",
 ]
 license = { text = "MIT" }
 classifiers = [
