@@ -48,6 +48,8 @@ class CommitMessageGenerator:
             "summarizing the provided git diff changes. "
             "Keep the message clear and focused on what was changed and why. "
             "Always include a headline, followed by a bullet-point list of changes."
+            "Should you observe any sensitive information in the diff, print 'SENSITIVE INFORMATION DETECTED' and show what was detected, the file where and the line number."
+            "But even if you see sensitive information, still generate the commit message."
         )
 
     def generate_openai(self, git_diff: str, openai_cls: Type[Any] = OpenAI) -> str:
