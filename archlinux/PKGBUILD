@@ -1,36 +1,23 @@
 # Maintainer: Thorsten Foltz <thorsten.foltz@live.com>
-pkgname=cai
-pkgver=0.1.0
+pkgname=git-cai-cli
+pkgver=0.1.1
 pkgrel=1
 pkgdesc="Use LLM to create git commit messages."
 arch=('any')
+url="https://github.com/thorstenfoltz/cai"
 license=('MIT')
-depends=('python' 'python-pip' 'python-yaml' 'python-openai')
-source=()
-sha256sums=()
+depends=('python' 'python-yaml' 'python-openai' 'python-google-genai')
+makedepends=(python-build python-installer python-setuptools python-wheel)
+source=("https://files.pythonhosted.org/packages/e6/c3/99bb2d87c16628017468c9ae6dd18ee2e63644109150bee0450a9f22b83f/git_cai_cli-0.1.1.tar.gz")
+sha256sums=('36fb55223ad430b7d3dc6bf60fd4e04f6ac567acee5546d5aa8c2df781061461')
 
 build() {
-    # Create a clean staging directory
-    mkdir -p "$srcdir/$pkgname-$pkgver"
-
-    # Copy only project files, skip makepkg internals
-    for f in "$startdir"/*; do
-        case "$(basename "$f")" in
-            src|pkg) ;;  # skip makepkg working dirs
-            *) cp -r "$f" "$srcdir/$pkgname-$pkgver"/ ;;
-        esac
-    done
-
-    cd "$srcdir/$pkgname-$pkgver"
-
-    # Optional: build a wheel (can skip, pip install . works too)
-    python -m pip wheel . --wheel-dir "$srcdir/dist"
+    cd "${srcdir}/git_cai_cli-${pkgver}"
+    python -m build --wheel --no-isolation
 }
 
 package() {
-    cd "$srcdir/$pkgname-$pkgver"
-
-    # Install the package system-wide in staged dir
-    # This ensures console scripts go to /usr/bin
-    python -m pip install --root="$pkgdir" --prefix=/usr .
+    cd "${srcdir}/git_cai_cli-${pkgver}"
+    python -m installer --destdir="$pkgdir" dist/*.whl
 }
+ 
