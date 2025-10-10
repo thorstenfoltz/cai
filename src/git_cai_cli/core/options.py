@@ -2,11 +2,12 @@
 Core manager for CLI utilities.
 """
 
-from importlib.metadata import version, PackageNotFoundError
 import logging
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 log = logging.getLogger(__name__)
+
 
 class CliManager:
     """
@@ -31,7 +32,7 @@ class CliManager:
         except PackageNotFoundError:
             log.error(
                 "Package '%s' not found – unable to determine version.",
-                self.package_name
+                self.package_name,
             )
             raise
 

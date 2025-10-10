@@ -6,23 +6,21 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
-import typer
 
-from git_cai_cli.core.options import CliManager
+import typer
 from git_cai_cli.core.config import get_default_config, load_config, load_token
 from git_cai_cli.core.gitutils import find_git_root, git_diff_excluding
 from git_cai_cli.core.llm import CommitMessageGenerator
+from git_cai_cli.core.options import CliManager
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
 
 
 app = typer.Typer(add_completion=True, help=None, no_args_is_help=False)
 
 manager = CliManager(package_name="git-cai-cli")
+
 
 def main() -> None:
     """
@@ -35,7 +33,6 @@ def main() -> None:
         if not invoked_as.startswith("git-"):
             print("This command must be run as 'git cai'", file=sys.stderr)
             sys.exit(1)
-
 
     # Find the git repo root
     repo_root = find_git_root()
@@ -68,20 +65,14 @@ def main() -> None:
 
 @app.command()
 def run(
-    help_flag: bool = typer.Option(
-        False,
-        "-h",
-        help="Show help",
-        is_eager=True
-    ),
+    help_flag: bool = typer.Option(False, "-h", help="Show help", is_eager=True),
     version: bool = typer.Option(
-        False,
-        "--version",
-        "-v",
-        help="Show version",
-        is_eager=True
+        False, "--version", "-v", help="Show version", is_eager=True
     ),
 ):
+    """
+    Main entry point for the CLI
+    """
     if help_flag:
         typer.echo(manager.get_help())
         raise typer.Exit()
@@ -95,4 +86,3 @@ def run(
 
 if __name__ == "__main__":
     app()
-
