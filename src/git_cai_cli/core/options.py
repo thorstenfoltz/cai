@@ -49,7 +49,7 @@ Usage:
 
 Flags:
   -h             Show this help message
-  -v, --version  Show installed version  
+  -v, --version  Show installed version
 
 Configuration:
   Tokens are loaded from {home}/.config/cai/tokens.yml
