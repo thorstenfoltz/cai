@@ -10,6 +10,7 @@ dependencies = [
     "pyyaml>=6.0",
     "openai>=1.0",
     "google-genai>=1.39",
+    "typer>=0.19.2",
 ]
 license = { text = "MIT" }
 classifiers = [
@@ -30,7 +31,7 @@ Homepage = "https://github.com/thorstenfoltz/cai"
 Issues = "https://github.com/thorstenfoltz/cai/issues"
 
 [project.scripts]
-git-cai = "git_cai_cli.cli:main"
+git-cai = "git_cai_cli.cli:app"
 
 [build-system]
 requires = ["setuptools>=64", "setuptools-scm>=8"]
