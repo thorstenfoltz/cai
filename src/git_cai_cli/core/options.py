@@ -4,6 +4,7 @@ Core manager for CLI utilities.
 
 from importlib.metadata import version, PackageNotFoundError
 import logging
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -33,3 +34,27 @@ class CliManager:
                 self.package_name
             )
             raise
+
+    def get_help(self) -> str:
+        """
+        Return a help message for the CLI.
+        """
+        home = Path.home()
+        return f"""
+Git CAI - AI-powered commit message generator
+
+Usage:
+  git cai        Generate commit message from staged changes
+
+Flags:
+  -h             Show this help message
+  -v, --version  Show installed version  
+
+Configuration:
+  Tokens are loaded from {home}/.config/cai/tokens.yml
+
+Examples:
+  git add .
+  git cai        Generates commit message
+
+"""

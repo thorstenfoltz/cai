@@ -20,7 +20,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-app = typer.Typer(add_completion=True)
+app = typer.Typer(add_completion=True, help=None, no_args_is_help=False)
 
 manager = CliManager(package_name="git-cai-cli")
 
@@ -64,17 +64,33 @@ def main() -> None:
 
     # Open git commit editor with the generated message
     subprocess.run(["git", "commit", "--edit", "-m", commit_message], check=True)
-    
+
 
 @app.command()
 def run(
-    version: bool = typer.Option(False, "--version", "-v", help="Show version", is_eager=True),
+    help_flag: bool = typer.Option(
+        False,
+        "-h",
+        help="Show help",
+        is_eager=True
+    ),
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-v",
+        help="Show version",
+        is_eager=True
+    ),
 ):
+    if help_flag:
+        typer.echo(manager.get_help())
+        raise typer.Exit()
+
     if version:
         typer.echo(manager.get_version())
         raise typer.Exit()
-    main()
 
+    main()
 
 
 if __name__ == "__main__":
