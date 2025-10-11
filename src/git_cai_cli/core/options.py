@@ -52,6 +52,7 @@ Usage:
 
 Flags:
   -h             Show this help message
+  -d, --debug    Enable debug logging
   -u, --update   Check for updates
   -v, --version  Show installed version
 
@@ -135,4 +136,13 @@ Examples:
         except Exception as update_error:
             log.error("Unexpected error during update: %s", update_error)
             print("❌ An unexpected error occurred while updating.")
+
+      
+    def enable_debug(self):
+        """
+        Enable verbose/debug logging.
+        """
+        log.setLevel(logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
+        log.debug("Debug mode enabled.")
 

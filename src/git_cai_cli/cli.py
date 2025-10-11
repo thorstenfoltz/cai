@@ -13,9 +13,12 @@ from git_cai_cli.core.gitutils import find_git_root, git_diff_excluding
 from git_cai_cli.core.llm import CommitMessageGenerator
 from git_cai_cli.core.options import CliManager
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 log = logging.getLogger(__name__)
-
 
 app = typer.Typer(add_completion=True, help=None, no_args_is_help=False)
 
@@ -66,6 +69,7 @@ def main() -> None:
 @app.command()
 def run(
     help_flag: bool = typer.Option(False, "-h", help="Show help", is_eager=True),
+    enable_debug: bool = typer.Option(False, "--debug", '-d', help="Enable debug logging", is_eager=True),
     update: bool = typer.Option(False, "--update", "-u", help="Check for updates", is_eager=True),
     version: bool = typer.Option(
         False, "--version", "-v", help="Show version", is_eager=True
@@ -78,6 +82,9 @@ def run(
         typer.echo(manager.get_help())
         raise typer.Exit()
     
+    if enable_debug:
+        typer.echo(manager.enable_debug())
+    
     if update:
         manager.check_and_update()
         raise typer.Exit()
@@ -85,6 +92,8 @@ def run(
     if version:
         typer.echo(manager.get_version())
         raise typer.Exit()
+    
+    
 
     main()
 
