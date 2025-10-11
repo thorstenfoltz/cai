@@ -66,6 +66,7 @@ def main() -> None:
 @app.command()
 def run(
     help_flag: bool = typer.Option(False, "-h", help="Show help", is_eager=True),
+    update: bool = typer.Option(False, "--update", "-u", help="Check for updates", is_eager=True),
     version: bool = typer.Option(
         False, "--version", "-v", help="Show version", is_eager=True
     ),
@@ -75,6 +76,10 @@ def run(
     """
     if help_flag:
         typer.echo(manager.get_help())
+        raise typer.Exit()
+    
+    if update:
+        manager.check_and_update()
         raise typer.Exit()
 
     if version:

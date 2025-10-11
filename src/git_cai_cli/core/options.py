@@ -5,6 +5,9 @@ Core manager for CLI utilities.
 import logging
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+import subprocess
+import requests
+import re
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +31,7 @@ class CliManager:
             PackageNotFoundError: If the package is not installed.
         """
         try:
-            return version(self.package_name)
+            print(f"git-cai-cli version: {version(self.package_name)}", end="")
         except PackageNotFoundError:
             log.error(
                 "Package '%s' not found – unable to determine version.",
@@ -49,6 +52,7 @@ Usage:
 
 Flags:
   -h             Show this help message
+  -u, --update   Check for updates
   -v, --version  Show installed version
 
 Configuration:
@@ -59,3 +63,76 @@ Examples:
   git cai        Generates commit message
 
 """
+    
+    def _extract_numeric_version(self, v: str):
+      """
+      Extract major.minor.patch and return as tuple of integers.
+      Falls back safely if parts are missing.
+      Examples:
+          "0.1.2.dev8" -> (0, 1, 2)
+          "1.4" -> (1, 4, 0)
+      """
+      match = re.match(r"^(\d+)\.(\d+)\.(\d+)", v)
+      if match:
+          return tuple(int(x) for x in match.groups())
+      match = re.match(r"^(\d+)\.(\d+)", v)
+      if match:
+          major, minor = match.groups()
+          return (int(major), int(minor), 0)
+      return (0, 0, 0)
+    
+
+    def check_and_update(self, auto_confirm: bool = False):
+        """
+        Check for updates on PyPI and optionally apply the update via pipx.
+
+        Args:
+            auto_confirm (bool): If True, skip confirmation prompt and update immediately.
+        """
+        try:
+            current_version = version(self.package_name)
+        except PackageNotFoundError:
+            log.error("Package '%s' not found – unable to determine version.", self.package_name)
+            return
+
+        # Fetch latest version from PyPI
+        try:
+            response = requests.get(f"https://pypi.org/pypi/{self.package_name}/json", timeout=3)
+            latest_version = response.json()["info"]["version"]
+        except Exception as e:
+            log.error("Could not fetch version info from PyPI: %s", e)
+            print("⚠️  Could not check for updates. Please try again later.")
+            return
+
+        # Compare only numeric parts
+        installed_base = self._extract_numeric_version(current_version)
+        latest_base = self._extract_numeric_version(latest_version)
+
+        if installed_base >= latest_base:
+            print(f"✅ Already up to date (installed {current_version}, PyPI {latest_version})")
+            return
+
+        print(f"⬆️  Update available: {current_version} → {latest_version}")
+
+        if not auto_confirm:
+            choice = input("Do you want to update now using 'pipx upgrade git-cai-cli'? [yes/no]: ").strip().lower()
+            if choice not in ("y", "yes"):
+                print("❌ Update cancelled.")
+                return
+
+        print("🚀 Running: pipx upgrade git-cai-cli ...")
+        try:
+            result = subprocess.run(
+                ["pipx", "upgrade", self.package_name],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                print(f"✅ Successfully updated to version {latest_version}")
+            else:
+                log.error("Update failed. stderr: %s", result.stderr)
+                print("❌ Update failed. Check logs for details.")
+        except Exception as update_error:
+            log.error("Unexpected error during update: %s", update_error)
+            print("❌ An unexpected error occurred while updating.")
+
