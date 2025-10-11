@@ -34,7 +34,7 @@ TOKEN_TEMPLATE = {
 def load_config(
     fallback_config_file: Path = FALLBACK_CONFIG_FILE,
     default_config: Optional[dict[str, Any]] = None,
-    allowed_languages: set[str] = ALLOWED_LANGUAGES,
+    allowed_languages: Optional[set[str]] = None,
 ) -> dict[str, Any]:
     """
     Load configuration of LLM and validate structure and language.
@@ -42,6 +42,11 @@ def load_config(
     if default_config is None:
         default_config = DEFAULT_CONFIG.copy()
     log.debug("Loading config...")
+
+    languages: set[str] = (
+        ALLOWED_LANGUAGES.copy() if allowed_languages is None else allowed_languages
+    )
+    log.debug("Loading allowed languages...")
 
     repo_root = find_git_root()
     repo_config_file = Path(repo_root) / "cai_config.yml" if repo_root else None
@@ -52,7 +57,7 @@ def load_config(
                 config = yaml.safe_load(f) or {}
             if config:
                 _validate_config_keys(config, DEFAULT_CONFIG)
-                config["language"] = _validate_language(config, allowed_languages)
+                config["language"] = _validate_language(config, languages)
                 return config
         except yaml.YAMLError as e:
             log.error("Failed to parse repo config: %s", e)
@@ -65,18 +70,18 @@ def load_config(
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
         with open(fallback_config_file, "w", encoding="utf-8") as f:
             yaml.safe_dump(default_config, f)
-        default_config["language"] = _validate_language(default_config, allowed_languages)
+        default_config["language"] = _validate_language(default_config, languages)
         return default_config
 
     try:
         with open(fallback_config_file, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f) or default_config
         _validate_config_keys(config, DEFAULT_CONFIG)
-        config["language"] = _validate_language(config, allowed_languages)
+        config["language"] = _validate_language(config, languages)
         return config
     except yaml.YAMLError as e:
         log.error("Failed to parse config at %s: %s", fallback_config_file, e)
-        default_config["language"] = _validate_language(default_config, allowed_languages)
+        default_config["language"] = _validate_language(default_config, languages)
         return default_config
 
 

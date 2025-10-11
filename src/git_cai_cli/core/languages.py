@@ -1,6 +1,7 @@
 """
 Set the language for the AI responses.
 """
+
 LANGUAGE_MAP = {
     "en": "English",
     "it": "Italian",

@@ -3,11 +3,12 @@ Core manager for CLI utilities.
 """
 
 import logging
+import re
+import subprocess
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-import subprocess
+
 import requests
-import re
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +32,8 @@ class CliManager:
             PackageNotFoundError: If the package is not installed.
         """
         try:
-            print(f"git-cai-cli version: {version(self.package_name)}", end="")
+            ver = f"git-cai-cli version: {version(self.package_name)}"
+            return ver
         except PackageNotFoundError:
             log.error(
                 "Package '%s' not found – unable to determine version.",
@@ -64,24 +66,23 @@ Examples:
   git cai        Generates commit message
 
 """
-    
+
     def _extract_numeric_version(self, v: str):
-      """
-      Extract major.minor.patch and return as tuple of integers.
-      Falls back safely if parts are missing.
-      Examples:
-          "0.1.2.dev8" -> (0, 1, 2)
-          "1.4" -> (1, 4, 0)
-      """
-      match = re.match(r"^(\d+)\.(\d+)\.(\d+)", v)
-      if match:
-          return tuple(int(x) for x in match.groups())
-      match = re.match(r"^(\d+)\.(\d+)", v)
-      if match:
-          major, minor = match.groups()
-          return (int(major), int(minor), 0)
-      return (0, 0, 0)
-    
+        """
+        Extract major.minor.patch and return as tuple of integers.
+        Falls back safely if parts are missing.
+        Examples:
+            "0.1.2.dev8" -> (0, 1, 2)
+            "1.4" -> (1, 4, 0)
+        """
+        match = re.match(r"^(\d+)\.(\d+)\.(\d+)", v)
+        if match:
+            return tuple(int(x) for x in match.groups())
+        match = re.match(r"^(\d+)\.(\d+)", v)
+        if match:
+            major, minor = match.groups()
+            return (int(major), int(minor), 0)
+        return (0, 0, 0)
 
     def check_and_update(self, auto_confirm: bool = False):
         """
@@ -93,16 +94,21 @@ Examples:
         try:
             current_version = version(self.package_name)
         except PackageNotFoundError:
-            log.error("Package '%s' not found – unable to determine version.", self.package_name)
+            log.error(
+                "Package '%s' not found – unable to determine version.",
+                self.package_name,
+            )
             return
 
         # Fetch latest version from PyPI
         try:
-            response = requests.get(f"https://pypi.org/pypi/{self.package_name}/json", timeout=3)
+            response = requests.get(
+                f"https://pypi.org/pypi/{self.package_name}/json", timeout=3
+            )
             latest_version = response.json()["info"]["version"]
-        except Exception as e:
+        except requests.RequestException as e:
             log.error("Could not fetch version info from PyPI: %s", e)
-            print("⚠️  Could not check for updates. Please try again later.")
+            print("⚠️ Could not check for updates. Please try again later.")
             return
 
         # Compare only numeric parts
@@ -110,13 +116,21 @@ Examples:
         latest_base = self._extract_numeric_version(latest_version)
 
         if installed_base >= latest_base:
-            print(f"✅ Already up to date (installed {current_version}, PyPI {latest_version})")
+            print(
+                f"✅ Already up to date (installed {current_version}, PyPI {latest_version})"
+            )
             return
 
         print(f"⬆️  Update available: {current_version} → {latest_version}")
 
         if not auto_confirm:
-            choice = input("Do you want to update now using 'pipx upgrade git-cai-cli'? [yes/no]: ").strip().lower()
+            choice = (
+                input(
+                    "Do you want to update now using 'pipx upgrade git-cai-cli'? [yes/no]: "
+                )
+                .strip()
+                .lower()
+            )
             if choice not in ("y", "yes"):
                 print("❌ Update cancelled.")
                 return
@@ -126,18 +140,18 @@ Examples:
             result = subprocess.run(
                 ["pipx", "upgrade", self.package_name],
                 capture_output=True,
-                text=True
+                text=True,
+                check=False,
             )
             if result.returncode == 0:
                 print(f"✅ Successfully updated to version {latest_version}")
             else:
                 log.error("Update failed. stderr: %s", result.stderr)
                 print("❌ Update failed. Check logs for details.")
-        except Exception as update_error:
-            log.error("Unexpected error during update: %s", update_error)
-            print("❌ An unexpected error occurred while updating.")
+        except (FileNotFoundError, subprocess.SubprocessError, OSError) as update_error:
+            log.error("Error during update: %s", update_error)
+            print("❌ An error occurred while updating. Check logs for details.")
 
-      
     def enable_debug(self):
         """
         Enable verbose/debug logging.
@@ -145,4 +159,3 @@ Examples:
         log.setLevel(logging.DEBUG)
         logging.getLogger().setLevel(logging.DEBUG)
         log.debug("Debug mode enabled.")
-

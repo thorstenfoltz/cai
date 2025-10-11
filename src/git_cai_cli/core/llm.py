@@ -5,10 +5,10 @@ Settings and connection of LLM
 import logging
 from typing import Any, Dict, Type
 
+from git_cai_cli.core.languages import LANGUAGE_MAP
 from google import genai  # type: ignore[reportUnknownImport]
 from google.genai import types  # type: ignore[reportUnknownImport]
 from openai import OpenAI
-from git_cai_cli.core.languages import LANGUAGE_MAP
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class CommitMessageGenerator:
             "and show what was detected, the file where and the line number. "
             "But even if you see sensitive information, still generate the commit message. "
         )
-    
+
     def generate_openai(self, git_diff: str, openai_cls: Type[Any] = OpenAI) -> str:
         """
         Generate a commit message using OpenAI's API.
@@ -63,9 +63,8 @@ class CommitMessageGenerator:
         temperature = self.config["openai"]["temperature"]
         language = self.config["language"]
         language_name = self._language_name(language, LANGUAGE_MAP)
-        
-        system_prompt = self._system_prompt(language_name)
 
+        system_prompt = self._system_prompt(language_name)
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -104,7 +103,7 @@ class CommitMessageGenerator:
             ),
         )
         return response.text
-    
+
     def _language_name(self, lang_code: str, allowed_languages: dict[str, str]) -> str:
         """
         Convert ISO 639-1 code to human-readable language name.
