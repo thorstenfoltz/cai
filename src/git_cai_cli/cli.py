@@ -7,15 +7,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+import typer
 from git_cai_cli.core.config import get_default_config, load_config, load_token
 from git_cai_cli.core.gitutils import find_git_root, git_diff_excluding
 from git_cai_cli.core.llm import CommitMessageGenerator
+from git_cai_cli.core.options import CliManager
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(levelname)s: %(message)s",
+    format="%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 log = logging.getLogger(__name__)
+
+app = typer.Typer(add_completion=True, help=None, no_args_is_help=False)
+
+manager = CliManager(package_name="git-cai-cli")
 
 
 def main() -> None:
@@ -23,10 +30,12 @@ def main() -> None:
     Check for git repo, load access tokens and run git cai
     """
     # Ensure invoked as 'git cai'
-    invoked_as = Path(sys.argv[0]).name
-    if not invoked_as.startswith("git-"):
-        print("This command must be run as 'git cai'", file=sys.stderr)
-        sys.exit(1)
+    # Only enforce this if we're not just asking for version/help
+    if not any(flag in sys.argv for flag in ("--version", "-v", "--help", "-h")):
+        invoked_as = Path(sys.argv[0]).name
+        if not invoked_as.startswith("git-"):
+            print("This command must be run as 'git cai'", file=sys.stderr)
+            sys.exit(1)
 
     # Find the git repo root
     repo_root = find_git_root()
@@ -57,5 +66,39 @@ def main() -> None:
     subprocess.run(["git", "commit", "--edit", "-m", commit_message], check=True)
 
 
-if __name__ == "__main__":
+@app.command()
+def run(
+    help_flag: bool = typer.Option(False, "-h", help="Show help", is_eager=True),
+    enable_debug: bool = typer.Option(
+        False, "--debug", "-d", help="Enable debug logging", is_eager=True
+    ),
+    update: bool = typer.Option(
+        False, "--update", "-u", help="Check for updates", is_eager=True
+    ),
+    version: bool = typer.Option(
+        False, "--version", "-v", help="Show version", is_eager=True
+    ),
+):
+    """
+    Main entry point for the CLI
+    """
+    if help_flag:
+        typer.echo(manager.get_help())
+        raise typer.Exit()
+
+    if enable_debug:
+        typer.echo(manager.enable_debug())
+
+    if update:
+        manager.check_and_update()
+        raise typer.Exit()
+
+    if version:
+        typer.echo(manager.get_version())
+        raise typer.Exit()
+
     main()
+
+
+if __name__ == "__main__":
+    app()

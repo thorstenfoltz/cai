@@ -5,6 +5,7 @@ Settings and connection of LLM
 import logging
 from typing import Any, Dict, Type
 
+from git_cai_cli.core.languages import LANGUAGE_MAP
 from google import genai  # type: ignore[reportUnknownImport]
 from google.genai import types  # type: ignore[reportUnknownImport]
 from openai import OpenAI
@@ -38,18 +39,19 @@ class CommitMessageGenerator:
             log.error("Unknown default model: '%s'", self.default_model)
             raise ValueError(f"Unknown default model: '{self.default_model}'") from e
 
-    def _system_prompt(self) -> str:
+    def _system_prompt(self, language_name: str) -> str:
         """
         Shared system prompt for both OpenAI and Gemini.
         """
         return (
             "You are an expert software engineer assistant. "
-            "Your task is to generate a concise, professional git commit message "
-            "summarizing the provided git diff changes. "
+            "Your task is to generate a concise, professional git commit message. "
+            f"Summarizing the provided git diff changes in {language_name}. "
             "Keep the message clear and focused on what was changed and why. "
-            "Always include a headline, followed by a bullet-point list of changes."
-            "Should you observe any sensitive information in the diff, print 'SENSITIVE INFORMATION DETECTED' and show what was detected, the file where and the line number."
-            "But even if you see sensitive information, still generate the commit message."
+            "Always include a headline, followed by a bullet-point list of changes. "
+            "Should you observe any sensitive information in the diff, print 'SENSITIVE INFORMATION DETECTED' "
+            "and show what was detected, the file where and the line number. "
+            "But even if you see sensitive information, still generate the commit message. "
         )
 
     def generate_openai(self, git_diff: str, openai_cls: Type[Any] = OpenAI) -> str:
@@ -59,8 +61,10 @@ class CommitMessageGenerator:
         client = openai_cls(api_key=self.token)
         model = self.config["openai"]["model"]
         temperature = self.config["openai"]["temperature"]
+        language = self.config["language"]
+        language_name = self._language_name(language, LANGUAGE_MAP)
 
-        system_prompt = self._system_prompt()
+        system_prompt = self._system_prompt(language_name)
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -86,7 +90,9 @@ class CommitMessageGenerator:
         client = genai_cls(api_key=self.token)
         model = self.config["gemini"]["model"]
         temperature = self.config["gemini"]["temperature"]
-        system_prompt = self._system_prompt()
+        language = self.config["language"]
+        language_name = self._language_name(language, LANGUAGE_MAP)
+        system_prompt = self._system_prompt(language_name)
         messages = git_diff
         response = client.models.generate_content(
             model=model,
@@ -97,3 +103,10 @@ class CommitMessageGenerator:
             ),
         )
         return response.text
+
+    def _language_name(self, lang_code: str, allowed_languages: dict[str, str]) -> str:
+        """
+        Convert ISO 639-1 code to human-readable language name.
+        Defaults to English if not found.
+        """
+        return allowed_languages.get(lang_code, "English")

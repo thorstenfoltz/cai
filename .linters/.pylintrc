@@ -91,7 +91,8 @@ logging-modules=logging                    # Logging library to check against
 confidence=HIGH,CONTROL_FLOW,INFERENCE,INFERENCE_FAILURE,UNDEFINED
                                            # Only show warnings with these confidence levels
 disable=logging-too-many-args,
-        import-error
+        import-error,
+        wrong-import-order
                                            # Disable noisy/meta warnings
 
 
