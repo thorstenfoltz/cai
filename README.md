@@ -93,6 +93,7 @@ cp ~/.config/cai/cai_config.yml .
 ```
 
 Currently, the following options can be customized:
+
 - default: set the default provider
 - model: specify which model of the provider to use
 - temperature: control how creative the model’s responses are
