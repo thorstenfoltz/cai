@@ -60,7 +60,10 @@ Once installed, cai works like a standard Git command:
 git cai
 ```
 
-`cai` uses Git’s `diff` output as input for generating commit messages.  
+`cai` uses Git’s `diff` output to generate commit messages. The generated message is then opened in your editor, allowing you to review and edit it before confirming the commit.  
+
+In short: it behaves like `git commit`, but the commit message is pre-filled for you.
+
 To exclude specific files or directories from being included in the generated commit message, create a `.caiignore` file in the root of your repository. This file works like a `.gitignore`.  
 
 - Files listed in `.gitignore` are **always excluded**.  
@@ -104,10 +107,10 @@ Currently, the following options can be customized:
 Besides running `git cai` to generate commit messages, you can use the following options:
 
 - `-h` shows a brief help message with available commands
-- `d`, `--debug` enables debug logging to help troubleshoot issues
-- `l`, `--languages` list available languages
-- `u`, `--update` checks for updates the `cai` tool
-- `v`, `--version` displays the currently installed version
+- `-d`, `--debug` enables debug logging to help troubleshoot issues
+- `-l`, `--languages` list available languages
+- `-u`, `--update` checks for updates the `cai` tool
+- `-v`, `--version` displays the currently installed version
 
 <h2 id="license-section">License</h2>
 This project is licensed under the MIT License.
