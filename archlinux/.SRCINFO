@@ -1,0 +1,21 @@
+pkgbase = git-cai-cli
+	pkgdesc = Use LLM to create git commit messages.
+	pkgver = 0.2.0
+	pkgrel = 1
+	url = https://github.com/thorstenfoltz/cai
+	arch = any
+	license = MIT
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-setuptools
+	makedepends = python-wheel
+	depends = python
+	depends = python-yaml
+	depends = python-openai
+	depends = python-google-genai
+	depends = python-requests
+	depends = python-typer
+	source = https://files.pythonhosted.org/packages/bf/df/cc0dce84bc5aea242012f15782abcc58e60e99113e91602011c33d3a8d91/git_cai_cli-0.2.0.tar.gz
+	sha256sums = 83a6fba3f0ac729c8cf2453abba96b37c60ff7ea8d309704c613258544687635
+
+pkgname = git-cai-cli
