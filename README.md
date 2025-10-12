@@ -105,6 +105,7 @@ Besides running `git cai` to generate commit messages, you can use the following
 
 - `-h` shows a brief help message with available commands
 - `d`, `--debug` enables debug logging to help troubleshoot issues
+- `l`, `--languages` list available languages
 - `u`, `--update` checks for updates the `cai` tool
 - `v`, `--version` displays the currently installed version
 
