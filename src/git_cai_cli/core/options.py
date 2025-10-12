@@ -9,6 +9,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import requests
+from git_cai_cli.core.languages import LANGUAGE_MAP
 
 log = logging.getLogger(__name__)
 
@@ -18,8 +19,13 @@ class CliManager:
     Central manager class for CLI-level operations.
     """
 
-    def __init__(self, package_name: str = "git-cai-cli"):
+    def __init__(
+        self,
+        package_name: str = "git-cai-cli",
+        allowed_languages: dict[str, str] | None = None,
+    ):
         self.package_name = package_name
+        self.allowed_languages = allowed_languages or LANGUAGE_MAP
 
     def get_version(self) -> str:
         """
@@ -53,10 +59,11 @@ Usage:
   git cai        Generate commit message from staged changes
 
 Flags:
-  -h             Show this help message
-  -d, --debug    Enable debug logging
-  -u, --update   Check for updates
-  -v, --version  Show installed version
+  -h                Show this help message
+  -d, --debug       Enable debug logging
+  -l, --languages   List supported languages
+  -u, --update      Check for updates
+  -v, --version     Show installed version
 
 Configuration:
   Tokens are loaded from {home}/.config/cai/tokens.yml
@@ -159,3 +166,13 @@ Examples:
         log.setLevel(logging.DEBUG)
         logging.getLogger().setLevel(logging.DEBUG)
         log.debug("Debug mode enabled.")
+
+    def print_available_languages(self) -> str:
+        """
+        Print the list of supported languages and their human-readable names.
+        Intended to be used in CLI commands.
+        """
+        lines = ["\nAvailable languages:"]
+        for code, name in sorted(self.allowed_languages.items()):
+            lines.append(f"  - {code} → {name}")
+        return "\n".join(lines)

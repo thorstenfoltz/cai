@@ -4,7 +4,7 @@ PIP := pipx
 UV := uv
 SHELL := /bin/bash
 
-.PHONY: help lint check-docker check-npx lint-fix add-lint-hook clean
+.PHONY: help lint check-docker check-npx lint-fix add-lint-hook clean test
 
 help: ## Shows this help message
 	@echo "Available commands:"
@@ -14,7 +14,9 @@ add-lint-hook: ## Adds a git pre-push hook to automatically run 'lint' before pu
 	@echo "#!/bin/bash" > .git/hooks/pre-push
 	@echo "make lint" >> .git/hooks/pre-push
 	@chmod +x .git/hooks/pre-push
+	@echo "make test" >> .git/hooks/pre-push
 	@echo "Pre-push hook added. The 'lint' command will now run before each push."
+	@echo "Pre-push hook added. The 'test' command will now run before each push."	
 
 check-docker: ## Checks if docker is installed
 	@if ! command -v docker &> /dev/null; then \
@@ -38,10 +40,12 @@ clean: ## Clean cache of uv and delete virtual environment
 	@$(UV) cache clean
 	@rm -rf .venv
 
-
 lint:
 	@sh ./.linters/check_git_branch_name.sh
 	@npx mega-linter-runner	--flavor python
 
 lint-fix: ## Lints the code using sqlfluff and fixes the issues
 	@npx mega-linter-runner --fix
+
+test: ## Runs tests
+	@$(UV) run pytest

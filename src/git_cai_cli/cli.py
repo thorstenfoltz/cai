@@ -72,6 +72,9 @@ def run(
     enable_debug: bool = typer.Option(
         False, "--debug", "-d", help="Enable debug logging", is_eager=True
     ),
+    language: bool = typer.Option(
+        False, "--languages", "-l", help="List supported languages", is_eager=True
+    ),
     update: bool = typer.Option(
         False, "--update", "-u", help="Check for updates", is_eager=True
     ),
@@ -89,8 +92,12 @@ def run(
     if enable_debug:
         typer.echo(manager.enable_debug())
 
+    if language:
+        typer.echo(manager.print_available_languages())
+        raise typer.Exit()
+
     if update:
-        manager.check_and_update()
+        typer.echo(manager.check_and_update())
         raise typer.Exit()
 
     if version:
