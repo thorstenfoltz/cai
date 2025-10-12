@@ -25,7 +25,6 @@ LANGUAGE_MAP = {
     "es": "Spanish",
     "et": "Estonian",
     "eu": "Basque",
-    "fa": "Farsi",
     "fa": "Persian",
     "fi": "Finnish",
     "fo": "Faroese",

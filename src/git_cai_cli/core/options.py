@@ -7,8 +7,9 @@ import re
 import subprocess
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from git_cai_cli.core.languages import LANGUAGE_MAP
+
 import requests
+from git_cai_cli.core.languages import LANGUAGE_MAP
 
 log = logging.getLogger(__name__)
 
@@ -18,11 +19,14 @@ class CliManager:
     Central manager class for CLI-level operations.
     """
 
-    def __init__(self, package_name: str = "git-cai-cli", allowed_languages: set[str] = None):
+    def __init__(
+        self,
+        package_name: str = "git-cai-cli",
+        allowed_languages: dict[str, str] | None = None,
+    ):
         self.package_name = package_name
         self.allowed_languages = allowed_languages or LANGUAGE_MAP
 
-    
     def get_version(self) -> str:
         """
         Return the installed version of the CLI package.
@@ -43,7 +47,6 @@ class CliManager:
             )
             raise
 
-    
     def get_help(self) -> str:
         """
         Return a help message for the CLI.
@@ -71,7 +74,6 @@ Examples:
 
 """
 
-    
     def _extract_numeric_version(self, v: str):
         """
         Extract major.minor.patch and return as tuple of integers.
@@ -88,7 +90,6 @@ Examples:
             major, minor = match.groups()
             return (int(major), int(minor), 0)
         return (0, 0, 0)
-
 
     def check_and_update(self, auto_confirm: bool = False):
         """
@@ -158,7 +159,6 @@ Examples:
             log.error("Error during update: %s", update_error)
             print("❌ An error occurred while updating. Check logs for details.")
 
-
     def enable_debug(self):
         """
         Enable verbose/debug logging.
@@ -167,13 +167,12 @@ Examples:
         logging.getLogger().setLevel(logging.DEBUG)
         log.debug("Debug mode enabled.")
 
-
-    def print_available_languages(self) -> None:
+    def print_available_languages(self) -> str:
         """
         Print the list of supported languages and their human-readable names.
         Intended to be used in CLI commands.
         """
-        print("\nAvailable languages:")
+        lines = ["\nAvailable languages:"]
         for code, name in sorted(self.allowed_languages.items()):
-            print(f"  - {code} → {name}")
-
+            lines.append(f"  - {code} → {name}")
+        return "\n".join(lines)
