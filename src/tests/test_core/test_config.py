@@ -8,17 +8,17 @@ token retrieval, and handling missing keys.
 
 import stat
 from unittest.mock import patch
+
 import pytest
-from pathlib import Path
 import yaml
 from git_cai_cli.core.config import (
     DEFAULT_CONFIG,
     TOKEN_TEMPLATE,
-    load_config,
-    load_token,
-    get_default_config,
     _validate_config_keys,
     _validate_language,
+    get_default_config,
+    load_config,
+    load_token,
 )
 
 # ------------------------------
@@ -46,11 +46,12 @@ def test_load_config_reads_existing_file(tmp_path):
     Test that load_config correctly reads an existing fallback configuration file.
     """
     fallback_file = tmp_path / "cai_config.yml"
-    sample_config = {"openai": {"model": "gpt-3.5", "temperature": 0.7},
-                     "gemini": {"model": "gemini-1", "temperature": 0.3},
-                     "language": "es",
-                     "default": "openai"
-                     }
+    sample_config = {
+        "openai": {"model": "gpt-3.5", "temperature": 0.7},
+        "gemini": {"model": "gemini-1", "temperature": 0.3},
+        "language": "es",
+        "default": "openai",
+    }
 
     # Write sample config to fallback file
     fallback_file.write_text(yaml.safe_dump(sample_config))
@@ -66,11 +67,12 @@ def test_load_config_prefers_repo_config(tmp_path):
     """
     # Create a repo-level config file
     repo_file = tmp_path / "cai_config.yml"
-    repo_config = {"openai": {"model": "repo-model", "temperature": 1.0},
-                   "gemini": {"model": "repo-gemini", "temperature": 0.5},
-                   "language": "fr",
-                   "default": "gemini"
-                   }
+    repo_config = {
+        "openai": {"model": "repo-model", "temperature": 1.0},
+        "gemini": {"model": "repo-gemini", "temperature": 0.5},
+        "language": "fr",
+        "default": "gemini",
+    }
     repo_file.write_text(yaml.safe_dump(repo_config))
 
     # Create a fallback file
@@ -139,17 +141,21 @@ def test_load_token_missing_key(tmp_path, caplog):
     # Should log an error about missing key
     assert "Key 'openai' not found" in caplog.text
 
+
 # ------------------------------
 # LOAD DEFAULT CONFIG UNIT TESTS
 # ------------------------------
+
 
 def test_get_default_config_raises_if_missing(tmp_path):
     """
     Confirm that a FileNotFoundError is raised when neither a repo nor
     a home configuration file exists.
     """
-    with patch("git_cai_cli.core.config.find_git_root", return_value=None), \
-         patch("pathlib.Path.home", return_value=tmp_path):
+    with (
+        patch("git_cai_cli.core.config.find_git_root", return_value=None),
+        patch("pathlib.Path.home", return_value=tmp_path),
+    ):
         with pytest.raises(FileNotFoundError):
             get_default_config()
 
@@ -179,9 +185,11 @@ def test_get_default_config_yaml_parse_error(tmp_path):
         with pytest.raises(ValueError):
             get_default_config()
 
+
 # -------------------------------
 # LOAD VALIDATE CONFIG UNIT TESTS
 # -------------------------------
+
 
 def test_validate_config_keys_warns_on_missing_keys(caplog):
     """
@@ -218,9 +226,11 @@ def test_validate_config_keys_no_warnings(caplog):
     _validate_config_keys(config, reference)
     assert caplog.text == ""
 
+
 # ---------------------------------
 # LOAD VALIDATE LANGUAGE UNIT TESTS
 # ---------------------------------
+
 
 def test_validate_language_accepts_allowed(caplog):
     """
