@@ -173,6 +173,7 @@ Examples:
         Intended to be used in CLI commands.
         """
         lines = ["\nAvailable languages:"]
-        for code, name in sorted(self.allowed_languages.items()):
-            lines.append(f"  - {code} → {name}")
+        # Sort by the name (value)
+        for code, name in sorted(self.allowed_languages.items(), key=lambda item: item[1]):
+            lines.append(f"  - {name} → {code}")
         return "\n".join(lines)
