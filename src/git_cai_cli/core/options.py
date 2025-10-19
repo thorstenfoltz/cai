@@ -174,6 +174,8 @@ Examples:
         """
         lines = ["\nAvailable languages:"]
         # Sort by the name (value)
-        for code, name in sorted(self.allowed_languages.items(), key=lambda item: item[1]):
+        for code, name in sorted(
+            self.allowed_languages.items(), key=lambda item: item[1]
+        ):
             lines.append(f"  - {name} → {code}")
         return "\n".join(lines)
