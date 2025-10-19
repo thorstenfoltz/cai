@@ -49,8 +49,10 @@ class CommitMessageGenerator:
             f"Summarizing the provided git diff changes in {language_name}. "
             "Keep the message clear and focused on what was changed and why. "
             "Always include a headline, followed by a bullet-point list of changes. "
-            "Should you observe any sensitive information in the diff, print 'SENSITIVE INFORMATION DETECTED' "
+            "Should you observe any sensitive information like personal data, passwords, "
+            "tokens, etc. in the diff, print 'SENSITIVE INFORMATION DETECTED' "
             "and show what was detected, the file where and the line number. "
+            "Print it always to the top of the commit message. "
             "But even if you see sensitive information, still generate the commit message. "
         )
 
