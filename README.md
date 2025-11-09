@@ -35,6 +35,7 @@ Currently, the only supported backends are the OpenAI and Gemini APIs, but addit
 - Generates meaningful, context-aware commit messages using an LLM
 - Seamless integration with Git as a plugin/extension
 - Supports different LLM models and languages for each repository, as well as global configuration
+- Allows to squash all commits in a branch and summarizes the commit messages
 
 <h2 id="installation-section">Installation</h2>
 
@@ -109,6 +110,7 @@ Besides running `git cai` to generate commit messages, you can use the following
 - `-h` shows a brief help message with available commands
 - `-d`, `--debug` enables debug logging to help troubleshoot issues
 - `-l`, `--languages` list available languages
+- `-s`, `--squash` Squash commits on this branch and summarize them
 - `-u`, `--update` checks for updates the `cai` tool
 - `-v`, `--version` displays the currently installed version
 
