@@ -157,7 +157,7 @@ def get_default_config() -> str:
         raise KeyError(f"'default' key not found in {config_path}")
 
     default_value = config["default"]
-    log.info("Default config value: %s", default_value)
+    log.info("Using provider: %s", default_value)
     return default_value
 
 

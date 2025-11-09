@@ -3,13 +3,16 @@ Main function
 """
 
 import logging
-import subprocess
 import sys
 from pathlib import Path
 
 import typer
 from git_cai_cli.core.config import get_default_config, load_config, load_token
-from git_cai_cli.core.gitutils import find_git_root, git_diff_excluding
+from git_cai_cli.core.gitutils import (
+    commit_with_edit_template,
+    find_git_root,
+    git_diff_excluding,
+)
 from git_cai_cli.core.llm import CommitMessageGenerator
 from git_cai_cli.core.options import CliManager
 
@@ -63,7 +66,7 @@ def main() -> None:
     commit_message = generator.generate(diff)
 
     # Open git commit editor with the generated message
-    subprocess.run(["git", "commit", "--edit", "-m", commit_message], check=True)
+    commit_with_edit_template(commit_message)
 
 
 @app.command()
@@ -74,6 +77,13 @@ def run(
     ),
     language: bool = typer.Option(
         False, "--languages", "-l", help="List supported languages", is_eager=True
+    ),
+    squash: bool = typer.Option(
+        False,
+        "--squash",
+        "-s",
+        help="Squash commits on this branch and summarize them",
+        is_eager=True,
     ),
     update: bool = typer.Option(
         False, "--update", "-u", help="Check for updates", is_eager=True
@@ -90,10 +100,13 @@ def run(
         raise typer.Exit()
 
     if enable_debug:
-        typer.echo(manager.enable_debug())
+        manager.enable_debug()
 
     if language:
         typer.echo(manager.print_available_languages())
+
+    if squash:
+        manager.squash_branch()
         raise typer.Exit()
 
     if update:

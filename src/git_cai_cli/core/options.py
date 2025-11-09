@@ -10,6 +10,7 @@ from pathlib import Path
 
 import requests
 from git_cai_cli.core.languages import LANGUAGE_MAP
+from git_cai_cli.core.squash import squash_branch
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ Flags:
   -h                Show this help message
   -d, --debug       Enable debug logging
   -l, --languages   List supported languages
+  -s, --squash      Squash commits on this branch and summarize them
   -u, --update      Check for updates
   -v, --version     Show installed version
 
@@ -70,7 +72,7 @@ Configuration:
 
 Examples:
   git add .
-  git cai        Generates commit message
+  git cai           Generates commit message
 
 """
 
@@ -159,7 +161,7 @@ Examples:
             log.error("Error during update: %s", update_error)
             print("❌ An error occurred while updating. Check logs for details.")
 
-    def enable_debug(self):
+    def enable_debug(self) -> None:
         """
         Enable verbose/debug logging.
         """
@@ -179,3 +181,9 @@ Examples:
         ):
             lines.append(f"  - {name} → {code}")
         return "\n".join(lines)
+
+    def squash_branch(self) -> None:
+        """
+        Squash commits on the current branch and summarize them.
+        """
+        return squash_branch()
