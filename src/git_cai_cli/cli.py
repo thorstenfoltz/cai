@@ -104,6 +104,7 @@ def run(
 
     if language:
         typer.echo(manager.print_available_languages())
+        raise typer.Exit()
 
     if squash:
         manager.squash_branch()
