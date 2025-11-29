@@ -6,11 +6,16 @@ import logging
 import os
 import stat
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import yaml
 from git_cai_cli.core.gitutils import find_git_root
 from git_cai_cli.core.languages import ALLOWED_LANGUAGES
+from git_cai_cli.core.validate import (
+    _validate_config_keys,
+    _validate_language,
+    _validate_style,
+)
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +28,8 @@ DEFAULT_CONFIG = {
     "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
     "language": "en",
     "default": "openai",
+    "style": "professional",
+    "emoji": "true",
 }
 
 TOKEN_TEMPLATE = {
@@ -54,10 +61,11 @@ def load_config(
     if repo_config_file and repo_config_file.exists():
         try:
             with open(repo_config_file, "r", encoding="utf-8") as f:
-                config = yaml.safe_load(f) or {}
+                config = cast(dict[str, Any], yaml.safe_load(f) or {})
             if config:
                 _validate_config_keys(config, DEFAULT_CONFIG)
                 config["language"] = _validate_language(config, languages)
+                config["style"] = _validate_style(config.get("style"))
                 return config
         except yaml.YAMLError as e:
             log.error("Failed to parse repo config: %s", e)
@@ -71,17 +79,24 @@ def load_config(
         with open(fallback_config_file, "w", encoding="utf-8") as f:
             yaml.safe_dump(default_config, f)
         default_config["language"] = _validate_language(default_config, languages)
+        default_config["style"] = _validate_style(
+            cast(str | None, default_config.get("style"))
+        )
         return default_config
 
     try:
         with open(fallback_config_file, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f) or default_config
+            config = cast(dict[str, Any], yaml.safe_load(f) or default_config)
         _validate_config_keys(config, DEFAULT_CONFIG)
         config["language"] = _validate_language(config, languages)
+        config["style"] = _validate_style(config.get("style"))
         return config
     except yaml.YAMLError as e:
         log.error("Failed to parse config at %s: %s", fallback_config_file, e)
         default_config["language"] = _validate_language(default_config, languages)
+        default_config["style"] = _validate_style(
+            cast(str | None, default_config.get("style"))
+        )
         return default_config
 
 
@@ -109,7 +124,7 @@ def load_token(
 
     try:
         with open(tokens_file, "r", encoding="utf-8") as f:
-            tokens = yaml.safe_load(f) or {}
+            tokens = cast(dict[str, Any], yaml.safe_load(f) or {})
     except yaml.YAMLError as e:
         log.error("Error parsing %s: %s", tokens_file, e)
         return None
@@ -159,30 +174,3 @@ def get_default_config() -> str:
     default_value = config["default"]
     log.info("Using provider: %s", default_value)
     return default_value
-
-
-def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> None:
-    """
-    Check for missing or extra keys in config.
-    """
-    missing_keys = set(reference.keys()) - set(config.keys())
-    extra_keys = set(config.keys()) - set(reference.keys())
-
-    if missing_keys:
-        log.warning("Config is missing keys: %s", ", ".join(missing_keys))
-    if extra_keys:
-        log.error("Config includes unknown keys: %s", ", ".join(extra_keys))
-
-
-def _validate_language(config: dict[str, Any], allowed_languages: set[str]) -> str:
-    """
-    Validate that the language code exists in the allowed set.
-    Returns the ISO 639-1 code.
-    """
-    lang_code = config.get("language")
-    if not lang_code or lang_code not in allowed_languages:
-        log.warning(
-            "Language code '%s' is not supported. Falling back to 'en'.", lang_code
-        )
-        return "en"
-    return lang_code

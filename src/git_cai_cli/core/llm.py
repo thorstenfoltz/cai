@@ -39,6 +39,21 @@ class CommitMessageGenerator:
         prompt = self._summary_prompt(language_name=language_name)
         return self._dispatch_generate(content=commit_messages, system_prompt=prompt)
 
+    def _emoji_enabled(self) -> str:
+        """
+        Returns whether emojis are enabled in commit messages.
+        """
+        if self.config.get("emoji", True):
+            emoiji_instruction = (
+                "Use relevant emojis in the commit message where appropriate. "
+                "Emojis should enhance the clarity and tone of the message."
+            )
+            log.info("Emojis are enabled for commit messages.")
+        else:
+            emoiji_instruction = "Do not use any emojis in the commit message."
+            log.info("Emojis are disabled for commit messages.")
+        return emoiji_instruction
+
     # ---------------------------
     # PROMPTS
     # ---------------------------
@@ -49,11 +64,13 @@ class CommitMessageGenerator:
         """
         return (
             "You are an expert software engineer assistant. "
-            "Your task is to generate a concise, professional git commit message. "
+            "Your task is to generate a concise, professional git commit message, "
             f"summarizing the provided git diff changes in {language_name}. "
             "Keep the message clear and focused on what was changed and why. "
             "Always include a headline, followed by a bullet-point list of changes. "
-            "If you detect sensitive information, mention it at the top, but still generate the message."
+            "If you detect sensitive information, mention it at the top, but still generate the message. "
+            f"Write the commit message in the following tone style: {self.config['style']}. "
+            f"{self._emoji_enabled()}."
         )
 
     def _summary_prompt(self, language_name: str) -> str:
@@ -62,14 +79,16 @@ class CommitMessageGenerator:
         """
         return (
             "You are an expert software engineer assistant. "
-            "Your task is to summarize multiple existing commit messages* "
+            "Your task is to summarize multiple existing commit messages "
             "into a single clean git commit message. "
             f"Write the final message in {language_name}. "
             "Do not list each commit individually. "
             "Instead, infer the main purpose and overall change. "
             "Format:\n"
             "1. One short, clear headline.\n"
-            "2. A concise bullet list describing the main themes of the work."
+            "2. A concise bullet list describing the main themes of the work. "
+            f"Write the commit message in the following tone style: {self.config['style']}. "
+            f"{self._emoji_enabled()}."
         )
 
     # ---------------------------

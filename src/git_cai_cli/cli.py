@@ -85,6 +85,9 @@ def run(
         help="Squash commits on this branch and summarize them",
         is_eager=True,
     ),
+    style: bool = typer.Option(
+        False, "--style", help="Show available commit message styles", is_eager=True
+    ),
     update: bool = typer.Option(
         False, "--update", "-u", help="Check for updates", is_eager=True
     ),
@@ -108,6 +111,13 @@ def run(
 
     if squash:
         manager.squash_branch()
+        raise typer.Exit()
+
+    if style:
+        styles = manager.styles()
+        for style_name, details in styles.items():
+            typer.echo(f"{style_name.capitalize()}: {details['description']}")
+            typer.echo(f"  Example: {details['example']}\n")
         raise typer.Exit()
 
     if update:
