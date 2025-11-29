@@ -16,6 +16,7 @@ from git_cai_cli.core.config import (
     TOKEN_TEMPLATE,
     _validate_config_keys,
     _validate_language,
+    _validate_style,
     get_default_config,
     load_config,
     load_token,
@@ -51,6 +52,8 @@ def test_load_config_reads_existing_file(tmp_path):
         "gemini": {"model": "gemini-1", "temperature": 0.3},
         "language": "es",
         "default": "openai",
+        "style": "friendly",
+        "emoji": "false"
     }
 
     # Write sample config to fallback file
@@ -72,6 +75,8 @@ def test_load_config_prefers_repo_config(tmp_path):
         "gemini": {"model": "repo-gemini", "temperature": 0.5},
         "language": "fr",
         "default": "gemini",
+        "style": "friendly",
+        "emoji": "false"
     }
     repo_file.write_text(yaml.safe_dump(repo_config))
 
@@ -203,16 +208,14 @@ def test_validate_config_keys_warns_on_missing_keys(caplog):
     assert "missing keys: b" in caplog.text
 
 
-def test_validate_config_keys_warns_on_extra_keys(caplog):
-    """
-    Ensure that any keys present in config but not in the reference
-    set trigger an ERROR-level log entry.
-    """
-    caplog.set_level("ERROR")
+def test_validate_config_keys_raises_on_extra_keys():
     reference = {"a": 1}
     config = {"a": 1, "x": 99}
-    _validate_config_keys(config, reference)
-    assert "unknown keys: x" in caplog.text
+
+    with pytest.raises(KeyError) as exc:
+        _validate_config_keys(config, reference)
+
+    assert "Unknown config keys: x" in str(exc.value)
 
 
 def test_validate_config_keys_no_warnings(caplog):
