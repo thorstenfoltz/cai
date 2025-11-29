@@ -64,6 +64,7 @@ Flags:
   -d, --debug       Enable debug logging
   -l, --languages   List supported languages
   -s, --squash      Squash commits on this branch and summarize them
+      --style       Show available commit message styles
   -u, --update      Check for updates
   -v, --version     Show installed version
 
@@ -187,3 +188,41 @@ Examples:
         Squash commits on the current branch and summarize them.
         """
         return squash_branch()
+    
+    def styles(self) -> dict:
+        return {
+            "academic": {
+                "description": "Precise and scholarly.",
+                "example": "This commit introduces a revised configuration parser based on robust principles.",
+            },
+            "apologetic": {
+                "description": "Humble and apologizing.",
+                "example": "Sorry, my bad — this commit fixes the config error.",
+            },
+            "excited": {
+                "description": "Energetic and enthusiastic.",
+                "example": "Amazing update! The config loader is now super fast!",
+            },
+            "friendly": {
+                "description": "Casual and warm tone.",
+                "example": "Hey! Just cleaned up the config parsing.",
+            },
+            "funny": {
+                "description": "Humorous and light-hearted.",
+                "example": "Fixed the bug that was hiding like a ninja in our config.",
+            },
+            "neutral": {
+                "description": "Objective and to the point.",
+                "example": "Fix typo in configuration loader.",
+            },
+            "professional": {
+                "description": "Clear, concise, and formal. Default style.",
+                "example": "Refactor logging module to improve reliability.",
+            },
+            "sarcastic": {
+                "description": "Dry, ironic tone.",
+                "example": "Oh look, another config bug. Shocking, right?",
+            },
+        }
+
+
