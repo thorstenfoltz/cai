@@ -1,10 +1,12 @@
 """
 Validation utilities for configuration settings
 """
+
 import logging
 from typing import Any
 
 log = logging.getLogger(__name__)
+
 
 def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> None:
     """
@@ -32,7 +34,8 @@ def _validate_language(config: dict[str, Any], allowed_languages: set[str]) -> s
         return "en"
     return lang_code
 
-def _validate_style(style: str) -> str:
+
+def _validate_style(style: str | None) -> str:
     """
     Validate the commit message tone style.
 

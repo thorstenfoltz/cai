@@ -38,7 +38,7 @@ class CommitMessageGenerator:
         language_name = self._language_name(self.config["language"], LANGUAGE_MAP)
         prompt = self._summary_prompt(language_name=language_name)
         return self._dispatch_generate(content=commit_messages, system_prompt=prompt)
-    
+
     def _emoji_enabled(self) -> str:
         """
         Returns whether emojis are enabled in commit messages.

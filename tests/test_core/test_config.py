@@ -16,7 +16,6 @@ from git_cai_cli.core.config import (
     TOKEN_TEMPLATE,
     _validate_config_keys,
     _validate_language,
-    _validate_style,
     get_default_config,
     load_config,
     load_token,
@@ -53,7 +52,7 @@ def test_load_config_reads_existing_file(tmp_path):
         "language": "es",
         "default": "openai",
         "style": "friendly",
-        "emoji": "false"
+        "emoji": "false",
     }
 
     # Write sample config to fallback file
@@ -76,7 +75,7 @@ def test_load_config_prefers_repo_config(tmp_path):
         "language": "fr",
         "default": "gemini",
         "style": "friendly",
-        "emoji": "false"
+        "emoji": "false",
     }
     repo_file.write_text(yaml.safe_dump(repo_config))
 
@@ -209,6 +208,10 @@ def test_validate_config_keys_warns_on_missing_keys(caplog):
 
 
 def test_validate_config_keys_raises_on_extra_keys():
+    """
+    Ensure that extra keys in the configuration compared to the reference
+    raise a KeyError.
+    """
     reference = {"a": 1}
     config = {"a": 1, "x": 99}
 

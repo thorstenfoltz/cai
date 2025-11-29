@@ -188,8 +188,11 @@ Examples:
         Squash commits on the current branch and summarize them.
         """
         return squash_branch()
-    
+
     def styles(self) -> dict:
+        """
+        Return available commit message styles with descriptions and examples.
+        """
         return {
             "academic": {
                 "description": "Precise and scholarly.",
@@ -224,5 +227,3 @@ Examples:
                 "example": "Oh look, another config bug. Shocking, right?",
             },
         }
-
-
