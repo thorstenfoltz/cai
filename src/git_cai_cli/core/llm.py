@@ -9,6 +9,7 @@ from git_cai_cli.core.languages import LANGUAGE_MAP
 from google import genai  # type: ignore[reportUnknownImport]
 from google.genai import types  # type: ignore[reportUnknownImport]
 from openai import OpenAI
+from anthropic import Anthropic
 
 log = logging.getLogger(__name__)
 
@@ -102,6 +103,7 @@ class CommitMessageGenerator:
         model_dispatch = {
             "openai": self.generate_openai,
             "gemini": self.generate_gemini,
+            "anthropic": self.generate_claude,
         }
 
         if self.default_model not in model_dispatch:
@@ -114,6 +116,29 @@ class CommitMessageGenerator:
     # ---------------------------
     # MODEL CALLS
     # ---------------------------
+
+    def generate_gemini(
+        self,
+        content: str,
+        genai_cls: Type[Any] = genai.Client,
+        system_prompt_override: Optional[str] = None,
+    ) -> str:
+        """
+        Shared Gemini call for commit generation or commit history summarization.
+        """
+        client = genai_cls(api_key=self.token)
+        model = self.config["gemini"]["model"]
+        temperature = self.config["gemini"]["temperature"]
+
+        response = client.models.generate_content(
+            model=model,
+            contents=content,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt_override,
+                temperature=temperature,
+            ),
+        )
+        return response.text
 
     def generate_openai(
         self,
@@ -139,29 +164,38 @@ class CommitMessageGenerator:
             temperature=temperature,
         )
         return completion.choices[0].message.content.strip()
-
-    def generate_gemini(
-        self,
-        content: str,
-        genai_cls: Type[Any] = genai.Client,
-        system_prompt_override: Optional[str] = None,
+    
+    def generate_claude(
+            self,
+            content: str,
+            anthropic_cls: Type[Any] = Anthropic,
+            system_prompt_override: Optional[str] = None,
     ) -> str:
         """
-        Shared Gemini call for commit generation or commit history summarization.
+        Shared Anthropic call for commit generation or commit history summarization.
         """
-        client = genai_cls(api_key=self.token)
-        model = self.config["gemini"]["model"]
-        temperature = self.config["gemini"]["temperature"]
+        client = anthropic_cls(api_key=self.token)
+        model = self.config["anthropic"]["model"]
+        temperature = self.config["anthropic"]["temperature"]
 
-        response = client.models.generate_content(
+        prompt = [{
+            "role": "assistant",
+            "content": system_prompt_override,
+        },{
+            "role": "user",
+            "content": content,
+        }
+        ]
+
+        response = client.messages.create(
             model=model,
-            contents=content,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt_override,
-                temperature=temperature,
-            ),
+            messages=prompt,
+            temperature=temperature,
+            max_tokens=1024,
         )
-        return response.text
+        return response.content[0].text.strip()
+
+    
 
     # ---------------------------
     # LANGUAGE HELPER

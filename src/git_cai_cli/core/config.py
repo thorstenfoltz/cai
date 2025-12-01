@@ -26,6 +26,7 @@ TOKENS_FILE = CONFIG_DIR / "tokens.yml"
 DEFAULT_CONFIG = {
     "openai": {"model": "gpt-4.1", "temperature": 0},
     "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
+    "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
     "language": "en",
     "default": "openai",
     "style": "professional",
@@ -35,6 +36,7 @@ DEFAULT_CONFIG = {
 TOKEN_TEMPLATE = {
     "openai": "PUT-YOUR-OPENAI-TOKEN-HERE",
     "gemini": "PUT-YOUR-GEMINI-TOKEN-HERE",
+    "anthropic": "PUT-YOUR-ANTHROPIC-TOKEN-HERE",
 }
 
 
