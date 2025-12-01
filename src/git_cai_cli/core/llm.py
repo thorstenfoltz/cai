@@ -5,12 +5,12 @@ Use LLMs to generate git commit messages from diffs or multiple commits.
 import logging
 from typing import Any, Dict, Optional, Type
 
+from anthropic import Anthropic
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from google import genai  # type: ignore[reportUnknownImport]
 from google.genai import types  # type: ignore[reportUnknownImport]
-from openai import OpenAI
-from anthropic import Anthropic
 from groq import Groq
+from openai import OpenAI
 
 log = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class CommitMessageGenerator:
 
     def _dispatch_generate(self, content: str, system_prompt: str) -> str:
         """
-        Route to correct model with the right prompt. System prompt is 
+        Route to correct model with the right prompt. System prompt is
         _system_prompt or _summary_prompt depending on use case.
         Content is output of git diff.
         """
@@ -122,10 +122,10 @@ class CommitMessageGenerator:
     # ---------------------------
 
     def generate_claude(
-            self,
-            content: str,
-            anthropic_cls: Type[Any] = Anthropic,
-            system_prompt_override: Optional[str] = None,
+        self,
+        content: str,
+        anthropic_cls: Type[Any] = Anthropic,
+        system_prompt_override: Optional[str] = None,
     ) -> str:
         """
         Shared Anthropic call for commit generation or commit history summarization.
@@ -134,13 +134,15 @@ class CommitMessageGenerator:
         model = self.config["anthropic"]["model"]
         temperature = self.config["anthropic"]["temperature"]
 
-        prompt = [{
-            "role": "assistant",
-            "content": system_prompt_override,
-        },{
-            "role": "user",
-            "content": content,
-        }
+        prompt = [
+            {
+                "role": "assistant",
+                "content": system_prompt_override,
+            },
+            {
+                "role": "user",
+                "content": content,
+            },
         ]
 
         response = client.messages.create(
@@ -173,7 +175,7 @@ class CommitMessageGenerator:
             ),
         )
         return response.text
-    
+
     def generate_groq(
         self,
         content: str,
@@ -187,13 +189,15 @@ class CommitMessageGenerator:
         model = self.config["groq"]["model"]
         temperature = self.config["groq"]["temperature"]
 
-        prompt = [{
-            "role": "system",
-            "content": system_prompt_override,
-        },{
-            "role": "user",
-            "content": content,
-        }
+        prompt = [
+            {
+                "role": "system",
+                "content": system_prompt_override,
+            },
+            {
+                "role": "user",
+                "content": content,
+            },
         ]
 
         response = client.chat.completions.create(
@@ -202,7 +206,6 @@ class CommitMessageGenerator:
             temperature=temperature,
         )
         return response.choices[0].message.content.strip()
-
 
     def generate_openai(
         self,
@@ -228,10 +231,6 @@ class CommitMessageGenerator:
             temperature=temperature,
         )
         return completion.choices[0].message.content.strip()
-    
-    
-
-    
 
     # ---------------------------
     # LANGUAGE HELPER
