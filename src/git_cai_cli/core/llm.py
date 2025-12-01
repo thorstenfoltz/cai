@@ -10,6 +10,7 @@ from google import genai  # type: ignore[reportUnknownImport]
 from google.genai import types  # type: ignore[reportUnknownImport]
 from openai import OpenAI
 from anthropic import Anthropic
+from groq import Groq
 
 log = logging.getLogger(__name__)
 
@@ -98,12 +99,15 @@ class CommitMessageGenerator:
 
     def _dispatch_generate(self, content: str, system_prompt: str) -> str:
         """
-        Route to correct model (openai or gemini) with the right prompt.
+        Route to correct model with the right prompt. System prompt is 
+        _system_prompt or _summary_prompt depending on use case.
+        Content is output of git diff.
         """
         model_dispatch = {
             "openai": self.generate_openai,
             "gemini": self.generate_gemini,
             "anthropic": self.generate_claude,
+            "groq": self.generate_groq,
         }
 
         if self.default_model not in model_dispatch:
@@ -117,54 +121,6 @@ class CommitMessageGenerator:
     # MODEL CALLS
     # ---------------------------
 
-    def generate_gemini(
-        self,
-        content: str,
-        genai_cls: Type[Any] = genai.Client,
-        system_prompt_override: Optional[str] = None,
-    ) -> str:
-        """
-        Shared Gemini call for commit generation or commit history summarization.
-        """
-        client = genai_cls(api_key=self.token)
-        model = self.config["gemini"]["model"]
-        temperature = self.config["gemini"]["temperature"]
-
-        response = client.models.generate_content(
-            model=model,
-            contents=content,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt_override,
-                temperature=temperature,
-            ),
-        )
-        return response.text
-
-    def generate_openai(
-        self,
-        content: str,
-        openai_cls: Type[Any] = OpenAI,
-        system_prompt_override: Optional[str] = None,
-    ) -> str:
-        """
-        Shared OpenAI call for commit generation or commit history summarization.
-        """
-        client = openai_cls(api_key=self.token)
-        model = self.config["openai"]["model"]
-        temperature = self.config["openai"]["temperature"]
-
-        messages = [
-            {"role": "system", "content": system_prompt_override},
-            {"role": "user", "content": content},
-        ]
-
-        completion = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-        )
-        return completion.choices[0].message.content.strip()
-    
     def generate_claude(
             self,
             content: str,
@@ -194,6 +150,86 @@ class CommitMessageGenerator:
             max_tokens=1024,
         )
         return response.content[0].text.strip()
+
+    def generate_gemini(
+        self,
+        content: str,
+        genai_cls: Type[Any] = genai.Client,
+        system_prompt_override: Optional[str] = None,
+    ) -> str:
+        """
+        Shared Gemini call for commit generation or commit history summarization.
+        """
+        client = genai_cls(api_key=self.token)
+        model = self.config["gemini"]["model"]
+        temperature = self.config["gemini"]["temperature"]
+
+        response = client.models.generate_content(
+            model=model,
+            contents=content,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt_override,
+                temperature=temperature,
+            ),
+        )
+        return response.text
+    
+    def generate_groq(
+        self,
+        content: str,
+        genai_cls: Type[Any] = Groq,
+        system_prompt_override: Optional[str] = None,
+    ) -> str:
+        """
+        Shared Groq call for commit generation or commit history summarization.
+        """
+        client = genai_cls(api_key=self.token)
+        model = self.config["groq"]["model"]
+        temperature = self.config["groq"]["temperature"]
+
+        prompt = [{
+            "role": "system",
+            "content": system_prompt_override,
+        },{
+            "role": "user",
+            "content": content,
+        }
+        ]
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=prompt,
+            temperature=temperature,
+        )
+        return response.choices[0].message.content.strip()
+
+
+    def generate_openai(
+        self,
+        content: str,
+        openai_cls: Type[Any] = OpenAI,
+        system_prompt_override: Optional[str] = None,
+    ) -> str:
+        """
+        Shared OpenAI call for commit generation or commit history summarization.
+        """
+        client = openai_cls(api_key=self.token)
+        model = self.config["openai"]["model"]
+        temperature = self.config["openai"]["temperature"]
+
+        messages = [
+            {"role": "system", "content": system_prompt_override},
+            {"role": "user", "content": content},
+        ]
+
+        completion = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+        )
+        return completion.choices[0].message.content.strip()
+    
+    
 
     
 
