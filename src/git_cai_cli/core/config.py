@@ -7,7 +7,7 @@ import os
 import stat
 from pathlib import Path
 from typing import Any, Optional, cast
-from collections import OrderedDict
+
 import yaml
 from git_cai_cli.core.gitutils import find_git_root
 from git_cai_cli.core.languages import ALLOWED_LANGUAGES
@@ -27,7 +27,7 @@ DEFAULT_CONFIG = {
     "openai": {"model": "gpt-5.1", "temperature": 0},
     "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
     "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
-    "groq": {"model": "llama-3.1-8b-instant", "temperature": 0},
+    "groq": {"model": "llama-3.3-70b-versatile", "temperature": 0},
     "language": "en",
     "default": "openai",
     "style": "professional",
@@ -80,14 +80,13 @@ def load_config(
             fallback_config_file,
         )
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
+        priority_keys = ["default", "language", "style", "emoji"]
+        ordered = {}
+        for key in priority_keys:
+            if key in default_config:
+                ordered[key] = default_config[key]
 
-        static_keys = ["default", "language", "style", "emoji"]
-        model_keys = sorted(k for k in default_config.keys() if k not in static_keys)
-
-        ordered = OrderedDict()
-        for key in static_keys:
-            ordered[key] = default_config[key]
-        for key in model_keys:
+        for key in sorted(k for k in default_config if k not in priority_keys):
             ordered[key] = default_config[key]
 
         with open(fallback_config_file, "w", encoding="utf-8") as f:
