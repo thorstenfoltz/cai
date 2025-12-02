@@ -29,7 +29,7 @@ DEFAULT_CONFIG = {
     "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
     "groq": {"model": "llama-3.3-70b-versatile", "temperature": 0},
     "language": "en",
-    "default": "openai",
+    "default": "groq",
     "style": "professional",
     "emoji": "true",
 }
