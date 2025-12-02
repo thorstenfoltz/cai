@@ -3,9 +3,10 @@ Use LLMs to generate git commit messages from diffs or multiple commits.
 """
 
 import logging
-import requests
+from collections.abc import Callable
 from typing import Any, Dict, Optional, Type
 
+import requests
 from anthropic import Anthropic
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from google import genai  # type: ignore[reportUnknownImport]
@@ -104,7 +105,7 @@ class CommitMessageGenerator:
         _system_prompt or _summary_prompt depending on use case.
         Content is output of git diff.
         """
-        model_dispatch = {
+        model_dispatch: Dict[str, Callable[..., str]] = {
             "openai": self.generate_openai,
             "gemini": self.generate_gemini,
             "anthropic": self.generate_claude,
@@ -233,7 +234,7 @@ class CommitMessageGenerator:
             temperature=temperature,
         )
         return completion.choices[0].message.content.strip()
-    
+
     def generate_xai(
         self,
         content: str,
@@ -267,7 +268,7 @@ class CommitMessageGenerator:
             "messages": prompt,
             "temperature": temperature,
         }
-        response = requests.post(url, json=request, headers=headers)
+        response = requests.post(url, json=request, headers=headers, timeout=30)
         return response.json()["choices"][0]["message"]["content"].strip()
 
     # ---------------------------
