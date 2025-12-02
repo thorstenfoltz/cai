@@ -27,7 +27,7 @@ DEFAULT_CONFIG = {
     "openai": {"model": "gpt-5.1", "temperature": 0},
     "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
     "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
-    "groq": {"model": "llama-3.3-70b-versatile", "temperature": 0},
+    "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
     "language": "en",
     "default": "groq",
     "style": "professional",
