@@ -28,6 +28,7 @@ DEFAULT_CONFIG = {
     "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
     "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
     "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
+    "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
     "language": "en",
     "default": "groq",
     "style": "professional",
@@ -39,6 +40,7 @@ TOKEN_TEMPLATE = {
     "gemini": "PUT-YOUR-GEMINI-TOKEN-HERE",
     "anthropic": "PUT-YOUR-ANTHROPIC-TOKEN-HERE",
     "groq": "PUT-YOUR-GROQ-TOKEN-HERE",
+    "xai": "PUT-YOUR-XAI-TOKEN-HERE",
 }
 
 

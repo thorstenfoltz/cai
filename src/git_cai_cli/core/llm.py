@@ -3,6 +3,7 @@ Use LLMs to generate git commit messages from diffs or multiple commits.
 """
 
 import logging
+import requests
 from typing import Any, Dict, Optional, Type
 
 from anthropic import Anthropic
@@ -108,6 +109,7 @@ class CommitMessageGenerator:
             "gemini": self.generate_gemini,
             "anthropic": self.generate_claude,
             "groq": self.generate_groq,
+            "xai": self.generate_xai,
         }
 
         if self.default_model not in model_dispatch:
@@ -231,6 +233,42 @@ class CommitMessageGenerator:
             temperature=temperature,
         )
         return completion.choices[0].message.content.strip()
+    
+    def generate_xai(
+        self,
+        content: str,
+        system_prompt_override: Optional[str] = None,
+    ) -> str:
+        """
+        Shared Xai call for commit generation or commit history summarization.
+        """
+        url = "https://api.x.ai/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+
+        model = self.config["xai"]["model"]
+        temperature = self.config["xai"]["temperature"]
+
+        prompt = [
+            {
+                "role": "system",
+                "content": system_prompt_override,
+            },
+            {
+                "role": "user",
+                "content": content,
+            },
+        ]
+
+        request = {
+            "model": model,
+            "messages": prompt,
+            "temperature": temperature,
+        }
+        response = requests.post(url, json=request, headers=headers)
+        return response.json()["choices"][0]["message"]["content"].strip()
 
     # ---------------------------
     # LANGUAGE HELPER
