@@ -94,7 +94,7 @@ Examples:
             return (int(major), int(minor), 0)
         return (0, 0, 0)
 
-    def check_and_update(self, auto_confirm: bool = False):
+    def check_and_update(self, auto_confirm: bool = False) -> None:
         """
         Check for updates on PyPI and optionally apply the update via pipx.
 

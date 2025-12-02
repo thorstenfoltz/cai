@@ -7,7 +7,7 @@ import os
 import stat
 from pathlib import Path
 from typing import Any, Optional, cast
-
+from collections import OrderedDict
 import yaml
 from git_cai_cli.core.gitutils import find_git_root
 from git_cai_cli.core.languages import ALLOWED_LANGUAGES
@@ -24,7 +24,7 @@ FALLBACK_CONFIG_FILE = CONFIG_DIR / "cai_config.yml"
 TOKENS_FILE = CONFIG_DIR / "tokens.yml"
 
 DEFAULT_CONFIG = {
-    "openai": {"model": "gpt-5-nano", "temperature": 0},
+    "openai": {"model": "gpt-5.1", "temperature": 0},
     "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
     "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
     "groq": {"model": "llama-3.1-8b-instant", "temperature": 0},
@@ -80,8 +80,18 @@ def load_config(
             fallback_config_file,
         )
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
+
+        static_keys = ["default", "language", "style", "emoji"]
+        model_keys = sorted(k for k in default_config.keys() if k not in static_keys)
+
+        ordered = OrderedDict()
+        for key in static_keys:
+            ordered[key] = default_config[key]
+        for key in model_keys:
+            ordered[key] = default_config[key]
+
         with open(fallback_config_file, "w", encoding="utf-8") as f:
-            yaml.safe_dump(default_config, f)
+            yaml.safe_dump(ordered, f, sort_keys=False)
         default_config["language"] = _validate_language(default_config, languages)
         default_config["style"] = _validate_style(
             cast(str | None, default_config.get("style"))
