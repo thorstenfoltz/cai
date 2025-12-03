@@ -24,10 +24,13 @@ FALLBACK_CONFIG_FILE = CONFIG_DIR / "cai_config.yml"
 TOKENS_FILE = CONFIG_DIR / "tokens.yml"
 
 DEFAULT_CONFIG = {
-    "openai": {"model": "gpt-4.1", "temperature": 0},
+    "openai": {"model": "gpt-5.1", "temperature": 0},
     "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
+    "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
+    "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
+    "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
     "language": "en",
-    "default": "openai",
+    "default": "groq",
     "style": "professional",
     "emoji": "true",
 }
@@ -35,6 +38,9 @@ DEFAULT_CONFIG = {
 TOKEN_TEMPLATE = {
     "openai": "PUT-YOUR-OPENAI-TOKEN-HERE",
     "gemini": "PUT-YOUR-GEMINI-TOKEN-HERE",
+    "anthropic": "PUT-YOUR-ANTHROPIC-TOKEN-HERE",
+    "groq": "PUT-YOUR-GROQ-TOKEN-HERE",
+    "xai": "PUT-YOUR-XAI-TOKEN-HERE",
 }
 
 
@@ -76,8 +82,17 @@ def load_config(
             fallback_config_file,
         )
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
+        priority_keys = ["default", "language", "style", "emoji"]
+        ordered = {}
+        for key in priority_keys:
+            if key in default_config:
+                ordered[key] = default_config[key]
+
+        for key in sorted(k for k in default_config if k not in priority_keys):
+            ordered[key] = default_config[key]
+
         with open(fallback_config_file, "w", encoding="utf-8") as f:
-            yaml.safe_dump(default_config, f)
+            yaml.safe_dump(ordered, f, sort_keys=False)
         default_config["language"] = _validate_language(default_config, languages)
         default_config["style"] = _validate_style(
             cast(str | None, default_config.get("style"))

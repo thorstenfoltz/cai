@@ -121,7 +121,7 @@ def run(
         raise typer.Exit()
 
     if update:
-        typer.echo(manager.check_and_update())
+        manager.check_and_update()
         raise typer.Exit()
 
     if version:
