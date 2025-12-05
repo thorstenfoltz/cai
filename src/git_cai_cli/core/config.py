@@ -32,7 +32,7 @@ DEFAULT_CONFIG = {
     "language": "en",
     "default": "groq",
     "style": "professional",
-    "emoji": "true",
+    "emoji": True,
 }
 
 TOKEN_TEMPLATE = {
@@ -134,7 +134,7 @@ def load_token(
         with open(tokens_file, "w", encoding="utf-8") as f:
             yaml.safe_dump(token_template, f)
         os.chmod(tokens_file, stat.S_IRUSR | stat.S_IWUSR)
-        log.info("Created token template at %s", tokens_file)  # nosemgrep
+        log.info("Created token template at %s. Please add your tokens into the file.", tokens_file)  # nosemgrep
         return None
 
     try:

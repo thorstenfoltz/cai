@@ -48,15 +48,15 @@ class CommitMessageGenerator:
         Returns whether emojis are enabled in commit messages.
         """
         if self.config.get("emoji", True):
-            emoiji_instruction = (
+            emoji_instruction = (
                 "Use relevant emojis in the commit message where appropriate. "
                 "Emojis should enhance the clarity and tone of the message."
             )
             log.info("Emojis are enabled for commit messages.")
         else:
-            emoiji_instruction = "Do not use any emojis in the commit message."
+            emoji_instruction = "Do not use any emojis in the commit message."
             log.info("Emojis are disabled for commit messages.")
-        return emoiji_instruction
+        return emoji_instruction
 
     # ---------------------------
     # PROMPTS
