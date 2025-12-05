@@ -1,13 +1,13 @@
 """
 Integration tests for gitutils functions.
 """
+
 import subprocess
-import tempfile
 from pathlib import Path
 
 import pytest
-
 from git_cai_cli.core.gitutils import find_git_root, git_diff_excluding
+
 
 @pytest.fixture()
 def temp_git_repo(tmp_path: Path):
@@ -19,7 +19,9 @@ def temp_git_repo(tmp_path: Path):
 
     subprocess.run(["git", "init"], cwd=repo, check=True)
     subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo, check=True)
-    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
+    )
     subprocess.run(["git", "config", "commit.gpgSign", "false"], cwd=repo, check=True)
 
     # Create initial committed file
@@ -62,8 +64,7 @@ def test_git_diff_excluding_integration(temp_git_repo):
     )
 
     # extract only the git diff headers
-    headers = [line for line in diff.splitlines()
-               if line.startswith("diff --git")]
+    headers = [line for line in diff.splitlines() if line.startswith("diff --git")]
 
     assert any("file1.txt" in h for h in headers)
     assert not any("file2.txt" in h for h in headers)
