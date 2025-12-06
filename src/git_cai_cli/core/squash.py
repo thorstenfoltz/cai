@@ -125,7 +125,7 @@ def squash_branch() -> None:
 
     # 4) Let user edit the summary without making a commit yet
     log.info(
-        "Opening editor for final squash commit message. Save = continue, exit w/o save = cancel..."
+        "Opening editor for final squash commit message. Save = continue, exit w/o save = cancel."
     )
 
     # write to temp file
@@ -173,8 +173,17 @@ def squash_branch() -> None:
             "Your branch has a remote upstream.\n"
             "Since squashing rewrites commit history, your next push will require:\n\n"
             "    git push --force-with-lease\n\n"
-            "This is a safe force-push that prevents overwriting others' commits."
+            "This is a safe force-push that prevents overwriting others' commits.\n"
+            "Shall I execute it for you now?"
         )
+        choice = (
+            input("Proceed with 'git push --force-with-lease'? [yes/no]: ")
+            .strip()
+            .lower()
+        )
+        if choice in ("y", "yes"):
+            subprocess.run(["git", "push", "--force-with-lease"], check=True)
+            log.info("✅ Successfully pushed the squashed branch to remote.")
     else:
         log.info(
             "No upstream branch detected. Normal `git push` will work as expected."
