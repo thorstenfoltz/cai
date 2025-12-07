@@ -173,11 +173,10 @@ def squash_branch() -> None:
             "Your branch has a remote upstream.\n"
             "Since squashing rewrites commit history, your next push will require:\n\n"
             "    git push --force-with-lease\n\n"
-            "This is a safe force-push that prevents overwriting others' commits.\n"
-            "Shall I execute it for you now?"
+            "This is a safe force-push that prevents overwriting others' commits.\n\n"
         )
         choice = (
-            input("Proceed with 'git push --force-with-lease'? [yes/no]: ")
+            input("Shall I execute it for you now? [yes/no]: ")
             .strip()
             .lower()
         )
