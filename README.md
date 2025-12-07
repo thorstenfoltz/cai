@@ -17,7 +17,7 @@ cai uses a large language model (LLM) to produce commit messages that are meanin
 
 <h2 id="about-section">About</h2>
 
-cai is designed to simplify Git workflows by automatically generating commit messages using an LLM. No more struggling to summarize changes, just run `git cai`.
+cai is designed to simplify Git workflows by generating commit messages automatically using an LLM. No more struggling to summarize changes, just run `git cai`.
 
 Currently, it supports the API of OpenAI, Gemini, Anthropic, Groq and Xai for message generation.
 
@@ -114,9 +114,8 @@ Besides running `git cai` to generate commit messages, you can use the following
 
 - `-h` shows a brief help message with available commands
 - `-d`, `--debug` enables debug logging to help troubleshoot issues
-- `-l`, `--languages` list available languages
+- `-l`, `--list` list information about languages and styles which can be used
 - `-s`, `--squash` squash commits on this branch and summarize them
-- `--style` show names and examples of available tone styles
 - `-u`, `--update` checks for updates the `cai` tool
 - `-v`, `--version` displays the currently installed version
 
