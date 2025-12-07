@@ -75,8 +75,17 @@ def run(
     enable_debug: bool = typer.Option(
         False, "--debug", "-d", help="Enable debug logging", is_eager=True
     ),
-    language: bool = typer.Option(
-        False, "--languages", "-l", help="List supported languages", is_eager=True
+    list_flag: bool = typer.Option(
+        False,
+        "--list",
+        "-l",
+        help="List information (languages or styles)",
+        is_eager=True,
+        is_flag=True,
+    ),
+    list_arg: str = typer.Argument(
+        None,
+        help="Optional argument for --list: 'language' or 'style'",
     ),
     squash: bool = typer.Option(
         False,
@@ -84,9 +93,6 @@ def run(
         "-s",
         help="Squash commits on this branch and summarize them",
         is_eager=True,
-    ),
-    style: bool = typer.Option(
-        False, "--style", help="Show available commit message styles", is_eager=True
     ),
     update: bool = typer.Option(
         False, "--update", "-u", help="Check for updates", is_eager=True
@@ -105,19 +111,38 @@ def run(
     if enable_debug:
         manager.enable_debug()
 
-    if language:
-        typer.echo(manager.print_available_languages())
-        raise typer.Exit()
+    if list_flag:
+    # No argument provided → show your menu
+        if list_arg is None:
+            typer.echo(manager.list())
+            raise typer.Exit()
+
+        option = list_arg.lower()
+
+        if option == "language":
+            typer.echo(manager.print_available_languages())
+            raise typer.Exit()
+
+        if option == "style":
+            styles = manager.styles()
+            for style_name, details in styles.items():
+                typer.echo(f"{style_name.capitalize()}: {details['description']}")
+                typer.echo(f"  Example: {details['example']}\n")
+            raise typer.Exit()
+
+        # Invalid argument
+        log.error(
+            "Unknown list option '%s'. Valid values are 'language' or 'style'.",
+            list_arg,
+        )
+        typer.echo(
+            f"Error: unknown list option '{list_arg}'. "
+            "Valid values are 'language' or 'style'."
+        )
+        raise typer.Exit(code=1)
 
     if squash:
         manager.squash_branch()
-        raise typer.Exit()
-
-    if style:
-        styles = manager.styles()
-        for style_name, details in styles.items():
-            typer.echo(f"{style_name.capitalize()}: {details['description']}")
-            typer.echo(f"  Example: {details['example']}\n")
         raise typer.Exit()
 
     if update:

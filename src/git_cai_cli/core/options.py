@@ -62,9 +62,7 @@ Usage:
 Flags:
   -h                Show this help message
   -d, --debug       Enable debug logging
-  -l, --languages   List supported languages
-  -s, --squash      Squash commits on this branch and summarize them
-      --style       Show available commit message styles
+  -l, --list        List available information (languages, styles)
   -u, --update      Check for updates
   -v, --version     Show installed version
 
@@ -169,6 +167,22 @@ Examples:
         log.setLevel(logging.DEBUG)
         logging.getLogger().setLevel(logging.DEBUG)
         log.debug("Debug mode enabled.")
+
+    def list(self) -> str:
+        """
+        Return informational text for the --list / -l flag.
+        Used when no argument is provided (git cai -l).
+        """
+        return f"""
+Available list options:
+
+language  - List supported languages
+style     - Show available commit message styles
+
+Usage:
+git cai -l language
+git cai -l style
+"""
 
     def print_available_languages(self) -> str:
         """
