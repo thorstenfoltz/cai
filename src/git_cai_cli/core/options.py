@@ -62,7 +62,7 @@ Usage:
 Flags:
   -h                Show this help message
   -d, --debug       Enable debug logging
-  -l, --list        List available information (languages, styles)
+  -l, --list        List information about languages and styles available
   -u, --update      Check for updates
   -v, --version     Show installed version
 
@@ -173,7 +173,7 @@ Examples:
         Return informational text for the --list / -l flag.
         Used when no argument is provided (git cai -l).
         """
-        return f"""
+        return """
 Available list options:
 
 language  - List supported languages

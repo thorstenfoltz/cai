@@ -175,11 +175,7 @@ def squash_branch() -> None:
             "    git push --force-with-lease\n\n"
             "This is a safe force-push that prevents overwriting others' commits.\n\n"
         )
-        choice = (
-            input("Shall I execute it for you now? [yes/no]: ")
-            .strip()
-            .lower()
-        )
+        choice = input("Shall I execute it for you now? [yes/no]: ").strip().lower()
         if choice in ("y", "yes"):
             subprocess.run(["git", "push", "--force-with-lease"], check=True)
             log.info("✅ Successfully pushed the squashed branch to remote.")

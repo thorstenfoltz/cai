@@ -1,9 +1,12 @@
 """
 Unit tests for git_cai_cli.core.llm module.
 """
-import pytest
+
 from unittest.mock import MagicMock, patch
+
+import pytest
 from git_cai_cli.core.llm import CommitMessageGenerator
+
 
 # fixtures
 @pytest.fixture
@@ -54,7 +57,10 @@ def test_emoji_enabled(generator):
     """
     Test that the _emoji_enabled method returns the correct string when emojis are enabled
     """
-    assert "Use relevant emojis in the commit message where appropriate. Emojis should enhance the clarity and tone of the message." in generator._emoji_enabled()
+    assert (
+        "Use relevant emojis in the commit message where appropriate. Emojis should enhance the clarity and tone of the message."
+        in generator._emoji_enabled()
+    )
 
 
 def test_emoji_disabled(generator):
@@ -105,6 +111,7 @@ def test_summary_prompt_full(generator):
     out = generator._summary_prompt("Japanese")
     assert out == expected
 
+
 # test dispatch
 def test_dispatch_valid_model(generator):
     """
@@ -138,9 +145,7 @@ def test_generate_openai(generator):
     mock_client.return_value = mock_instance
 
     result = generator.generate_openai(
-        "diff",
-        openai_cls=mock_client,
-        system_prompt_override="sys"
+        "diff", openai_cls=mock_client, system_prompt_override="sys"
     )
     assert result == "message text"
 
@@ -161,7 +166,9 @@ def test_generate_claude(generator):
     mock_client.messages.create.return_value = mock_response
     mock_cls.return_value = mock_client
 
-    result = generator.generate_claude("abc", anthropic_cls=mock_cls, system_prompt_override="sys")
+    result = generator.generate_claude(
+        "abc", anthropic_cls=mock_cls, system_prompt_override="sys"
+    )
     assert result == "test"
     mock_client.messages.create.assert_called_once()
 
@@ -177,7 +184,9 @@ def test_generate_gemini(generator):
     mock_client.models.generate_content.return_value = MagicMock(text="gemini text")
     mock_cls.return_value = mock_client
 
-    result = generator.generate_gemini("abc", genai_cls=mock_cls, system_prompt_override="sys")
+    result = generator.generate_gemini(
+        "abc", genai_cls=mock_cls, system_prompt_override="sys"
+    )
     assert result == "gemini text"
 
 
@@ -194,7 +203,9 @@ def test_generate_groq(generator):
     )
     mock_cls.return_value = mock_client
 
-    result = generator.generate_groq("abc", genai_cls=mock_cls, system_prompt_override="sys")
+    result = generator.generate_groq(
+        "abc", genai_cls=mock_cls, system_prompt_override="sys"
+    )
     assert result == "groq result"
 
 
@@ -220,9 +231,7 @@ def test_generate_xai():
 
     mock_post = MagicMock()
     mock_post.return_value.json.return_value = {
-        "choices": [
-            {"message": {"content": "   xai content   "}}
-        ]
+        "choices": [{"message": {"content": "   xai content   "}}]
     }
 
     with patch(f"{module_path}.requests.post", mock_post):
@@ -237,9 +246,9 @@ def test_generate_xai():
     # Positional arg 0 = URL
     called_url = args[0]
     assert called_url == "https://api.x.ai/v1/chat/completions"
-    
+
     assert kwargs["timeout"] == 30
-    
+
     assert kwargs["headers"] == {
         "Content-Type": "application/json",
         "Authorization": "Bearer fake-token",
@@ -253,4 +262,3 @@ def test_generate_xai():
             {"role": "user", "content": "hello x"},
         ],
     }
-

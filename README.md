@@ -114,9 +114,8 @@ Besides running `git cai` to generate commit messages, you can use the following
 
 - `-h` shows a brief help message with available commands
 - `-d`, `--debug` enables debug logging to help troubleshoot issues
-- `-l`, `--languages` list available languages
+- `-l`, `--list` list information about languages and styles which can be used
 - `-s`, `--squash` squash commits on this branch and summarize them
-- `--style` show names and examples of available tone styles
 - `-u`, `--update` checks for updates the `cai` tool
 - `-v`, `--version` displays the currently installed version
 

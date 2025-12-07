@@ -112,7 +112,7 @@ def run(
         manager.enable_debug()
 
     if list_flag:
-    # No argument provided → show your menu
+        # No argument provided → show your menu
         if list_arg is None:
             typer.echo(manager.list())
             raise typer.Exit()
