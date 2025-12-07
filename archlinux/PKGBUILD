@@ -1,6 +1,6 @@
 # Maintainer: Thorsten Foltz <thorsten.foltz@live.com>
 pkgname=git-cai-cli
-pkgver=0.5.1
+pkgver=0.5.2
 pkgrel=1
 pkgdesc="Use LLM to create git commit messages."
 arch=('any')
@@ -8,8 +8,8 @@ url="https://github.com/thorstenfoltz/cai"
 license=('MIT')
 depends=('python' 'python-yaml' 'python-openai' 'python-google-genai' 'python-requests' 'python-typer' 'python-groq' 'python-anthropic' 'git')
 makedepends=(python-build python-installer python-setuptools python-wheel)
-source=("https://files.pythonhosted.org/packages/be/59/42763c53fb6613422bda317206ac25ea98c159a6f1cb128efb2fe0b3599a/git_cai_cli-0.5.1.tar.gz")
-sha256sums=('47481351242a7180170434ff7e30189618489536c639a7817a54b48823b2f1e6')
+source=("https://files.pythonhosted.org/packages/e3/2b/d108dd3bfb34676f1d4e8b06f0b61cddcce03a1c7f7f30ea9f6f57ead5d2/git_cai_cli-0.5.2.tar.gz")
+sha256sums=('35f9463659ae81e572236def425b113ac857e15d8dddf61f295a14814d4dc0ac')
 
 build() {
     cd "${srcdir}/git_cai_cli-${pkgver}"
