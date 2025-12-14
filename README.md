@@ -31,6 +31,8 @@ Currently, it supports the API of OpenAI, Gemini, Anthropic, Groq and Xai for me
   - Anthropic
   - Groq
   - Xai
+  - Mistral
+  - Deepseek
 
 <h2 id="features-section">Features</h2>
 
@@ -113,6 +115,7 @@ Currently, the following options can be customized:
 Besides running `git cai` to generate commit messages, you can use the following options:
 
 - `-h` shows a brief help message with available commands
+- `-a`, `--all` stages all modified and deleted files that are already tracked by Git
 - `-d`, `--debug` enables debug logging to help troubleshoot issues
 - `-l`, `--list` list information about languages and styles which can be used
 - `-s`, `--squash` squash commits on this branch and summarize them
