@@ -27,7 +27,7 @@ DEFAULT_CONFIG = {
     "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
     "openai": {"model": "gpt-5.1", "temperature": 0},
     "deepseek": {"model": "deepseek-chat", "temperature": 0},
-    "gemini": {"model": "gemini-2.5-flash", "temperature": 0},    
+    "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
     "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
     "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
     "mistral": {"model": "codestral-2508", "temperature": 0},
@@ -41,9 +41,9 @@ TOKEN_TEMPLATE = {
     "anthropic": "PUT-YOUR-ANTHROPIC-TOKEN-HERE",
     "gemini": "PUT-YOUR-GEMINI-TOKEN-HERE",
     "groq": "PUT-YOUR-GROQ-TOKEN-HERE",
-    "openai": "PUT-YOUR-OPENAI-TOKEN-HERE",    
-    "mistral": "PUT-YOUR-MISTRAL-TOKEN-HERE",    
-    "xai": "PUT-YOUR-XAI-TOKEN-HERE",    
+    "openai": "PUT-YOUR-OPENAI-TOKEN-HERE",
+    "mistral": "PUT-YOUR-MISTRAL-TOKEN-HERE",
+    "xai": "PUT-YOUR-XAI-TOKEN-HERE",
 }
 
 

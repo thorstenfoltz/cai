@@ -12,8 +12,8 @@ from git_cai_cli.core.languages import LANGUAGE_MAP
 from google import genai  # type: ignore[reportUnknownImport]
 from google.genai import types  # type: ignore[reportUnknownImport]
 from groq import Groq
-from openai import OpenAI
 from mistralai import Mistral
+from openai import OpenAI
 
 log = logging.getLogger(__name__)
 
@@ -158,7 +158,7 @@ class CommitMessageGenerator:
             max_tokens=1024,  # this field is required by Anthropic API
         )
         return response.content[0].text.strip()
-    
+
     def generate_deepseek(
         self,
         content: str,
@@ -229,7 +229,7 @@ class CommitMessageGenerator:
             temperature=temperature,
         )
         return response.choices[0].message.content.strip()
-    
+
     def generate_mistral(
         self,
         content: str,
