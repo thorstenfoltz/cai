@@ -6,7 +6,6 @@ import logging
 import re
 import subprocess
 from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
 
 import requests
 from git_cai_cli.core.languages import LANGUAGE_MAP
@@ -27,53 +26,6 @@ class CliManager:
     ):
         self.package_name = package_name
         self.allowed_languages = allowed_languages or LANGUAGE_MAP
-
-    def get_version(self) -> str:
-        """
-        Return the installed version of the CLI package.
-
-        Returns:
-            str: The version string.
-
-        Raises:
-            PackageNotFoundError: If the package is not installed.
-        """
-        try:
-            ver = f"git-cai-cli version: {version(self.package_name)}"
-            return ver
-        except PackageNotFoundError:
-            log.error(
-                "Package '%s' not found – unable to determine version.",
-                self.package_name,
-            )
-            raise
-
-    def get_help(self) -> str:
-        """
-        Return a help message for the CLI.
-        """
-        home = Path.home()
-        return f"""
-Git CAI - AI-powered commit message generator
-
-Usage:
-  git cai        Generate commit message from staged changes
-
-Flags:
-  -h                Show this help message
-  -d, --debug       Enable debug logging
-  -l, --list        List information about languages and styles available
-  -u, --update      Check for updates
-  -v, --version     Show installed version
-
-Configuration:
-  Tokens are loaded from {home}/.config/cai/tokens.yml
-
-Examples:
-  git add .
-  git cai           Generates commit message
-
-"""
 
     def _extract_numeric_version(self, v: str):
         """
@@ -111,7 +63,7 @@ Examples:
         # Fetch latest version from PyPI
         try:
             response = requests.get(
-                f"https://pypi.org/pypi/{self.package_name}/json", timeout=3
+                f"https://pypi.org/pypi/{self.package_name}/json", timeout=10
             )
             latest_version = response.json()["info"]["version"]
         except requests.RequestException as e:
@@ -202,6 +154,34 @@ git cai -l style
         Squash commits on the current branch and summarize them.
         """
         return squash_branch()
+
+    def stage_tracked_files(self) -> None:
+        """
+        Stage all modified and deleted files that are already tracked by Git.
+
+        This mirrors the behavior of `git commit -a` by adding changes to the
+        index without staging new, untracked files.
+
+        Raises:
+            RuntimeError: If the git command fails or is not executed inside
+            a Git repository.
+        """
+        try:
+            result = subprocess.run(
+                ["git", "add", "-u"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except (FileNotFoundError, OSError) as exc:
+            log.error("Failed to execute git add -u: %s", exc)
+            raise RuntimeError("Git is not available on PATH.") from exc
+
+        if result.returncode != 0:
+            log.error("git add -u failed: %s", result.stderr.strip())
+            raise RuntimeError(
+                f"Failed to stage tracked files: {result.stderr.strip()}"
+            )
 
     def styles(self) -> dict:
         """

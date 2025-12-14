@@ -1,118 +1,203 @@
 """
-Main function
+Main CLI entry point for git-cai-cli
 """
 
-import logging
 import sys
 from pathlib import Path
 
 import typer
-from git_cai_cli.core.config import get_default_config, load_config, load_token
-from git_cai_cli.core.gitutils import (
-    commit_with_edit_template,
-    find_git_root,
-    git_diff_excluding,
-)
-from git_cai_cli.core.llm import CommitMessageGenerator
-from git_cai_cli.core.options import CliManager
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-log = logging.getLogger(__name__)
 
 app = typer.Typer(add_completion=True, help=None, no_args_is_help=False)
 
-manager = CliManager(package_name="git-cai-cli")
+HOME = Path.home()
+HELP_TEXT = f"""
+Git CAI - AI-powered commit message generator
+
+Usage:
+  git cai        Generate commit message from staged changes
+
+Flags:
+  -h,                Show this help message
+  -a, --all          Stage all modified and deleted files that are already tracked by Git
+  -d, --debug        Enable debug logging
+  -l, --list         List information about languages and styles available
+  -u, --update       Check for updates
+  -s, --squash       Squash commits on this branch and summarize them
+  -v, --version      Show installed version
+
+Configuration:
+  Tokens are loaded from {HOME}/.config/cai/tokens.yml
+"""
 
 
-def main() -> None:
-    """
-    Check for git repo, load access tokens and run git cai
-    """
-    # Ensure invoked as 'git cai'
-    # Only enforce this if we're not just asking for version/help
-    if not any(flag in sys.argv for flag in ("--version", "-v", "--help", "-h")):
-        invoked_as = Path(sys.argv[0]).name
-        if not invoked_as.startswith("git-"):
-            print("This command must be run as 'git cai'", file=sys.stderr)
-            sys.exit(1)
-
-    # Find the git repo root
-    repo_root = find_git_root()
-    if not repo_root:
-        log.error("Not inside a Git repository.")
-        sys.exit(1)
-
-    # Load configuration and token
-    config = load_config()
-    default_model = get_default_config()
-    log.debug("Default model from config: %s", default_model)
-    token = load_token(default_model)
-    if not token:
-        log.error("Missing %s token in ~/.config/cai/tokens.yml", default_model)
-        sys.exit(1)
-
-    # Get git diff
-    diff = git_diff_excluding(repo_root)
-    if not diff.strip():
-        log.info("No changes to commit. Did you run 'git add'? Files must be staged.")
-        sys.exit(0)
-
-    # Generate commit message
-    generator = CommitMessageGenerator(token, config, default_model)
-    commit_message = generator.generate(diff)
-
-    # Open git commit editor with the generated message
-    commit_with_edit_template(commit_message)
-
-
-@app.command()
-def run(
-    help_flag: bool = typer.Option(False, "-h", help="Show help", is_eager=True),
+@app.callback(invoke_without_command=True)
+def callback(
+    # fast flags
+    version: bool = typer.Option(
+        False, "-v", "--version", help="Show version", is_eager=True
+    ),
+    help_flag: bool = typer.Option(
+        False, "-h", "--help", help="Show help", is_eager=True
+    ),
+    # normal flags
     enable_debug: bool = typer.Option(
-        False, "--debug", "-d", help="Enable debug logging", is_eager=True
+        False, "--debug", "-d", help="Enable debug logging"
     ),
     list_flag: bool = typer.Option(
         False,
         "--list",
         "-l",
         help="List information (languages or styles)",
-        is_eager=True,
         is_flag=True,
     ),
     list_arg: str = typer.Argument(
         None,
         help="Optional argument for --list: 'language' or 'style'",
     ),
+    stage_tracked: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Stage all modified and deleted files that are already tracked by Git",
+    ),
     squash: bool = typer.Option(
         False,
         "--squash",
         "-s",
         help="Squash commits on this branch and summarize them",
-        is_eager=True,
     ),
-    update: bool = typer.Option(
-        False, "--update", "-u", help="Check for updates", is_eager=True
-    ),
-    version: bool = typer.Option(
-        False, "--version", "-v", help="Show version", is_eager=True
-    ),
+    update: bool = typer.Option(False, "--update", "-u", help="Check for updates"),
 ):
     """
-    Main entry point for the CLI
+    CLI bootstrap and argument routing layer.
+
+    This function is invoked by Typer before any command logic executes.
+    It is intentionally lightweight and exists to:
+
+    - Handle bootstrap flags (--help, --version) with immediate exit and
+      zero-cost execution.
+    - Validate flag combinations and enforce CLI semantics
+      (mutual exclusivity, debug compatibility).
+    - Determine the active execution mode and dispatch control to `main`.
+
+    No heavy imports should live here.
     """
+    # fast exit
     if help_flag:
-        typer.echo(manager.get_help())
+        if enable_debug:
+            typer.echo("Error: --debug cannot be used with --help.", err=True)
+            raise typer.Exit(code=1)
+
+        typer.echo(HELP_TEXT)
         raise typer.Exit()
 
-    if enable_debug:
-        manager.enable_debug()
+    if version:
+        if enable_debug:
+            typer.echo("Error: --debug cannot be used with --version.", err=True)
+            raise typer.Exit(code=1)
 
+        from git_cai_cli._version import __version__
+
+        typer.echo(f"git-cai-cli version: {__version__}")
+        raise typer.Exit()
+
+    modes = {
+        "list": list_flag,
+        "squash": squash,
+        "update": update,
+    }
+
+    active_modes = [name for name, active in modes.items() if active]
+
+    if stage_tracked and active_modes:
+        typer.echo(
+            "Error: --all cannot be used with --list, --update, or --squash.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if len(active_modes) > 1:
+        typer.echo(
+            f"Error: options {', '.join('--' + m for m in active_modes)} "
+            "cannot be used together.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    # default behaviour
+    main(
+        enable_debug=enable_debug,
+        list_flag=list_flag,
+        list_arg=list_arg,
+        stage_tracked=stage_tracked,
+        squash=squash,
+        update=update,
+    )
+
+
+def main(
+    *,
+    enable_debug: bool,
+    list_flag: bool,
+    list_arg: str | None,
+    stage_tracked: bool,
+    squash: bool,
+    update: bool,
+):
+    """
+    Core execution engine for git-cai cli.
+
+    This function contains all operational logic after CLI validation has
+    completed. It is responsible for:
+
+    - Enabling logging and debug output.
+    - Executing lightweight actions (list, squash, update).
+    - Performing the default workflow:
+        * locating the Git repository
+        * loading configuration and authentication tokens
+        * computing the staged diff
+        * generating a commit message via the LLM
+        * invoking the Git commit editor
+
+    All expensive imports and side effects are intentionally placed here so
+    they are executed only when required.
+    """
+
+    # Lazy imports
+    import logging
+
+    from git_cai_cli.core.config import (
+        get_default_config,
+        load_config,
+        load_token,
+    )
+    from git_cai_cli.core.gitutils import (
+        commit_with_edit_template,
+        find_git_root,
+        git_diff_excluding,
+    )
+    from git_cai_cli.core.llm import CommitMessageGenerator
+    from git_cai_cli.core.options import CliManager
+
+    logging.basicConfig(
+        level=logging.DEBUG if enable_debug else logging.INFO,
+        format="%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    log = logging.getLogger(__name__)
+
+    manager = CliManager(package_name="git-cai-cli")
+
+    # Ensure invoked as 'git cai'
+    invoked_as = Path(sys.argv[0]).name
+    if not invoked_as.startswith("git-"):
+        typer.echo("This command must be run as 'git cai'", err=True)
+        raise typer.Exit(code=1)
+
+    # -------------------------
+    # Lightweight actions
+    # -------------------------
     if list_flag:
-        # No argument provided → show your menu
         if list_arg is None:
             typer.echo(manager.list())
             raise typer.Exit()
@@ -125,21 +210,20 @@ def run(
 
         if option == "style":
             styles = manager.styles()
-            for style_name, details in styles.items():
-                typer.echo(f"{style_name.capitalize()}: {details['description']}")
+            for name, details in styles.items():
+                typer.echo(f"{name.capitalize()}: {details['description']}")
                 typer.echo(f"  Example: {details['example']}\n")
             raise typer.Exit()
 
-        # Invalid argument
-        log.error(
-            "Unknown list option '%s'. Valid values are 'language' or 'style'.",
-            list_arg,
-        )
         typer.echo(
             f"Error: unknown list option '{list_arg}'. "
-            "Valid values are 'language' or 'style'."
+            "Valid values are 'language' or 'style'.",
+            err=True,
         )
         raise typer.Exit(code=1)
+
+    if stage_tracked:
+        manager.stage_tracked_files()
 
     if squash:
         manager.squash_branch()
@@ -149,11 +233,31 @@ def run(
         manager.check_and_update()
         raise typer.Exit()
 
-    if version:
-        typer.echo(manager.get_version())
+    # -------------------------
+    # Main workflow
+    # -------------------------
+    repo_root = find_git_root()
+    if not repo_root:
+        log.error("Not inside a Git repository.")
+        raise typer.Exit(code=1)
+
+    config = load_config()
+    default_model = get_default_config()
+    token = load_token(default_model)
+
+    if not token:
+        log.error("Missing %s token in ~/.config/cai/tokens.yml", default_model)
+        raise typer.Exit(code=1)
+
+    diff = git_diff_excluding(repo_root)
+    if not diff.strip():
+        log.info("No changes to commit. Did you run 'git add'? Files must be staged.")
         raise typer.Exit()
 
-    main()
+    generator = CommitMessageGenerator(token, config, default_model)
+    commit_message = generator.generate(diff)
+
+    commit_with_edit_template(commit_message)
 
 
 if __name__ == "__main__":

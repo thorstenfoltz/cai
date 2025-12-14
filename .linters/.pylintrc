@@ -92,7 +92,8 @@ confidence=HIGH,CONTROL_FLOW,INFERENCE,INFERENCE_FAILURE,UNDEFINED
                                            # Only show warnings with these confidence levels
 disable=logging-too-many-args,
         import-error,
-        wrong-import-order
+        wrong-import-order,
+        import-outside-toplevel,
                                            # Disable noisy/meta warnings
 
 

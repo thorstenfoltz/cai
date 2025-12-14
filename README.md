@@ -1,6 +1,6 @@
 # cai
 
-cai is a Git extension written automating the creation of commit messages. Simply run `git cai` to automatically generate a commit message based on the changes and new files in your repository.
+cai is a Git extension to automate the creation of commit messages. Simply run `git cai` to generate automatically a commit message based on the changes and new files in your repository.
 
 cai uses a large language model (LLM) to produce commit messages that are meaningful and context-aware.
 

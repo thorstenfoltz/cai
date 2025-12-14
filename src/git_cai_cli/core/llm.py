@@ -13,6 +13,7 @@ from google import genai  # type: ignore[reportUnknownImport]
 from google.genai import types  # type: ignore[reportUnknownImport]
 from groq import Groq
 from openai import OpenAI
+from mistralai import Mistral
 
 log = logging.getLogger(__name__)
 
@@ -108,9 +109,11 @@ class CommitMessageGenerator:
         model_dispatch: Dict[str, Callable[..., str]] = {
             "openai": self.generate_openai,
             "gemini": self.generate_gemini,
-            "anthropic": self.generate_claude,
+            "anthropic": self.generate_anthropic,
             "groq": self.generate_groq,
             "xai": self.generate_xai,
+            "mistral": self.generate_mistral,
+            "deepseek": self.generate_deepseek,
         }
 
         if self.default_model not in model_dispatch:
@@ -124,7 +127,7 @@ class CommitMessageGenerator:
     # MODEL CALLS
     # ---------------------------
 
-    def generate_claude(
+    def generate_anthropic(
         self,
         content: str,
         anthropic_cls: Type[Any] = Anthropic,
@@ -152,9 +155,26 @@ class CommitMessageGenerator:
             model=model,
             messages=prompt,
             temperature=temperature,
-            max_tokens=1024,
+            max_tokens=1024,  # this field is required by Anthropic API
         )
         return response.content[0].text.strip()
+    
+    def generate_deepseek(
+        self,
+        content: str,
+        system_prompt_override: Optional[str] = None,
+    ) -> str:
+        """
+        Shared Deepseek call for commit generation or commit history summarization.
+        It uses the OpenAI API.
+        """
+        url = "https://api.deepseek.com"
+        response = self.generate_openai(
+            content=content,
+            system_prompt_override=system_prompt_override,
+            base_url=url,
+        )
+        return response
 
     def generate_gemini(
         self,
@@ -209,17 +229,48 @@ class CommitMessageGenerator:
             temperature=temperature,
         )
         return response.choices[0].message.content.strip()
+    
+    def generate_mistral(
+        self,
+        content: str,
+        mistral_cls: Type[Any] = Mistral,
+        system_prompt_override: Optional[str] = None,
+    ) -> str:
+        """
+        Shared Mistral call for commit generation or commit history summarization.
+        """
+        client = mistral_cls(api_key=self.token)
+        model = self.config["mistral"]["model"]
+        temperature = self.config["mistral"]["temperature"]
+
+        messages = [
+            {"role": "system", "content": system_prompt_override},
+            {"role": "user", "content": content},
+        ]
+
+        completion = client.chat.complete(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            stream=False,
+        )
+        return completion.choices[0].message.content.strip()
 
     def generate_openai(
         self,
         content: str,
         openai_cls: Type[Any] = OpenAI,
         system_prompt_override: Optional[str] = None,
+        base_url: Optional[str] = None,
     ) -> str:
         """
         Shared OpenAI call for commit generation or commit history summarization.
         """
-        client = openai_cls(api_key=self.token)
+        client_kwargs = {"api_key": self.token}
+        if base_url is not None:
+            client_kwargs["base_url"] = base_url
+
+        client = openai_cls(**client_kwargs)
         model = self.config["openai"]["model"]
         temperature = self.config["openai"]["temperature"]
 
@@ -232,6 +283,7 @@ class CommitMessageGenerator:
             model=model,
             messages=messages,
             temperature=temperature,
+            stream=False,
         )
         return completion.choices[0].message.content.strip()
 
