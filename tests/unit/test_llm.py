@@ -153,9 +153,9 @@ def test_generate_openai(generator):
 
 
 # test anthropic
-def test_generate_claude(generator):
+def test_generate_anthropic(generator):
     """
-    Test that the generate_claude method returns the correct message text
+    Test that the generate_anthropic method returns the correct message text
     """
     mock_cls = MagicMock()
     mock_client = MagicMock()
@@ -166,7 +166,7 @@ def test_generate_claude(generator):
     mock_client.messages.create.return_value = mock_response
     mock_cls.return_value = mock_client
 
-    result = generator.generate_claude(
+    result = generator.generate_anthropic(
         "abc", anthropic_cls=mock_cls, system_prompt_override="sys"
     )
     assert result == "test"
