@@ -12,7 +12,6 @@ from git_cai_cli.core.languages import LANGUAGE_MAP
 from google import genai  # type: ignore[reportUnknownImport]
 from google.genai import types  # type: ignore[reportUnknownImport]
 from groq import Groq
-from mistralai import Mistral
 from openai import OpenAI
 
 log = logging.getLogger(__name__)
@@ -155,7 +154,7 @@ class CommitMessageGenerator:
             model=model,
             messages=prompt,
             temperature=temperature,
-            max_tokens=1024,  # this field is required by Anthropic API
+            max_tokens=4096,  # this field is required by Anthropic API
         )
         return response.content[0].text.strip()
 
@@ -166,7 +165,7 @@ class CommitMessageGenerator:
     ) -> str:
         """
         Shared Deepseek call for commit generation or commit history summarization.
-        It uses the OpenAI API.
+        It uses the OpenAI SDK.
         """
         url = "https://api.deepseek.com"
         response = self.generate_openai(
@@ -233,28 +232,39 @@ class CommitMessageGenerator:
     def generate_mistral(
         self,
         content: str,
-        mistral_cls: Type[Any] = Mistral,
         system_prompt_override: Optional[str] = None,
     ) -> str:
         """
         Shared Mistral call for commit generation or commit history summarization.
         """
-        client = mistral_cls(api_key=self.token)
+        url = "https://api.mistral.ai/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+
         model = self.config["mistral"]["model"]
         temperature = self.config["mistral"]["temperature"]
 
-        messages = [
-            {"role": "system", "content": system_prompt_override},
-            {"role": "user", "content": content},
+        prompt = [
+            {
+                "role": "system",
+                "content": system_prompt_override,
+            },
+            {
+                "role": "user",
+                "content": content,
+            },
         ]
 
-        completion = client.chat.complete(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            stream=False,
-        )
-        return completion.choices[0].message.content.strip()
+        request = {
+            "model": model,
+            "messages": prompt,
+            "temperature": temperature,
+        }
+
+        response = requests.post(url, json=request, headers=headers, timeout=30)
+        return response.json()["choices"][0]["message"]["content"].strip()
 
     def generate_openai(
         self,
