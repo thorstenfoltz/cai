@@ -12,3 +12,7 @@ __pycache__/
 
 *.ipynb
 _version.py
+*.log
+*.tar.gz
+*.zip
+*.tar.zst

@@ -14,7 +14,6 @@ dependencies = [
     "requests>=2.32.5",
     "anthropic>=0.75.0",
     "groq>=0.37.0",
-    "mistralai>=1.9.11",
 ]
 license = { text = "MIT" }
 classifiers = [

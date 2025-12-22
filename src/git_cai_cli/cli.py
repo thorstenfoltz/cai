@@ -20,9 +20,9 @@ Flags:
   -h,                Show this help message
   -a, --all          Stage all modified and deleted files that are already tracked by Git
   -d, --debug        Enable debug logging
-  -l, --list         List information about languages and styles available
-  -u, --update       Check for updates
+  -l, --list         List information about available languages and styles
   -s, --squash       Squash commits on this branch and summarize them
+  -u, --update       Check for updates
   -v, --version      Show installed version
 
 Configuration:
@@ -246,7 +246,7 @@ def main(
     token = load_token(default_model)
 
     if not token:
-        log.error("Missing %s token in ~/.config/cai/tokens.yml", default_model)
+        log.error("Missing %s token in %s/.config/cai/tokens.yml", default_model, HOME)
         raise typer.Exit(code=1)
 
     diff = git_diff_excluding(repo_root)
