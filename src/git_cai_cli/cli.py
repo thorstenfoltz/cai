@@ -246,7 +246,11 @@ def main(
     token = load_token(default_model)
 
     if not token:
-        log.error("Missing %s token in %s/.config/cai/tokens.yml", default_model, HOME)
+        log.error(
+            "Missing %s token in %s/.config/cai/tokens.yml",
+            default_model,
+            HOME,
+        )
         raise typer.Exit(code=1)
 
     diff = git_diff_excluding(repo_root)

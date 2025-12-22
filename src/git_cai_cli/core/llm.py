@@ -265,7 +265,7 @@ class CommitMessageGenerator:
 
         response = requests.post(url, json=request, headers=headers, timeout=30)
         return response.json()["choices"][0]["message"]["content"].strip()
-    
+
     def generate_openai(
         self,
         content: str,
