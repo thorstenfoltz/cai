@@ -43,6 +43,7 @@ def test_load_config_repo_precedence(
                 "language": "nl",
                 "style": "sarcastic",
                 "emoji": "true",
+                "openai": {"model": "gpt-5.1", "temperature": 0},
             }
         )
     )
@@ -55,6 +56,7 @@ def test_load_config_repo_precedence(
                 "language": "en",
                 "style": "friendly",
                 "emoji": "false",
+                "openai": {"model": "gpt-5.1", "temperature": 0},
             }
         )
     )
