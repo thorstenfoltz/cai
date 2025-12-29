@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2025-12-28
+.\"      Date: 2025-12-29
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2025-12-28" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2025-12-29" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -37,7 +37,7 @@ git-cai \- AI\-powered commit message generator
 .br
 .SH "DESCRIPTION"
 .sp
-git\-cai is a Git extension written in Python that generates commit
+git\-cai is a Git extension that generates commit
 messages from staged changes using AI.
 .sp
 The command is invoked as \f(CRgit cai\fP and integrates into Git using the
@@ -103,6 +103,22 @@ $HOME/.config/cai/tokens.yml
 .fam
 .fi
 .if n .RE
+.sp
+Config is loaded by default from:
+.sp
+.if n .RS 4
+.nf
+.fam C
+$HOME/.config/cai/cai_config.yml
+.fam
+.fi
+.if n .RE
+.sp
+cai_config.yml can be loaded from the root of a repository. A file must simply stored
+there. Configuration can be different to the default file.
+.sp
+Tokens can be loaded from everywhere defined within "load_token_from"
+in cai_config.yml
 .SH "SEE ALSO"
 .sp
 git(1)

@@ -14,7 +14,7 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
-git-cai is a Git extension written in Python that generates commit
+git-cai is a Git extension that generates commit
 messages from staged changes using AI.
 
 The command is invoked as `git cai` and integrates into Git using the
@@ -61,6 +61,18 @@ Authentication tokens are loaded from:
 ----
 $HOME/.config/cai/tokens.yml
 ----
+
+Config is loaded by default from:
+
+----
+$HOME/.config/cai/cai_config.yml
+----
+
+cai_config.yml can be loaded from the root of a repository. A file must simply stored
+there. Configuration can be different to the default file.
+
+Tokens can be loaded from everywhere defined within "load_token_from"
+in cai_config.yml
 
 SEE ALSO
 --------
