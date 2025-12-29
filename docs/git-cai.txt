@@ -1,0 +1,79 @@
+git-cai(1)
+==========
+Thorsten Foltz
+December 2025
+
+NAME
+----
+git-cai - AI-powered commit message generator
+
+SYNOPSIS
+--------
+[verse]
+'git cai' [-a] [-d] [-l <type>] [-s] [-u] [-v]
+
+DESCRIPTION
+-----------
+git-cai is a Git extension that generates commit
+messages from staged changes using AI.
+
+The command is invoked as `git cai` and integrates into Git using the
+standard Git extension mechanism.
+
+OPTIONS
+-------
+-h, --help::
+Show this help message.
+
+-a, --all::
+Stage all modified and deleted files that are already tracked by Git
+before generating the commit message.
+
+-d, --debug::
+Enable debug logging.
+
+-l <type>, --list <type>::
+List information about available languages and styles.
+
+-s, --squash::
+Squash commits on the current branch and summarize them.
+
+-u, --update::
+Check for updates.
+
+-v, --version::
+Show the installed version.
+
+LIST TYPES
+----------
+The argument to `--list` must be one of the following:
+
+language::
+List supported languages.
+
+style::
+Show available commit message styles.
+
+CONFIGURATION
+-------------
+Authentication tokens are loaded from:
+
+----
+$HOME/.config/cai/tokens.yml
+----
+
+Config is loaded by default from:
+
+----
+$HOME/.config/cai/cai_config.yml
+----
+
+cai_config.yml can be loaded from the root of a repository. A file must simply stored
+there. Configuration can be different to the default file.
+
+Tokens can be loaded from everywhere defined within "load_tokens_from"
+in cai_config.yml
+
+SEE ALSO
+--------
+git(1)

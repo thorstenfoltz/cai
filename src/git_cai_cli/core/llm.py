@@ -22,7 +22,7 @@ class CommitMessageGenerator:
     Generates git commit messages from diffs or from multiple commit messages.
     """
 
-    def __init__(self, token: str, config: Dict[str, Any], default_model: str):
+    def __init__(self, token: str | None, config: Dict[str, Any], default_model: str):
         self.token = token
         self.config = config
         self.default_model = default_model
@@ -117,6 +117,8 @@ class CommitMessageGenerator:
 
         if self.default_model not in model_dispatch:
             raise ValueError(f"Unknown model type: '{self.default_model}'")
+
+        log.info("Using model '%s' for generation.", self.default_model)
 
         return model_dispatch[self.default_model](
             content, system_prompt_override=system_prompt

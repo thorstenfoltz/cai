@@ -17,14 +17,14 @@ cai uses a large language model (LLM) to produce commit messages that are meanin
 
 <h2 id="about-section">About</h2>
 
-cai is designed to simplify Git workflows by generating commit messages automatically using an LLM. No more struggling to summarize changes, just run `git cai`.
+cai is designed to simplify Git workflows by generating commit messages automatically using an LLM. Just run `git cai`.
 
-Currently, it supports the API of OpenAI, Gemini, Anthropic, Groq and Xai for message generation.
+Currently, it supports OpenAI, Gemini, Anthropic, Groq and Xai for message generation.
 
 <h2 id="prerequisites">Prerequisites</h2>
 
 - Python 3.10 or higher
-- [Pipx](https://pypi.org/project/pipx/) or [Pip](https://pypi.org/project/pip/) if installed in a virtual environment
+- [Pipx](https://pypi.org/project/pipx/)
 - API key, of at least one of the following providers
   - OpenAI
   - Gemini
@@ -109,6 +109,7 @@ Currently, the following options can be customized:
 - language: set the language in which the LLM should generate commit messages
 - style: choose a certain tone style of the commit message
 - emoji: boolean to enable/disable usage of emojis
+- load_tokens_from: path to the file where tokens are stored
 
 <h2 id="cli">CLI</h2>
 

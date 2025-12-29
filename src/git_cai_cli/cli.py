@@ -27,6 +27,8 @@ Flags:
 
 Configuration:
   Tokens are loaded from {HOME}/.config/cai/tokens.yml
+  Reset to default config by deleting {HOME}/.config/cai/cai_config.yml
+  and executing 'git cai' again.
 """
 
 
@@ -167,7 +169,6 @@ def main(
     import logging
 
     from git_cai_cli.core.config import (
-        get_default_config,
         load_config,
         load_token,
     )
@@ -242,23 +243,15 @@ def main(
         raise typer.Exit(code=1)
 
     config = load_config()
-    default_model = get_default_config()
-    token = load_token(default_model)
-
-    if not token:
-        log.error(
-            "Missing %s token in %s/.config/cai/tokens.yml",
-            default_model,
-            HOME,
-        )
-        raise typer.Exit(code=1)
+    provider = config["default"]
+    token = load_token(config=config)
 
     diff = git_diff_excluding(repo_root)
     if not diff.strip():
         log.info("No changes to commit. Did you run 'git add'? Files must be staged.")
         raise typer.Exit()
 
-    generator = CommitMessageGenerator(token, config, default_model)
+    generator = CommitMessageGenerator(token, config, provider)
     commit_message = generator.generate(diff)
 
     commit_with_edit_template(commit_message)
