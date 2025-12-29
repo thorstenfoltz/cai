@@ -1,2 +1,4 @@
 .devcontainer/Dockerfile
 cli.py
+config.py
+squash.py

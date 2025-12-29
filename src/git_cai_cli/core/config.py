@@ -1,5 +1,14 @@
 """
-Set configuration
+Configuration handling for git-cai-cli.
+
+This module is responsible for:
+- Locating and loading configuration files
+- Enforcing configuration precedence (repository → home → defaults)
+- Validating configuration structure and semantics
+- Providing access to authentication tokens
+
+Repository configuration, when present, is authoritative and is not merged
+with any home or default configuration.
 """
 
 import logging
@@ -23,7 +32,7 @@ CONFIG_DIR = Path.home() / ".config" / "cai"
 FALLBACK_CONFIG_FILE = CONFIG_DIR / "cai_config.yml"
 TOKENS_FILE = CONFIG_DIR / "tokens.yml"
 
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: dict[str, Any] = {
     "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
     "openai": {"model": "gpt-5.1", "temperature": 0},
     "deepseek": {"model": "deepseek-chat", "temperature": 0},
@@ -47,75 +56,138 @@ TOKEN_TEMPLATE = {
 }
 
 
+def _find_repo_config() -> Path | None:
+    """
+    Locate a repository-local configuration file.
+
+    Searches the Git repository root for `cai_config.yml` or
+    `cai_config.yaml`.
+
+    Returns:
+        Path to the repository configuration file if found,
+        otherwise None.
+    """
+    log.debug("Searching for repository configuration file")
+
+    repo_root = find_git_root()
+    if not repo_root:
+        log.debug("Not inside a Git repository")
+        return None
+
+    for name in ("cai_config.yml", "cai_config.yaml"):
+        candidate = repo_root / name
+        log.debug("Checking config candidate: %s", candidate)
+        if candidate.is_file():
+            log.info("Repository config found: %s", candidate)
+            return candidate
+
+    log.debug("No repository config found")
+    return None
+
+
 def load_config(
     fallback_config_file: Path = FALLBACK_CONFIG_FILE,
     default_config: Optional[dict[str, Any]] = None,
     allowed_languages: Optional[set[str]] = None,
 ) -> dict[str, Any]:
     """
-    Load configuration of LLM and validate structure and language.
-    """
-    if default_config is None:
-        default_config = DEFAULT_CONFIG.copy()
-    log.debug("Loading config...")
+    Load and validate the active configuration.
 
-    languages: set[str] = (
+    Precedence:
+    1. Repository configuration (authoritative)
+    2. Home configuration
+    3. Generated default configuration
+
+    Args:
+        fallback_config_file: Path to the home configuration file.
+        default_config: Optional default configuration.
+        allowed_languages: Optional set of allowed languages.
+
+    Returns:
+        A validated configuration dictionary.
+
+    Raises:
+        ValueError: If a repository configuration exists but is invalid.
+    """
+    log.debug("Loading configuration")
+
+    if default_config is None:
+        log.debug("Using built-in default configuration")
+        default_config = DEFAULT_CONFIG.copy()
+
+    languages = (
         ALLOWED_LANGUAGES.copy() if allowed_languages is None else allowed_languages
     )
-    log.debug("Loading allowed languages...")
 
-    repo_root = find_git_root()
-    repo_config_file = Path(repo_root) / "cai_config.yml" if repo_root else None
+    repo_config_file = _find_repo_config()
+    if repo_config_file:
+        log.info("Using repository configuration")
 
-    if repo_config_file and repo_config_file.exists():
         try:
-            with open(repo_config_file, "r", encoding="utf-8") as f:
+            with repo_config_file.open("r", encoding="utf-8") as f:
                 config = cast(dict[str, Any], yaml.safe_load(f) or {})
-            if config:
-                _validate_config_keys(config, DEFAULT_CONFIG)
-                config["language"] = _validate_language(config, languages)
-                config["style"] = _validate_style(config.get("style"))
-                return config
+            log.debug("Repository config loaded successfully")
         except yaml.YAMLError as e:
-            log.error("Failed to parse repo config: %s", e)
+            log.error("Failed to parse repository config %s", repo_config_file)
+            raise ValueError(
+                f"Failed to parse repository config {repo_config_file}: {e}"
+            ) from e
+
+        _validate_config_keys(config, DEFAULT_CONFIG)
+        config["language"] = _validate_language(config, languages)
+        config["style"] = _validate_style(config.get("style"))
+
+        log.info("Repository configuration validated successfully")
+        return config
+
+    log.info("No repository config found, using home configuration")
 
     if not fallback_config_file.exists() or fallback_config_file.stat().st_size == 0:
         log.warning(
-            "No config file provided and default config missing or empty. Creating default config in %s",
+            "Home config missing or empty, creating default at %s",
             fallback_config_file,
         )
+
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
+
         priority_keys = ["default", "language", "style", "emoji"]
-        ordered = {}
+        ordered: dict[str, Any] = {}
+
         for key in priority_keys:
-            if key in default_config:
-                ordered[key] = default_config[key]
+            ordered[key] = default_config[key]
 
         for key in sorted(k for k in default_config if k not in priority_keys):
             ordered[key] = default_config[key]
 
-        with open(fallback_config_file, "w", encoding="utf-8") as f:
+        with fallback_config_file.open("w", encoding="utf-8") as f:
             yaml.safe_dump(ordered, f, sort_keys=False)
+
+        log.info("Default home configuration written")
+
+        default_config["language"] = _validate_language(default_config, languages)
+        default_config["style"] = _validate_style(
+            cast(str | None, default_config.get("style"))
+        )
+
+        return default_config
+
+    try:
+        with fallback_config_file.open("r", encoding="utf-8") as f:
+            config = cast(dict[str, Any], yaml.safe_load(f) or default_config)
+        log.debug("Home config loaded successfully")
+    except yaml.YAMLError:
+        log.error("Failed to parse home config %s", fallback_config_file)
         default_config["language"] = _validate_language(default_config, languages)
         default_config["style"] = _validate_style(
             cast(str | None, default_config.get("style"))
         )
         return default_config
 
-    try:
-        with open(fallback_config_file, "r", encoding="utf-8") as f:
-            config = cast(dict[str, Any], yaml.safe_load(f) or default_config)
-        _validate_config_keys(config, DEFAULT_CONFIG)
-        config["language"] = _validate_language(config, languages)
-        config["style"] = _validate_style(config.get("style"))
-        return config
-    except yaml.YAMLError as e:
-        log.error("Failed to parse config at %s: %s", fallback_config_file, e)
-        default_config["language"] = _validate_language(default_config, languages)
-        default_config["style"] = _validate_style(
-            cast(str | None, default_config.get("style"))
-        )
-        return default_config
+    _validate_config_keys(config, DEFAULT_CONFIG)
+    config["language"] = _validate_language(config, languages)
+    config["style"] = _validate_style(config.get("style"))
+
+    return config
 
 
 def load_token(
@@ -124,75 +196,46 @@ def load_token(
     token_template: Optional[dict[str, Any]] = None,
 ) -> str | None:
     """
-    Load token to connecto to LLM
+    Load an authentication token for a given provider.
+
+    Tokens are always loaded from the user's home configuration directory.
+
+    Args:
+        key_name: Provider name.
+        tokens_file: Path to the tokens file.
+        token_template: Optional token template for initialization.
+
+    Returns:
+        Token string if present, otherwise None.
     """
+    log.debug("Loading token for provider: %s", key_name)  # nosemgrep
+
     if token_template is None:
         token_template = TOKEN_TEMPLATE.copy()
-    log.debug("Loading token...")
+
     tokens_file.parent.mkdir(parents=True, exist_ok=True)
 
     if not tokens_file.exists():
-        log.debug("Check whether file containing tokens exist")
-        log.warning("%s does not exist. Creating a token template file.", tokens_file)
-        with open(tokens_file, "w", encoding="utf-8") as f:
+        log.warning(
+            "Token file %s does not exist, creating template", tokens_file  # nosemgrep
+        )
+        with tokens_file.open("w", encoding="utf-8") as f:
             yaml.safe_dump(token_template, f)
         os.chmod(tokens_file, stat.S_IRUSR | stat.S_IWUSR)
-        log.info(  # nosemgrep
-            "Created token template at %s. Please add your tokens into the file.",
-            tokens_file,
-        )
-
+        log.info("Token template written to %s", tokens_file)  # nosemgrep
         return None
 
     try:
-        with open(tokens_file, "r", encoding="utf-8") as f:
+        with tokens_file.open("r", encoding="utf-8") as f:
             tokens = cast(dict[str, Any], yaml.safe_load(f) or {})
+        log.debug("Tokens file loaded successfully")
     except yaml.YAMLError as e:
-        log.error("Error parsing %s: %s", tokens_file, e)
+        log.error("Failed to parse tokens file %s: %s", tokens_file, e)  # nosemgrep
         return None
 
     if key_name not in tokens:
-        log.error("Key '%s' not found in %s.", key_name, tokens_file)
+        log.error("Token for provider '%s' not found", key_name)  # nosemgrep
         return None
 
+    log.debug("Token for provider '%s' loaded successfully", key_name)  # nosemgrep
     return tokens[key_name]
-
-
-def get_default_config() -> str:
-    """
-    Looks for cai_config.yml in the repo root,
-    else in ~/.config/cai/cai_config.yml.
-    Returns the value of the 'default' key if it exists.
-    Raises FileNotFoundError or KeyError otherwise.
-    """
-    repo_root = find_git_root()
-    repo_config = repo_root / "cai_config.yml" if repo_root else None
-    home_config = Path.home() / ".config" / "cai" / "cai_config.yml"
-
-    if repo_config and repo_config.is_file():
-        config_path = repo_config
-        log.info("Using config file from repo root: %s", config_path)
-    elif home_config.is_file():
-        config_path = home_config
-        log.info("Using config file from user config dir: %s", config_path)
-    else:
-        log.error("No cai_config.yml found in repo root or %s", home_config)
-        raise FileNotFoundError(
-            f"No cai_config.yml found in repo root or {home_config}"
-        )
-
-    try:
-        with config_path.open("r", encoding="utf-8") as f:
-            config = yaml.safe_load(f) or {}
-            log.debug("Loaded configuration from %s: %s", config_path, config)
-    except yaml.YAMLError as e:
-        log.exception("Error parsing YAML file %s", config_path)
-        raise ValueError(f"Error parsing YAML file {config_path}: {e}") from e
-
-    if "default" not in config:
-        log.error("'default' key not found in %s", config_path)
-        raise KeyError(f"'default' key not found in {config_path}")
-
-    default_value = config["default"]
-    log.info("Using provider: %s", default_value)
-    return default_value

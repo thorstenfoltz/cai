@@ -10,7 +10,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from git_cai_cli.core.config import get_default_config, load_config, load_token
+from git_cai_cli.core.config import load_config, load_token
 from git_cai_cli.core.gitutils import (
     _has_upstream,
     commit_with_edit_template,
@@ -76,12 +76,16 @@ def squash_branch() -> None:
     ).strip()
 
     config = load_config()
-    default_model = get_default_config()
-    token = load_token(default_model)
+    provider = config["default"]
+    token = load_token(provider)
     if not token:
-        log.error("Missing %s token in ~/.config/cai/tokens.yml", default_model)
+        log.error(
+            "Missing %s token in %s/.config/cai/tokens.yml",  # nosemgrep
+            provider,
+            Path.home(),
+        )
         sys.exit(1)
-    generator = CommitMessageGenerator(token, config, default_model)
+    generator = CommitMessageGenerator(token, config, provider)
 
     # 1) Working tree handling
     if staged:

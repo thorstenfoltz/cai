@@ -1,0 +1,111 @@
+'\" t
+.\"     Title: git-cai
+.\"    Author: Thorsten Foltz
+.\" Generator: Asciidoctor 2.0.26
+.\"      Date: 2025-12-28
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "GIT\-CAI" "1" "2025-12-28" "\ \&" "\ \&"
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.ss \n[.ss] 0
+.nh
+.ad l
+.de URL
+\fI\\$2\fP <\\$1>\\$3
+..
+.als MTO URL
+.if \n[.g] \{\
+.  mso www.tmac
+.  am URL
+.    ad l
+.  .
+.  am MTO
+.    ad l
+.  .
+.  LINKSTYLE blue R < >
+.\}
+.SH "NAME"
+git-cai \- AI\-powered commit message generator
+.SH "SYNOPSIS"
+.sp
+.nf
+\fIgit cai\fP [\-a] [\-d] [\-l <type>] [\-s] [\-u] [\-v]
+.fi
+.br
+.SH "DESCRIPTION"
+.sp
+git\-cai is a Git extension written in Python that generates commit
+messages from staged changes using AI.
+.sp
+The command is invoked as \f(CRgit cai\fP and integrates into Git using the
+standard Git extension mechanism.
+.SH "OPTIONS"
+.sp
+\-h, \-\-help
+.RS 4
+Show this help message.
+.RE
+.sp
+\-a, \-\-all
+.RS 4
+Stage all modified and deleted files that are already tracked by Git
+before generating the commit message.
+.RE
+.sp
+\-d, \-\-debug
+.RS 4
+Enable debug logging.
+.RE
+.sp
+\-l <type>, \-\-list <type>
+.RS 4
+List information about available languages and styles.
+.RE
+.sp
+\-s, \-\-squash
+.RS 4
+Squash commits on the current branch and summarize them.
+.RE
+.sp
+\-u, \-\-update
+.RS 4
+Check for updates.
+.RE
+.sp
+\-v, \-\-version
+.RS 4
+Show the installed version.
+.RE
+.SH "LIST TYPES"
+.sp
+The argument to \f(CR\-\-list\fP must be one of the following:
+.sp
+language
+.RS 4
+List supported languages.
+.RE
+.sp
+style
+.RS 4
+Show available commit message styles.
+.RE
+.SH "CONFIGURATION"
+.sp
+Authentication tokens are loaded from:
+.sp
+.if n .RS 4
+.nf
+.fam C
+$HOME/.config/cai/tokens.yml
+.fam
+.fi
+.if n .RE
+.SH "SEE ALSO"
+.sp
+git(1)
+.SH "AUTHOR"
+.sp
+Thorsten Foltz

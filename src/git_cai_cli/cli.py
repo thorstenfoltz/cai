@@ -167,7 +167,6 @@ def main(
     import logging
 
     from git_cai_cli.core.config import (
-        get_default_config,
         load_config,
         load_token,
     )
@@ -242,13 +241,13 @@ def main(
         raise typer.Exit(code=1)
 
     config = load_config()
-    default_model = get_default_config()
-    token = load_token(default_model)
+    provider = config["default"]
+    token = load_token(provider)
 
     if not token:
         log.error(
             "Missing %s token in %s/.config/cai/tokens.yml",
-            default_model,
+            provider,
             HOME,
         )
         raise typer.Exit(code=1)
@@ -258,7 +257,7 @@ def main(
         log.info("No changes to commit. Did you run 'git add'? Files must be staged.")
         raise typer.Exit()
 
-    generator = CommitMessageGenerator(token, config, default_model)
+    generator = CommitMessageGenerator(token, config, provider)
     commit_message = generator.generate(diff)
 
     commit_with_edit_template(commit_message)

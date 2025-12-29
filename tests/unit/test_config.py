@@ -16,7 +16,6 @@ from git_cai_cli.core.config import (
     TOKEN_TEMPLATE,
     _validate_config_keys,
     _validate_language,
-    get_default_config,
     load_config,
     load_token,
 )
@@ -144,50 +143,6 @@ def test_load_token_missing_key(tmp_path, caplog):
 
     # Should log an error about missing key
     assert "Key 'openai' not found" in caplog.text
-
-
-# ------------------------------
-# LOAD DEFAULT CONFIG UNIT TESTS
-# ------------------------------
-
-
-def test_get_default_config_raises_if_missing(tmp_path):
-    """
-    Confirm that a FileNotFoundError is raised when neither a repo nor
-    a home configuration file exists.
-    """
-    with (
-        patch("git_cai_cli.core.config.find_git_root", return_value=None),
-        patch("pathlib.Path.home", return_value=tmp_path),
-    ):
-        with pytest.raises(FileNotFoundError):
-            get_default_config()
-
-
-def test_get_default_config_raises_if_no_default_key(tmp_path):
-    """
-    Ensure that if a configuration file exists but does not contain the
-    'default' key, a KeyError is raised.
-    """
-    repo_config = tmp_path / "cai_config.yml"
-    repo_config.write_text("openai: {model: gpt-4}")
-
-    with patch("git_cai_cli.core.config.find_git_root", return_value=tmp_path):
-        with pytest.raises(KeyError):
-            get_default_config()
-
-
-def test_get_default_config_yaml_parse_error(tmp_path):
-    """
-    Validate that malformed YAML files properly trigger a ValueError,
-    indicating a parsing issue that should not be silently ignored.
-    """
-    repo_config = tmp_path / "cai_config.yml"
-    repo_config.write_text("default: [unclosed-list")
-
-    with patch("git_cai_cli.core.config.find_git_root", return_value=tmp_path):
-        with pytest.raises(ValueError):
-            get_default_config()
 
 
 # -------------------------------
