@@ -44,6 +44,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "default": "groq",
     "style": "professional",
     "emoji": True,
+    "load_tokens_from": TOKENS_FILE,
 }
 
 TOKEN_TEMPLATE = {
@@ -150,7 +151,7 @@ def load_config(
 
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
 
-        priority_keys = ["default", "language", "style", "emoji"]
+        priority_keys = ["default", "language", "style", "emoji", "load_tokens_from"]
         ordered: dict[str, Any] = {}
 
         for key in priority_keys:
@@ -160,7 +161,8 @@ def load_config(
             ordered[key] = default_config[key]
 
         with fallback_config_file.open("w", encoding="utf-8") as f:
-            yaml.safe_dump(ordered, f, sort_keys=False)
+            yaml.safe_dump(_serialize_config(ordered), f, sort_keys=False)
+
 
         log.info("Default home configuration written")
 
@@ -191,8 +193,7 @@ def load_config(
 
 
 def load_token(
-    key_name: str,
-    tokens_file: Path = TOKENS_FILE,
+    config: Optional[dict[str, Any]] = None,
     token_template: Optional[dict[str, Any]] = None,
 ) -> str | None:
     """
@@ -208,12 +209,25 @@ def load_token(
     Returns:
         Token string if present, otherwise None.
     """
-    log.debug("Loading token for provider: %s", key_name)  # nosemgrep
+    if config is None:
+        log.debug("No config provided, loading default configuration")
+        config = load_config()
+    log.info("Loading token for provider: %s", config["default"])  # nosemgrep
+
+    if "load_tokens_from" in config:
+        tokens_file = Path(config["load_tokens_from"])
+        log.info(
+            "Using custom tokens file from config: %s", tokens_file  # nosemgrep
+        )
+    else:
+        tokens_file = TOKENS_FILE
+        log.info("Using default tokens file: %s", tokens_file)  # nosemgrep
 
     if token_template is None:
         token_template = TOKEN_TEMPLATE.copy()
 
     tokens_file.parent.mkdir(parents=True, exist_ok=True)
+    key_name = config["default"]
 
     if not tokens_file.exists():
         log.warning(
@@ -239,3 +253,13 @@ def load_token(
 
     log.debug("Token for provider '%s' loaded successfully", key_name)  # nosemgrep
     return tokens[key_name]
+
+
+def _serialize_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    out = {}
+    for k, v in cfg.items():
+        if isinstance(v, Path):
+            out[k] = str(v)
+        else:
+            out[k] = v
+    return out

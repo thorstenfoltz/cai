@@ -20,7 +20,7 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
     """
     log.debug("Validating configuration keys")
 
-    allowed_global_keys = {"language", "default", "style", "emoji"}
+    allowed_global_keys = {"language", "default", "style", "emoji", "load_tokens_from"}
     allowed_provider_keys = set(reference.keys()) - allowed_global_keys
 
     config_keys = set(config.keys())

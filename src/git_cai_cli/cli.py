@@ -27,6 +27,8 @@ Flags:
 
 Configuration:
   Tokens are loaded from {HOME}/.config/cai/tokens.yml
+  Reset to default config by deleting {HOME}/.config/cai/cai_config.yml
+  and executing 'git cai' again.
 """
 
 
@@ -242,15 +244,7 @@ def main(
 
     config = load_config()
     provider = config["default"]
-    token = load_token(provider)
-
-    if not token:
-        log.error(
-            "Missing %s token in %s/.config/cai/tokens.yml",
-            provider,
-            HOME,
-        )
-        raise typer.Exit(code=1)
+    token = load_token(config=config)
 
     diff = git_diff_excluding(repo_root)
     if not diff.strip():
