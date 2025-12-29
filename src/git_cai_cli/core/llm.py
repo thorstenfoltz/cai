@@ -22,7 +22,7 @@ class CommitMessageGenerator:
     Generates git commit messages from diffs or from multiple commit messages.
     """
 
-    def __init__(self, token: str, config: Dict[str, Any], default_model: str):
+    def __init__(self, token: str | None, config: Dict[str, Any], default_model: str):
         self.token = token
         self.config = config
         self.default_model = default_model

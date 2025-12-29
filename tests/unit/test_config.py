@@ -2,9 +2,7 @@ import stat
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 import yaml
-
 from git_cai_cli.core.config import (
     DEFAULT_CONFIG,
     TOKEN_TEMPLATE,
@@ -12,6 +10,7 @@ from git_cai_cli.core.config import (
     load_config,
     load_token,
 )
+
 
 def test_load_config_creates_fallback(tmp_path):
     fallback = tmp_path / "cai_config.yml"
@@ -29,6 +28,7 @@ def test_load_config_creates_fallback(tmp_path):
     # Serialized file contains string
     data = yaml.safe_load(fallback.read_text())
     assert isinstance(data["load_tokens_from"], str)
+
 
 def test_load_config_reads_existing(tmp_path):
     fallback = tmp_path / "cai_config.yml"
@@ -52,6 +52,7 @@ def test_load_config_reads_existing(tmp_path):
     assert result["default"] == "openai"
     assert result["load_tokens_from"] == "/tmp/tokens.yml"
 
+
 def test_repo_config_precedence(tmp_path):
     repo_cfg = tmp_path / "cai_config.yml"
 
@@ -73,6 +74,7 @@ def test_repo_config_precedence(tmp_path):
 
     assert config == repo_data
 
+
 def test_load_token_creates_template(tmp_path):
     tokens = tmp_path / "tokens.yml"
 
@@ -90,6 +92,7 @@ def test_load_token_creates_template(tmp_path):
     loaded = yaml.safe_load(tokens.read_text())
     assert loaded == TOKEN_TEMPLATE
 
+
 def test_load_token_reads_existing(tmp_path):
     tokens = tmp_path / "tokens.yml"
     tokens.write_text(yaml.safe_dump({"openai": "abc123"}))
@@ -102,6 +105,7 @@ def test_load_token_reads_existing(tmp_path):
     token = load_token(config=config)
 
     assert token == "abc123"
+
 
 def test_load_token_missing_key(tmp_path, caplog):
     tokens = tmp_path / "tokens.yml"
@@ -116,6 +120,7 @@ def test_load_token_missing_key(tmp_path, caplog):
 
     assert result is None
     assert "Token for provider 'openai' not found" in caplog.text
+
 
 def test_serialize_config_converts_path():
     cfg = {"x": Path("/tmp/test")}

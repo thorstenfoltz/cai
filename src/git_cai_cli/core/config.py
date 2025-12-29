@@ -163,7 +163,6 @@ def load_config(
         with fallback_config_file.open("w", encoding="utf-8") as f:
             yaml.safe_dump(_serialize_config(ordered), f, sort_keys=False)
 
-
         log.info("Default home configuration written")
 
         default_config["language"] = _validate_language(default_config, languages)
@@ -216,9 +215,7 @@ def load_token(
 
     if "load_tokens_from" in config:
         tokens_file = Path(config["load_tokens_from"])
-        log.info(
-            "Using custom tokens file from config: %s", tokens_file  # nosemgrep
-        )
+        log.info("Using custom tokens file from config: %s", tokens_file)  # nosemgrep
     else:
         tokens_file = TOKENS_FILE
         log.info("Using default tokens file: %s", tokens_file)  # nosemgrep
