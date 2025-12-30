@@ -215,7 +215,7 @@ def load_token(
 
     if "load_tokens_from" in config:
         tokens_file = Path(config["load_tokens_from"])
-        log.info("Using custom tokens file from config: %s", tokens_file)  # nosemgrep
+        log.info("Using tokens file from config in: %s", tokens_file)  # nosemgrep
     else:
         tokens_file = TOKENS_FILE
         log.info("Using default tokens file: %s", tokens_file)  # nosemgrep
