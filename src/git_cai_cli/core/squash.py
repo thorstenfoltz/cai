@@ -77,7 +77,7 @@ def squash_branch() -> None:
 
     config = load_config()
     provider = config["default"]
-    token = load_token(provider)
+    token = load_token(config=config)
     if not token:
         log.error(
             "Missing %s token in %s/.config/cai/tokens.yml",  # nosemgrep

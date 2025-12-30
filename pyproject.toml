@@ -15,7 +15,7 @@ dependencies = [
     "anthropic>=0.75.0",
     "groq>=0.37.0",
 ]
-license = { text = "MIT" }
+license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -45,7 +45,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.data-files]
-"share/man/man1" = ["man/git-cai.1"]
+"share/man/man1" = ["docs/man/git-cai.1"]
 
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"
