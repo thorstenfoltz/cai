@@ -4,9 +4,6 @@ permissions:
   contents: read
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
     branches:
       - master
@@ -31,7 +28,45 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install .
           pip install pytest
+
+      - name: Create CAI config and tokens
+        run: |
+          mkdir -p /home/runner/.config/cai
+
+          cat > /home/runner/.config/cai/cai_config.yml <<'EOF'
+          default: groq
+          language: en
+          style: professional
+          emoji: false
+          load_tokens_from: /home/runner/.config/cai/tokens.yml
+          anthropic:
+            model: claude-haiku-4-5
+            temperature: 0
+          deepseek:
+            model: deepseek-chat
+            temperature: 0
+          gemini:
+            model: gemini-2.5-flash
+            temperature: 0
+          groq:
+            model: moonshotai/kimi-k2-instruct
+            temperature: 0
+          mistral:
+            model: codestral-2508
+            temperature: 0
+          openai:
+            model: gpt-5.1
+            temperature: 0
+          xai:
+            model: grok-4-1-fast-reasoning
+            temperature: 0
+          EOF
+
+          cat > /home/runner/.config/cai/tokens.yml <<'EOF'
+          groq: dummy-ci-token
+          EOF
 
       - name: Run tests
         run: |
