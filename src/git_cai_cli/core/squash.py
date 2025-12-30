@@ -58,6 +58,16 @@ def _get_branch_base() -> str:
         log.debug("Failed to determine repository root commit: %r", e)
         raise
 
+def _has_commits() -> bool:
+    """
+    Check if the current Git repository has any commits.
+    """
+    return subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode == 0
 
 def squash_branch() -> None:
     """
@@ -112,6 +122,9 @@ def squash_branch() -> None:
         log.info("Working tree clean — proceeding to squash history.")
 
     # 2) Determine branch base
+    if not _has_commits():
+        log.info("Repository has no commits — nothing to squash.")
+        return
     merge_base = _get_branch_base()
 
     # 3) Summarize commit history
