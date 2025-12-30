@@ -58,16 +58,21 @@ def _get_branch_base() -> str:
         log.debug("Failed to determine repository root commit: %r", e)
         raise
 
+
 def _has_commits() -> bool:
     """
     Check if the current Git repository has any commits.
     """
-    return subprocess.run(
-        ["git", "rev-parse", "--verify", "HEAD"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    ).returncode == 0
+    return (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode
+        == 0
+    )
+
 
 def squash_branch() -> None:
     """

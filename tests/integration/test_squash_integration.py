@@ -15,17 +15,22 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from git_cai_cli.core.squash import squash_branch
 
 
 @pytest.fixture()
 def git_repo(tmp_path) -> Path:
+    """
+    Create a real temporary Git repository for integration tests.
+    """
     subprocess.run(["git", "init"], cwd=tmp_path, check=True)
     return tmp_path
 
 
-def test_squash_branch_outside_git_repo(tmp_path, monkeypatch, caplog):
+def test_squash_branch_outside_git_repo(tmp_path, monkeypatch, caplog) -> None:
+    """
+    Integration: squash_branch logs an error when called outside a Git repository.
+    """
     monkeypatch.chdir(tmp_path)
 
     with caplog.at_level("ERROR"):
@@ -34,9 +39,7 @@ def test_squash_branch_outside_git_repo(tmp_path, monkeypatch, caplog):
     assert "Not inside a Git repository" in caplog.text
 
 
-def test_squash_branch_in_unborn_repo_is_safe(
-    git_repo, monkeypatch, caplog
-):
+def test_squash_branch_in_unborn_repo_is_safe(git_repo, monkeypatch, caplog) -> None:
     """
     Integration: squash_branch does not crash merely by being
     invoked inside a real Git repository with no commits.
