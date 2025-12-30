@@ -11,10 +11,8 @@ import sys
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
-
 from git_cai_cli.cli import app
-
+from typer.testing import CliRunner
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The 'is_flag' and 'flag_value' parameters are not supported by Typer:DeprecationWarning"
@@ -52,9 +50,7 @@ def test_version_exits_cleanly(git_cai_invocation, monkeypatch) -> None:
     """
     --version exits successfully and prints the version.
     """
-    monkeypatch.setattr(
-        "git_cai_cli._version.__version__", "9.9.9", raising=False
-    )
+    monkeypatch.setattr("git_cai_cli._version.__version__", "9.9.9", raising=False)
 
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
@@ -69,9 +65,7 @@ def test_version_exits_cleanly(git_cai_invocation, monkeypatch) -> None:
         ["--update", "--squash"],
     ],
 )
-def test_mutually_exclusive_modes_fail(
-    git_cai_invocation, args
-) -> None:
+def test_mutually_exclusive_modes_fail(git_cai_invocation, args) -> None:
     """
     Only one execution mode may be selected.
     """
@@ -149,9 +143,7 @@ def test_update_dispatches(git_cai_invocation, monkeypatch) -> None:
     assert called["ok"] is True
 
 
-def test_exits_when_not_in_git_repo(
-    git_cai_invocation, monkeypatch, caplog
-) -> None:
+def test_exits_when_not_in_git_repo(git_cai_invocation, monkeypatch, caplog) -> None:
     """
     Execution fails when not inside a Git repository.
     """
@@ -165,9 +157,7 @@ def test_exits_when_not_in_git_repo(
     assert "Not inside a Git repository" in caplog.text
 
 
-def test_exits_when_no_staged_diff(
-    git_cai_invocation, monkeypatch, caplog
-) -> None:
+def test_exits_when_no_staged_diff(git_cai_invocation, monkeypatch, caplog) -> None:
     """
     Execution exits cleanly when no staged changes exist.
     """

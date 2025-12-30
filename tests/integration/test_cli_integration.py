@@ -12,10 +12,8 @@ No real Git commands are executed.
 
 from pathlib import Path
 
-from typer.testing import CliRunner
-
 from git_cai_cli.cli import app
-
+from typer.testing import CliRunner
 
 runner = CliRunner()
 
