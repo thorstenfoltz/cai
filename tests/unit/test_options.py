@@ -1,14 +1,14 @@
 """
 Unit tests for git_cai_cli.core.options.CliManager
 """
+
 import logging
 import subprocess
+from importlib.metadata import PackageNotFoundError
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-from importlib.metadata import PackageNotFoundError
-
 from git_cai_cli.core.options import CliManager
 
 
@@ -28,6 +28,7 @@ def test_extract_numeric_version(input_version, expected) -> None:
     """
     manager = CliManager()
     assert manager._extract_numeric_version(input_version) == expected
+
 
 def test_check_and_update_package_not_installed(caplog):
     manager = CliManager()
@@ -147,6 +148,7 @@ def test_check_and_update_upgrade_failure(capsys) -> None:
     out = capsys.readouterr().out
     assert "Update failed" in out
 
+
 def test_enable_debug_sets_log_levels() -> None:
     """
     Test that enable_debug sets logging level to DEBUG.
@@ -193,6 +195,7 @@ def test_styles_returns_expected_keys() -> None:
     assert "professional" in styles
     assert "description" in styles["professional"]
 
+
 def test_squash_branch_delegates() -> None:
     """
     Test that squash_branch() delegates to the squash_branch function.
@@ -203,6 +206,7 @@ def test_squash_branch_delegates() -> None:
         manager.squash_branch()
 
     mock_squash.assert_called_once()
+
 
 def test_stage_tracked_files_success() -> None:
     """

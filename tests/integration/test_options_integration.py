@@ -1,10 +1,13 @@
 """
 Integration tests for git_cai_cli.core.options.CliManager
 """
+
 import subprocess
 from pathlib import Path
+
 import pytest
 from git_cai_cli.core.options import CliManager
+
 
 @pytest.fixture()
 def git_repo(tmp_path) -> Path:
@@ -19,6 +22,7 @@ def git_repo(tmp_path) -> Path:
         ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
     )
     return tmp_path
+
 
 def test_stage_tracked_files_in_real_git_repo(git_repo, monkeypatch) -> None:
     """
