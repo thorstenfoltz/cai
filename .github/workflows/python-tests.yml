@@ -54,3 +54,6 @@ jobs:
       - name: Run tests
         run: |
           uv run pytest
+        env:
+          XDG_CONFIG_HOME: /home/runner/.config
+          HOME: /home/runner
