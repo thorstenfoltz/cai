@@ -50,10 +50,9 @@ jobs:
           mkdir -p /home/runner/.config/cai
           cp .github/ci/cai_config.ci.yml /home/runner/.config/cai/cai_config.yml
           cp .github/ci/tokens.ci.yml /home/runner/.config/cai/tokens.yml
+          cp .github/ci/cai_config.ci.yml /home/runner/work/.config/cai/cai_config.yml
+          cp .github/ci/tokens.ci.yml /home/runner/work/.config/cai/tokens.yml
 
       - name: Run tests
         run: |
           uv run pytest
-        env:
-          XDG_CONFIG_HOME: /home/runner/.config
-          HOME: /home/runner
