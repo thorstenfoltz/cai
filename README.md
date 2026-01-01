@@ -54,13 +54,17 @@ Currently supported providers:
 ## Installation
 
 Install cai using pipx:
+
 ```sh
 pipx install git-cai-cli
 ```
+
 Ensure that pipx binaries are available in your PATH:
+
 ```sh
 pipx ensurepath
 ```
+
 **Restart your shell after installation.**
 
 ---
@@ -68,9 +72,11 @@ pipx ensurepath
 ## Usage
 
 Once installed, cai works like a standard Git command:
+
 ```sh
 git cai
 ```
+
 cai uses the output of `git diff` to generate a commit message.  
 The generated message is opened in your configured Git editor, allowing you to review or edit it before committing.
 
@@ -114,9 +120,11 @@ Examples of per-repository customization:
 - Emojis enabled or disabled per project
 
 To create a repository-specific configuration:
+
 ```sh
 cp ~/.config/cai/cai_config.yml .
 ```
+
 Modify the copied file as needed.
 
 ### Available configuration options
