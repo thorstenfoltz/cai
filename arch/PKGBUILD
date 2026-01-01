@@ -1,6 +1,6 @@
 # Maintainer: Thorsten Foltz <thorsten.foltz@live.com>
 
-pkgname=git-cai-cli
+pkgname=cai
 pkgver=0.6.4
 pkgrel=1
 pkgdesc="Use LLM to create git commit messages."
