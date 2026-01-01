@@ -1,0 +1,51 @@
+###############################################################################
+# Global defaults
+###############################################################################
+
+# Automatically detect text files and normalize line endings
+* text=auto
+
+###############################################################################
+# Enforce Linux (LF) line endings for known text formats
+###############################################################################
+
+# YAML
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Shell scripts
+*.sh    text eol=lf
+
+# Python
+*.py    text eol=lf
+
+# Makefiles
+Makefile        text eol=lf
+makefile        text eol=lf
+*.mk            text eol=lf
+
+# Plain text
+*.txt   text eol=lf
+*.md    text eol=lf
+*.rst   text eol=lf
+
+###############################################################################
+# Git configuration and metadata files
+###############################################################################
+
+.gitattributes  text eol=lf
+.gitignore      text eol=lf
+.gitmodules     text eol=lf
+
+###############################################################################
+# Binary files (never attempt to diff or normalize)
+###############################################################################
+
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.pdf   binary
+*.zip   binary
+*.tar   binary
+*.gz    binary
