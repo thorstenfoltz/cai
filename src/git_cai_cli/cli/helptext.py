@@ -1,0 +1,38 @@
+"""
+Help text for git-cai-cli.
+"""
+
+from pathlib import Path
+
+import typer
+
+HOME = Path.home()
+
+HELP_TEXT = f"""
+Git CAI - AI-powered commit message generator
+
+Usage:
+  git cai        Generate commit message from staged changes
+
+Flags:
+  -h,                Show this help message
+  -a, --all          Stage all modified and deleted files that are already tracked by Git
+  -d, --debug        Enable debug logging
+  -l, --list         List information about available languages and styles
+  -s, --squash       Squash commits on this branch and summarize them
+  -u, --update       Check for updates
+  -v, --version      Show installed version
+
+Configuration:
+  Tokens are loaded from {HOME}/.config/cai/tokens.yml
+  Reset to default config by deleting {HOME}/.config/cai/cai_config.yml
+  and executing 'git cai' again.
+"""
+
+
+def print_help_and_exit() -> None:
+    """
+    Print help text and exit.
+    """
+    typer.echo(HELP_TEXT)
+    raise typer.Exit()

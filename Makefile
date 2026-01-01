@@ -42,7 +42,7 @@ clean: ## Clean cache of uv and delete virtual environment
 
 lint:
 	@sh ./.linters/check_git_branch_name.sh
-	@npx mega-linter-runner	--flavor python
+	@npx mega-linter-runner
 
 lint-fix: ## Lints the code using sqlfluff and fixes the issues
 	@npx mega-linter-runner --fix
