@@ -94,6 +94,9 @@ jobs:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
+      - name: Generate version file
+        run: cp .github/ci/_version.py "$GITHUB_WORKSPACE/src/git_cai_cli/_version.py"
+
       # MegaLinter
       - name: MegaLinter
         uses: oxsecurity/megalinter@55a59b24a441e0e1943080d4a512d827710d4a9d

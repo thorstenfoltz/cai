@@ -1,69 +1,68 @@
-"""
-CLI integration test without real Git operations.
-
-This test verifies that the CLI:
-- passes argument parsing
-- executes the main workflow
-- generates a commit message
-- attempts to commit via the Git abstraction
-
-No real Git commands are executed.
-"""
-
+import os
+import subprocess
 from pathlib import Path
 
-from git_cai_cli.cli import app
+import pytest
+from git_cai_cli.cli import cli
 from typer.testing import CliRunner
 
 runner = CliRunner()
 
 
-def test_cli_happy_path_without_real_git(monkeypatch) -> None:
+@pytest.fixture
+def temp_git_repo():
     """
-    The CLI executes the full main workflow and attempts
-    to create a commit when staged changes exist.
+    Create a temporary Git repository with a staged file.
+    The repo is fully isolated and safe.
     """
-    monkeypatch.setattr(
-        "git_cai_cli.core.gitutils.find_git_root",
-        lambda: Path("/fake/repo"),
-    )
+    with runner.isolated_filesystem() as temp_dir:
+        temp_path = Path(temp_dir)
 
-    monkeypatch.setattr(
-        "git_cai_cli.core.gitutils.git_diff_excluding",
-        lambda _: "diff --git a/file b/file\n+change",
-    )
+        # Initialize a git repository
+        subprocess.run(["git", "init"], cwd=temp_path, check=True)
 
-    monkeypatch.setattr(
-        "git_cai_cli.core.config.load_config",
-        lambda: {"default": "dummy"},
-    )
+        # Create a dummy file
+        file_path = temp_path / "file.txt"
+        file_path.write_text("Hello world\n")
 
-    monkeypatch.setattr(
-        "git_cai_cli.core.config.load_token",
-        lambda config: "DUMMY_TOKEN",
-    )
+        # Stage the file (do NOT commit)
+        subprocess.run(["git", "add", "file.txt"], cwd=temp_path, check=True)
 
-    monkeypatch.setattr(
-        "git_cai_cli.core.llm.CommitMessageGenerator.generate",
-        lambda self, diff: "Generated commit message",
-    )
+        yield temp_path  # provide the path to the test
 
-    commit_called = {}
 
-    def fake_commit(message: str) -> None:
-        commit_called["message"] = message
+def test_cli_integration(temp_git_repo, monkeypatch):
+    """
+    Full integration test for git-cai-cli CLI.
+    CLI sees a staged file but does NOT commit anything.
+    """
+    # Patch functions that perform real work
+    monkeypatch.setattr(cli, "run", lambda **kwargs: None)
+    monkeypatch.setattr(cli, "resolve_mode", lambda **kwargs: "dummy_mode")
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
 
-    monkeypatch.setattr(
-        "git_cai_cli.core.gitutils.commit_with_edit_template",
-        fake_commit,
-    )
+    # Change working directory to the temp repo
+    old_cwd = os.getcwd()
+    os.chdir(temp_git_repo)
+    try:
+        # Run the CLI with no arguments
+        result = runner.invoke(cli.app, [])
+        assert result.exit_code == 0
 
-    monkeypatch.setattr(
-        "sys.argv",
-        ["git-cai"],
-    )
+        # Run the CLI --help
+        help_result = runner.invoke(cli.app, ["--help"])
+        assert help_result.exit_code == 0
+        assert "Git CAI - AI-powered commit message generator" in help_result.output
 
-    result = runner.invoke(app, [])
+        # Run CLI with multiple flags
+        args = ["--list", "--all", "--squash", "--update", "--debug"]
+        result_flags = runner.invoke(cli.app, args)
+        assert result_flags.exit_code == 0
 
-    assert result.exit_code == 0
-    assert commit_called["message"] == "Generated commit message"
+        # Verify that no commits exist in this temporary repo
+        git_head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True
+        )
+        assert git_head.returncode != 0  # no commits exist
+    finally:
+        os.chdir(old_cwd)

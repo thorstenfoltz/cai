@@ -16,3 +16,6 @@ _version.py
 *.tar.gz
 *.zip
 *.tar.zst
+
+# exceptions
+!.github/ci/_version.py

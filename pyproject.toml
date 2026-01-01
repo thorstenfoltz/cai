@@ -35,7 +35,7 @@ Homepage = "https://github.com/thorstenfoltz/cai"
 Issues = "https://github.com/thorstenfoltz/cai/issues"
 
 [project.scripts]
-git-cai = "git_cai_cli.cli:app"
+git-cai = "git_cai_cli.cli.cli:app"
 
 [build-system]
 requires = ["setuptools>=64", "setuptools-scm>=8"]
