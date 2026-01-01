@@ -95,7 +95,7 @@ jobs:
           fetch-depth: 0
 
       - name: Generate version file
-        run: cp .github/ci/_version.py "$GITHUB_WORKSPACE/src/git_cai_cli/_version.py"        
+        run: cp .github/ci/_version.py "$GITHUB_WORKSPACE/src/git_cai_cli/_version.py"
 
       # MegaLinter
       - name: MegaLinter
