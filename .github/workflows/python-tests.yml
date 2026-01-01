@@ -9,7 +9,22 @@ on:
       - master
 
 jobs:
+  check-branch-name:
+    name: Check git branch name
+    runs-on: ubuntu-slim
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Make script executable
+        run: chmod +x .linters/check_git_branch_name.sh
+
+      - name: Run branch name check
+        run: .linters/check_git_branch_name.sh
+
   test:
+    needs: check-branch-name
     runs-on: ubuntu-slim
 
     strategy:
