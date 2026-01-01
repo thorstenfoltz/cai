@@ -2,10 +2,8 @@ name: MegaLinter
 
 on:
   workflow_run:
-    workflows:
-      - Python tests
-    types:
-      - completed
+    workflows: [Python-test]
+    types: [completed]
 
 concurrency:
   group: ${{ github.ref }}-${{ github.workflow }}
