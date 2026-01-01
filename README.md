@@ -1,64 +1,75 @@
 # cai
 
-cai is a Git extension to automate the creation of commit messages. Simply run `git cai` to generate automatically a commit message based on the changes and new files in your repository.
+![PyPI](https://img.shields.io/pypi/v/git-cai-cli)
+![Python](https://img.shields.io/pypi/pyversions/git-cai-cli)
+[![MegaLinter](https://img.shields.io/github/actions/workflow/status/thorstenfoltz/cai/python-tests.yml?label=MegaLinter)](https://github.com/thorstenfoltz/cai/actions/workflows/python-tests.yml)
+![License](https://img.shields.io/github/license/thorstenfoltz/cai?label=License)
+[![CI](https://img.shields.io/github/actions/workflow/status/thorstenfoltz/cai/python-tests.yml?label=Tests)](https://github.com/thorstenfoltz/cai/actions/workflows/python-tests.yml)
+![Downloads](https://img.shields.io/pypi/dm/git-cai-cli?label=Downloads)
 
-cai uses a large language model (LLM) to produce commit messages that are meaningful and context-aware.
+cai is a Git extension that automates the creation of commit messages.  
+Simply run `git cai` to generate a meaningful, context-aware commit message based on the changes in your repository.
 
-## Table of Contents
+cai uses a Large Language Model (LLM) to analyse diffs and new files, producing concise and informative commit messages.
 
-- [About](#about-section)
-- [Prerequisites](#prerequisites)
-- [Features](#features-section)
-- [Installation](#installation-section)
-- [Usage](#usage-section)
-- [Configuration](#config-section)
-- [CLI](#cli)
-- [License](#license-section)
+Currently supported providers:
 
-<h2 id="about-section">About</h2>
+- OpenAI
+- Gemini
+- Anthropic
+- Groq
+- xAI
+- Mistral
+- DeepSeek
 
-cai is designed to simplify Git workflows by generating commit messages automatically using an LLM. Just run `git cai`.
+---
 
-Currently, it supports OpenAI, Gemini, Anthropic, Groq and Xai for message generation.
-
-<h2 id="prerequisites">Prerequisites</h2>
+## Prerequisites
 
 - Python 3.10 or higher
-- [Pipx](https://pypi.org/project/pipx/)
-- API key, of at least one of the following providers
+- [pipx](https://pypi.org/project/pipx/)
+- An API key for at least one of the following providers:
   - OpenAI
-  - Gemini
+  - Gemini (free tier available)
   - Anthropic
-  - Groq
-  - Xai
+  - Groq (free tier available)
+  - xAI
   - Mistral
-  - Deepseek
+  - DeepSeek
 
-<h2 id="features-section">Features</h2>
+---
+
+## Features
 
 - Automatically detects added, modified, and deleted files
 - Generates meaningful, context-aware commit messages using an LLM
-- Seamless integration with Git as a plugin/extension
-- Supports different LLM models and languages for each repository, as well as global configuration
-- Allows to squash all commits in a branch and summarizes the commit messages
+- Seamless integration with Git
+- Supports multiple LLM providers and models
+- Global configuration with **per-repository overrides**
+- Repository-specific language, style, and model selection
+- Optional commit squashing with automatic summary generation
 
-<h2 id="installation-section">Installation</h2>
+---
 
-Installation:
+## Installation
+
+Install cai using pipx:
 
 ```sh
 pipx install git-cai-cli
 ```
 
-Afterwards, add to `PATH`:
+Ensure that pipx binaries are available in your PATH:
 
 ```sh
 pipx ensurepath
 ```
 
-Finally, restart the shell.
+**Restart your shell after installation.**
 
-<h2 id="usage-section">Usage</h2>
+---
+
+## Usage
 
 Once installed, cai works like a standard Git command:
 
@@ -66,62 +77,83 @@ Once installed, cai works like a standard Git command:
 git cai
 ```
 
-`cai` uses Git’s `diff` output to generate commit messages. The generated message is then opened within the editor according to your git configuration, allowing reviewing and editing before confirming the commit.  
+cai uses the output of `git diff` to generate a commit message.  
+The generated message is opened in your configured Git editor, allowing you to review or edit it before committing.
 
 In short: it behaves like `git commit`, but the commit message is pre-filled.
 
-To exclude specific files or directories from being included in the generated commit message, create a `.caiignore` file in the root of your repository. This file works like a `.gitignore`.  
+### Ignoring files
 
-- Files listed in `.gitignore` are **always excluded**.  
-- `.caiignore` is only needed for files that are tracked by Git but should **not** be included in the commit message.
+To exclude specific files or directories from being considered when generating commit messages, create a `.caiignore` file in the root of your repository.
 
-<h2 id="config-section">Configuration</h2>
+- Files listed in `.gitignore` are **always excluded**
+- `.caiignore` is intended for tracked files that should **not** influence commit messages
 
-The first time you run `git cai` two configuration files are automatically created:
+The syntax is identical to `.gitignore`.
 
-- `cai_config.yml` – Stores general settings:
+---
 
-```sh
-home/<USERNAME>/.config/cai/cai_config.yml
-```
+## Configuration
 
-- `tokens.yml` – Stores API token(s):
+On first execution, cai automatically creates two configuration files:
 
-```sh
-home/<USERNAME>/.config/cai/tokens.yml
-```
+- Global configuration:  
+  ~/.config/cai/cai_config.yml
 
-Add provider API token to `tokens.yml` so that cai can use it each time to generate a commit message.
+- API tokens:  
+  ~/.config/cai/tokens.yml
 
-If a `cai_config.yml` file exists in the root of your repository, cai will use the settings defined there. Otherwise, it falls back to the default settings.
+Add your provider API keys to `tokens.yml`. Once configured, cai will reuse them automatically.
 
-To use a repository-specific configuration, copy the config file to the root of your repository and adjust it as needed:
+### Repository-specific configuration
+
+Each repository can be configured **independently**.
+
+If a `cai_config.yml` file exists in the root of a repository, cai will use it instead of the global configuration.  
+This allows different projects to use different providers, models, languages, and styles.
+
+Examples of per-repository customization:
+
+- Different LLM providers or models
+- Different commit message languages
+- Different writing styles or tones
+- Emojis enabled or disabled per project
+
+To create a repository-specific configuration:
 
 ```sh
 cp ~/.config/cai/cai_config.yml .
 ```
 
-Currently, the following options can be customized:
+Modify the copied file as needed.
 
-- default: set the default provider
-- model: specify which model of the provider to use (please note, perhaps not all models will work)
-- temperature: control how creative the model’s responses are
-- language: set the language in which the LLM should generate commit messages
-- style: choose a certain tone style of the commit message
-- emoji: boolean to enable/disable usage of emojis
-- load_tokens_from: path to the file where tokens are stored
+### Available configuration options
 
-<h2 id="cli">CLI</h2>
+- `default` – default LLM provider
+- `model` – model to use for the selected provider  
+  (note: not all models may be compatible)
+- `temperature` – controls how creative the generated messages are
+- `language` – language used for commit messages
+- `style` – tone or style of the commit message
+- `emoji` – enable or disable emojis
+- `load_tokens_from` – path to the file where API tokens are stored
 
-Besides running `git cai` to generate commit messages, you can use the following options:
+---
 
-- `-h` shows a brief help message with available commands
-- `-a`, `--all` stages all modified and deleted files that are already tracked by Git
-- `-d`, `--debug` enables debug logging to help troubleshoot issues
-- `-l`, `--list` list information about languages and styles which can be used
-- `-s`, `--squash` squash commits on this branch and summarize them
-- `-u`, `--update` checks for updates the `cai` tool
-- `-v`, `--version` displays the currently installed version
+## CLI
 
-<h2 id="license-section">License</h2>
+In addition to `git cai`, the following options are available:
+
+- `-h` `--help` – show help and available commands
+- `-a`, `--all` – stage all tracked modified and deleted files
+- `-d`, `--debug` – enable debug logging
+- `-l`, `--list` – list available languages and styles
+- `-s`, `--squash` – squash commits on the current branch and summarize them
+- `-u`, `--update` – check for updates
+- `-v`, `--version` – show the installed version
+
+---
+
+## License
+
 This project is licensed under the MIT License.
