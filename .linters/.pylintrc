@@ -9,7 +9,7 @@ unsafe-load-any-extension=no    # Prevent loading arbitrary C extensions for saf
 ignore=venv,build,dist,__pycache__,tests        # Ignore common generated/virtual dirs
 ignore-paths=.*[\\/](\.venv|\.mypy_cache|\.pytest_cache|build|dist|docs)([\\/].*)?$
 
-ignore-patterns=^\.#                       # Ignore editor lockfiles (e.g., Emacs)
+ignore-patterns=^\.#,^__init__\.py$        # Ignore editor lockfiles (e.g., Emacs)
 
 extension-pkg-allow-list=                  # List allowed C-extension modules (empty = none)
 fail-on=                                   # Fail immediately if these specific warnings/errors are found
