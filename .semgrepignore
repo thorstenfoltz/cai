@@ -2,3 +2,4 @@
 cli.py
 config.py
 squash.py
+release_aur.yml

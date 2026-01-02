@@ -3,6 +3,11 @@ name: Publish to AUR
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.6.5)"
+        required: true
 
 jobs:
   aur:
@@ -20,8 +25,12 @@ jobs:
       - name: Determine version
         id: version
         run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+          else
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Download release tarball
