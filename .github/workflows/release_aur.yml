@@ -1,0 +1,103 @@
+name: Publish to AUR
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  aur:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git curl openssh-client
+
+      - name: Determine version
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Download release tarball
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          curl -L \
+            -o cai-${VERSION}.tar.gz \
+            https://github.com/${{ github.repository }}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz
+
+      - name: Compute sha256sum
+        id: sha
+        run: |
+          SHA256=$(sha256sum cai-${{ steps.version.outputs.version }}.tar.gz | awk '{print $1}')
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Configure SSH for AUR (RSA)
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+
+          cat >> ~/.ssh/config <<'EOF'
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            User aur
+          EOF
+
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Clone AUR repository (master branch)
+        run: |
+          git -c init.defaultBranch=master clone \
+            ssh://aur@aur.archlinux.org/cai.git aur
+
+      - name: Copy PKGBUILD and .SRCINFO
+        run: |
+          cp .github/cd/PKGBUILD aur/PKGBUILD
+          cp .github/cd/.SRCINFO aur/.SRCINFO
+
+      - name: Update PKGBUILD and .SRCINFO
+        run: |
+          cd aur
+
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA="${{ steps.sha.outputs.sha256 }}"
+
+          # PKGBUILD
+          sed -i \
+            -e "s/^pkgver=.*/pkgver=${VERSION}/" \
+            -e "s/^sha256sums=.*/sha256sums=('${SHA}')/" \
+            PKGBUILD
+
+          # .SRCINFO (tabs are significant)
+          sed -i \
+            -e "s/^\tpkgver = .*/\tpkgver = ${VERSION}/" \
+            -e "s|^\tsource = .*|\tsource = cai-${VERSION}.tar.gz::https://github.com/thorstenfoltz/cai/archive/refs/tags/${VERSION}.tar.gz|" \
+            -e "s/^\tsha256sums = .*/\tsha256sums = ${SHA}/" \
+            .SRCINFO
+
+      - name: test_changes
+        run: |
+            cd aur
+            cat PKGBUILD
+            cat .SRCINFO
+
+      - name: Verify changes
+        run: |
+          cd aur
+          git status --porcelain | grep -E 'PKGBUILD|\.SRCINFO'
+
+      - name: Commit and push
+        run: |
+          cd aur
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          #git add PKGBUILD .SRCINFO
+          #git commit -m "release ${{ steps.version.outputs.version }}"
+          #git push
