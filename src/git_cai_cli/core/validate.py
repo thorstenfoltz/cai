@@ -84,6 +84,50 @@ def _validate_language(config: dict[str, Any], allowed_languages: set[str]) -> s
     return lang_code
 
 
+def _validate_llm_call(fn, *args, token: str | None, **kwargs) -> Any:
+    """
+    Executes an LLM call and converts authentication-related failures
+    into clean, user-facing errors.
+    """
+    if not token or not token.strip():
+        log.error("LLM API token is missing.")
+        log.error("If this is the first run after installation, this is expected. Please configure your API key.")
+        raise ValueError(
+            "API token is missing. Please configure your API key."
+        )
+
+    try:
+        return fn(*args, **kwargs)
+
+    except Exception as exc:
+        msg = str(exc).lower()
+
+        auth_markers = (
+            "api key",
+            "apikey",
+            "authorization",
+            "unauthorized",
+            "forbidden",
+            "400",
+            "401",
+            "403",
+            "invalid token",
+            "invalid api key",
+            "authentication",
+            "permission denied",
+        )
+
+        if any(marker in msg for marker in auth_markers):
+            log.error("LLM authentication failed.")
+            log.error("If this is the first run after installation, this is expected. Please configure your API key.")
+            raise ValueError(
+                "API token is invalid or not authorized. Please check your API key."
+            ) from None
+
+        log.exception("Unexpected error during LLM execution.")
+        raise
+
+
 def _validate_style(style: str | None) -> str:
     """
     Validate the commit message tone style.
