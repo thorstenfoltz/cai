@@ -15,4 +15,5 @@ exclude_path = [
     "logs",
     "megalinter-reports",
     ".venv",
+    ".github/workflows",
     ]

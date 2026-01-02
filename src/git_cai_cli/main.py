@@ -55,6 +55,7 @@ def run(
     )
     from git_cai_cli.core.llm import CommitMessageGenerator
     from git_cai_cli.core.options import CliManager
+    from git_cai_cli.core.validate import _validate_llm_call
 
     log = logging.getLogger(__name__)
     manager = CliManager(package_name="git-cai-cli")
@@ -108,6 +109,14 @@ def run(
         raise typer.Exit()
 
     generator = CommitMessageGenerator(token, config, provider)
-    commit_message = generator.generate(diff)
+    try:
+        commit_message = _validate_llm_call(
+            generator.generate,
+            diff,
+            token=token,
+        )
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
 
     commit_with_edit_template(commit_message)
