@@ -44,7 +44,7 @@ def callback(
     if version:
         from git_cai_cli._version import __version__
 
-        typer.echo(f"git-cai-cli version: {__version__}")
+        typer.echo(f"cai version: {__version__}")
         raise typer.Exit()
 
     mode = resolve_mode(list_flag=list_flag, squash=squash, update=update)
