@@ -67,6 +67,13 @@ pipx ensurepath
 
 **Restart your shell after installation.**
 
+If you are running Arch Linux or an Arch-based distribution such as EndeavourOS, CachyOS, etc.,
+you can install the package from the AUR using a package manager like Paru.
+
+```sh
+paru -S cai
+```
+
 ---
 
 ## Usage
@@ -103,7 +110,9 @@ On first execution, cai automatically creates two configuration files:
 - API tokens:  
   ~/.config/cai/tokens.yml
 
+Don't be scared the first run will show an error. It only misses a token.
 Add your provider API keys to `tokens.yml`. Once configured, cai will reuse them automatically.
+Set your preferred LLM in `cai_config.yml` (Groq by default).
 
 ### Repository-specific configuration
 
