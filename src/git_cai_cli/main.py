@@ -53,9 +53,9 @@ def run(
         find_git_root,
         git_diff_excluding,
     )
-    from git_cai_cli.core.validate import _validate_llm_call
     from git_cai_cli.core.llm import CommitMessageGenerator
     from git_cai_cli.core.options import CliManager
+    from git_cai_cli.core.validate import _validate_llm_call
 
     log = logging.getLogger(__name__)
     manager = CliManager(package_name="git-cai-cli")

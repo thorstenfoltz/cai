@@ -91,10 +91,10 @@ def _validate_llm_call(fn, *args, token: str | None, **kwargs) -> Any:
     """
     if not token or not token.strip():
         log.error("LLM API token is missing.")
-        log.error("If this is the first run after installation, this is expected. Please configure your API key.")
-        raise ValueError(
-            "API token is missing. Please configure your API key."
+        log.error(
+            "If this is the first run after installation, this is expected. Please configure your API key."
         )
+        raise ValueError("API token is missing. Please configure your API key.")
 
     try:
         return fn(*args, **kwargs)
@@ -119,7 +119,9 @@ def _validate_llm_call(fn, *args, token: str | None, **kwargs) -> Any:
 
         if any(marker in msg for marker in auth_markers):
             log.error("LLM authentication failed.")
-            log.error("If this is the first run after installation, this is expected. Please configure your API key.")
+            log.error(
+                "If this is the first run after installation, this is expected. Please configure your API key."
+            )
             raise ValueError(
                 "API token is invalid or not authorized. Please check your API key."
             ) from None
