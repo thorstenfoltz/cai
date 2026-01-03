@@ -36,10 +36,9 @@ jobs:
       - name: Download release tarball
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          curl -L \
+          curl -fL \
             -o cai-${VERSION}.tar.gz \
             https://github.com/${{ github.repository }}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz
-          ls
 
       - name: Compute sha256sum
         id: sha
