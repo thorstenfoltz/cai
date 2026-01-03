@@ -36,9 +36,18 @@ jobs:
       - name: Download release tarball
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${VERSION}"
+          fi
+
+          echo "Downloading tag: ${TAG}"
+
           curl -fL \
             -o cai-${VERSION}.tar.gz \
-            https://github.com/${{ github.repository }}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz
+            https://github.com/thorstenfoltz/cai/archive/refs/tags/${TAG}.tar.gz
 
       - name: Compute sha256sum
         id: sha
