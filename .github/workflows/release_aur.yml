@@ -39,6 +39,7 @@ jobs:
           curl -L \
             -o cai-${VERSION}.tar.gz \
             https://github.com/${{ github.repository }}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz
+          ls
 
       - name: Compute sha256sum
         id: sha
@@ -80,15 +81,16 @@ jobs:
           # PKGBUILD
           sed -i \
             -e "s/^pkgver=.*/pkgver=${VERSION}/" \
-            -e "s/^sha256sums=.*/sha256sums=('${SHA}')/" \
+            -e "/^sha256sums=/,/^)/c\sha256sums=(\n  '${SHA}'\n)" \
             PKGBUILD
 
-          # .SRCINFO (tabs are significant)
+          # .SRCINFO
           sed -i \
             -e "s/^\tpkgver = .*/\tpkgver = ${VERSION}/" \
             -e "s|^\tsource = .*|\tsource = cai-${VERSION}.tar.gz::https://github.com/thorstenfoltz/cai/archive/refs/tags/${VERSION}.tar.gz|" \
             -e "s/^\tsha256sums = .*/\tsha256sums = ${SHA}/" \
             .SRCINFO
+
 
       - name: test_changes
         run: |
