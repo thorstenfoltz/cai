@@ -5,7 +5,6 @@
 [![MegaLinter](https://img.shields.io/github/actions/workflow/status/thorstenfoltz/cai/python-tests.yml?label=MegaLinter)](https://github.com/thorstenfoltz/cai/actions/workflows/python-tests.yml)
 ![License](https://img.shields.io/github/license/thorstenfoltz/cai?label=License)
 [![CI](https://img.shields.io/github/actions/workflow/status/thorstenfoltz/cai/python-tests.yml?label=Tests)](https://github.com/thorstenfoltz/cai/actions/workflows/python-tests.yml)
-![Downloads](https://img.shields.io/pypi/dm/git-cai-cli?label=Downloads)
 
 cai is a Git extension that automates the creation of commit messages.  
 Simply run `git cai` to generate a meaningful, context-aware commit message based on the changes in your repository.

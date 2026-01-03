@@ -11,7 +11,7 @@ on:
 
 jobs:
   aur:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout repository
@@ -22,7 +22,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git curl openssh-client
 
-      - name: Determine version
+      - name: Determine release version
         id: version
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
@@ -36,9 +36,18 @@ jobs:
       - name: Download release tarball
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          curl -L \
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${VERSION}"
+          fi
+
+          echo "Downloading tag: ${TAG}"
+
+          curl -fL \
             -o cai-${VERSION}.tar.gz \
-            https://github.com/${{ github.repository }}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz
+            https://github.com/thorstenfoltz/cai/archive/refs/tags/${TAG}.tar.gz
 
       - name: Compute sha256sum
         id: sha
@@ -80,26 +89,33 @@ jobs:
           # PKGBUILD
           sed -i \
             -e "s/^pkgver=.*/pkgver=${VERSION}/" \
-            -e "s/^sha256sums=.*/sha256sums=('${SHA}')/" \
+            -e "/^sha256sums=/,/^)/c\sha256sums=(\n  '${SHA}'\n)" \
             PKGBUILD
 
-          # .SRCINFO (tabs are significant)
+          # .SRCINFO
           sed -i \
             -e "s/^\tpkgver = .*/\tpkgver = ${VERSION}/" \
             -e "s|^\tsource = .*|\tsource = cai-${VERSION}.tar.gz::https://github.com/thorstenfoltz/cai/archive/refs/tags/${VERSION}.tar.gz|" \
             -e "s/^\tsha256sums = .*/\tsha256sums = ${SHA}/" \
             .SRCINFO
 
-      - name: test_changes
+      - name: Show updated files
         run: |
           cd aur
           cat PKGBUILD
+          echo "-----"
           cat .SRCINFO
 
-      - name: Verify changes
+      - name: Verify PKGBUILD and .SRCINFO have changed
         run: |
+          set -euo pipefail
+
           cd aur
-          git status --porcelain | grep -E 'PKGBUILD|\.SRCINFO'
+
+          STATUS="$(git status --porcelain)"
+
+          echo "$STATUS" | grep -q '^.*PKGBUILD$'
+          echo "$STATUS" | grep -q '^.*\.SRCINFO$'
 
       - name: Commit and push
         run: |
@@ -107,6 +123,6 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-          #git add PKGBUILD .SRCINFO
-          #git commit -m "release ${{ steps.version.outputs.version }}"
-          #git push
+          git add PKGBUILD .SRCINFO
+          git commit -m "release ${{ steps.version.outputs.version }}"
+          git push
