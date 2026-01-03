@@ -12,6 +12,8 @@ on:
 jobs:
   aur:
     runs-on: ubuntu-slim
+    environment:
+      name: aur
 
     steps:
       - name: Checkout repository
