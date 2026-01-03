@@ -118,7 +118,7 @@ class CommitMessageGenerator:
         if self.default_model not in model_dispatch:
             raise ValueError(f"Unknown model type: '{self.default_model}'")
 
-        log.info("Using model '%s' for generation.", self.default_model)
+        log.info("Using provider '%s' for generation.", self.default_model)
 
         return model_dispatch[self.default_model](
             content, system_prompt_override=system_prompt
