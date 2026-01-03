@@ -1,6 +1,5 @@
 # cai
 
-![PyPI](https://img.shields.io/pypi/v/git-cai-cli)
 ![Python](https://img.shields.io/pypi/pyversions/git-cai-cli)
 [![MegaLinter](https://img.shields.io/github/actions/workflow/status/thorstenfoltz/cai/python-tests.yml?label=MegaLinter)](https://github.com/thorstenfoltz/cai/actions/workflows/python-tests.yml)
 ![License](https://img.shields.io/github/license/thorstenfoltz/cai?label=License)
