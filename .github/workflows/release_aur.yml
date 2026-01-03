@@ -91,7 +91,6 @@ jobs:
             -e "s/^\tsha256sums = .*/\tsha256sums = ${SHA}/" \
             .SRCINFO
 
-
       - name: test_changes
         run: |
           cd aur
