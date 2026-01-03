@@ -11,7 +11,7 @@ on:
 
 jobs:
   aur:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
 
     steps:
       - name: Checkout repository
@@ -22,7 +22,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git curl openssh-client
 
-      - name: Determine version
+      - name: Determine release version
         id: version
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
@@ -99,16 +99,23 @@ jobs:
             -e "s/^\tsha256sums = .*/\tsha256sums = ${SHA}/" \
             .SRCINFO
 
-      - name: test_changes
+      - name: Show updated files
         run: |
           cd aur
           cat PKGBUILD
+          echo "-----"
           cat .SRCINFO
 
-      - name: Verify changes
+      - name: Verify PKGBUILD and .SRCINFO have changed
         run: |
+          set -euo pipefail
+
           cd aur
-          git status --porcelain | grep -E 'PKGBUILD|\.SRCINFO'
+
+          STATUS="$(git status --porcelain)"
+
+          echo "$STATUS" | grep -q '^.*PKGBUILD$'
+          echo "$STATUS" | grep -q '^.*\.SRCINFO$'
 
       - name: Commit and push
         run: |
