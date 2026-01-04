@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2025-12-29
+.\"      Date: 2026-01-04
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2025-12-29" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-01-04" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -55,9 +55,19 @@ Stage all modified and deleted files that are already tracked by Git
 before generating the commit message.
 .RE
 .sp
+\-c, \-\-crazy
+.RS 4
+Automatically commit changes using an LLM\-generated message without user confirmation.
+.RE
+.sp
 \-d, \-\-debug
 .RS 4
 Enable debug logging.
+.RE
+.sp
+\-g, \-\-generate\-config
+.RS 4
+Generate default cai_config.yml in the current directory.
 .RE
 .sp
 \-l <type>, \-\-list <type>

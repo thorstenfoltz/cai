@@ -18,8 +18,17 @@ def callback(
     help_flag: bool = typer.Option(
         False, "-h", "--help", help="Show help", is_eager=True
     ),
+    crazy: bool = typer.Option(
+        False, "-c", "--crazy", help="Commit immediately without opening editor"
+    ),
     enable_debug: bool = typer.Option(
         False, "--debug", "-d", help="Enable debug logging"
+    ),
+    generate_config: bool = typer.Option(
+        False,
+        "-g",
+        "--generate-config",
+        help="Generate default cai_config.yml in the current directory",
     ),
     list_flag: bool = typer.Option(
         False, "--list", "-l", help="List information", is_flag=True
@@ -57,11 +66,26 @@ def callback(
         version_flag=version,
     )
 
+    if generate_config:
+        from git_cai_cli.core.options import CliManager
+
+        manager = CliManager(package_name="git-cai-cli")
+
+        try:
+            manager.generate_config_here()
+            typer.echo("cai_config.yml created in current directory.")
+        except RuntimeError as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(code=1)
+
+        raise typer.Exit()
+
     run(
         mode=mode,
         enable_debug=enable_debug,
         list_arg=list_arg,
         stage_tracked=stage_tracked,
+        crazy=crazy,
     )
 
 

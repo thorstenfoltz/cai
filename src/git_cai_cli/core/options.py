@@ -6,8 +6,14 @@ import logging
 import re
 import subprocess
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 
 import requests
+import yaml
+from git_cai_cli.core.config import (
+    _serialize_config,
+    ordered_default_config,
+)
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.squash import squash_branch
 
@@ -112,6 +118,21 @@ class CliManager:
             log.error("Error during update: %s", update_error)
             print("❌ An error occurred while updating. Check logs for details.")
 
+    def commit_crazy(self, message: str) -> int:
+        """
+        Commit immediately using -m, without opening an editor, trusting the LLM output.
+        """
+        try:
+            subprocess.run(
+                ["git", "commit", "-m", message],
+                check=True,
+                text=True,
+            )
+            return 0
+        except subprocess.CalledProcessError as e:
+            log.error("git commit failed with exit code %d", e.returncode)
+            return e.returncode or 1
+
     def enable_debug(self) -> None:
         """
         Enable verbose/debug logging.
@@ -119,6 +140,24 @@ class CliManager:
         log.setLevel(logging.DEBUG)
         logging.getLogger().setLevel(logging.DEBUG)
         log.debug("Debug mode enabled.")
+
+    def generate_config_here(self, filename: str = "cai_config.yml") -> None:
+        """
+        Generate a default cai_config.yml in the current working directory.
+        """
+        path = Path.cwd() / filename
+
+        if path.exists():
+            raise RuntimeError(f"{filename} already exists in this directory.")
+
+        with path.open("w", encoding="utf-8") as f:
+            yaml.safe_dump(
+                _serialize_config(ordered_default_config()),
+                f,
+                sort_keys=False,
+            )
+
+        log.info("Default configuration written to %s", path)
 
     def list(self) -> str:
         """

@@ -16,6 +16,22 @@ from typing import Callable
 log = logging.getLogger(__name__)
 
 
+def commit_direct(commit_message: str) -> int:
+    """
+    Commit directly using -m without opening an editor.
+    """
+    try:
+        subprocess.run(
+            ["git", "commit", "-m", commit_message],
+            check=True,
+            text=True,
+        )
+        return 0
+    except subprocess.CalledProcessError as e:
+        log.error("git commit failed with exit code %d", e.returncode)
+        return e.returncode or 1
+
+
 def find_git_root(
     run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> Path | None:
