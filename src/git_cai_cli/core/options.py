@@ -6,11 +6,12 @@ import logging
 import re
 import subprocess
 from importlib.metadata import PackageNotFoundError, version
-
+from pathlib import Path
+import yaml
 import requests
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.squash import squash_branch
-from git_cai_cli.core.gitutils import commit_with_edit_template
+from git_cai_cli.core.config import DEFAULT_CONFIG, _serialize_config, ordered_default_config
 
 log = logging.getLogger(__name__)
 
@@ -135,6 +136,24 @@ class CliManager:
         log.setLevel(logging.DEBUG)
         logging.getLogger().setLevel(logging.DEBUG)
         log.debug("Debug mode enabled.")
+
+    def generate_config_here(self, filename: str = "cai_config.yml") -> None:
+        """
+        Generate a default cai_config.yml in the current working directory.
+        """
+        path = Path.cwd() / filename
+
+        if path.exists():
+            raise RuntimeError(f"{filename} already exists in this directory.")
+
+        with path.open("w", encoding="utf-8") as f:
+            yaml.safe_dump(
+                _serialize_config(ordered_default_config()),
+                f,
+                sort_keys=False,
+            )
+
+        log.info("Default configuration written to %s", path)
 
     def list(self) -> str:
         """

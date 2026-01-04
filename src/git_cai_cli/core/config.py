@@ -151,14 +151,7 @@ def load_config(
 
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
 
-        priority_keys = ["default", "language", "style", "emoji", "load_tokens_from"]
-        ordered: dict[str, Any] = {}
-
-        for key in priority_keys:
-            ordered[key] = default_config[key]
-
-        for key in sorted(k for k in default_config if k not in priority_keys):
-            ordered[key] = default_config[key]
+        ordered = ordered_default_config(default_config)
 
         with fallback_config_file.open("w", encoding="utf-8") as f:
             yaml.safe_dump(_serialize_config(ordered), f, sort_keys=False)
@@ -260,3 +253,25 @@ def _serialize_config(cfg: dict[str, Any]) -> dict[str, Any]:
         else:
             out[k] = v
     return out
+
+def ordered_default_config(
+    default_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Return DEFAULT_CONFIG ordered for human-readable YAML output.
+    """
+    if default_config is None:
+        default_config = DEFAULT_CONFIG
+
+    priority_keys = ["default", "language", "style", "emoji", "load_tokens_from"]
+
+    ordered: dict[str, Any] = {}
+
+    for key in priority_keys:
+        if key in default_config:
+            ordered[key] = default_config[key]
+
+    for key in sorted(k for k in default_config if k not in priority_keys):
+        ordered[key] = default_config[key]
+
+    return ordered
