@@ -29,8 +29,14 @@ Show this help message.
 Stage all modified and deleted files that are already tracked by Git
 before generating the commit message.
 
+-c, --crazy::
+Automatically commit changes using an LLM-generated message without user confirmation.
+
 -d, --debug::
 Enable debug logging.
+
+-g, --generate-config::
+Generate default cai_config.yml in the current directory.
 
 -l <type>, --list <type>::
 List information about available languages and styles.

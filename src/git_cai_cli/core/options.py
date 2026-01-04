@@ -116,7 +116,7 @@ class CliManager:
 
     def commit_crazy(self, message: str) -> int:
         """
-        Commit immediately using -m, without opening an editor.
+        Commit immediately using -m, without opening an editor, trusting the LLM output.
         """
         try:
             subprocess.run(
