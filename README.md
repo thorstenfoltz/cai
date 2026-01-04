@@ -133,6 +133,11 @@ cp ~/.config/cai/cai_config.yml .
 ```
 
 Modify the copied file as needed.
+As an alternative execute:
+
+```sh
+git cai -g
+```
 
 ### Available configuration options
 
@@ -153,7 +158,9 @@ In addition to `git cai`, the following options are available:
 
 - `-h` `--help` – show help and available commands
 - `-a`, `--all` – stage all tracked modified and deleted files
+- `-c`, `--crazy` - Trust the LLM and commit without checking
 - `-d`, `--debug` – enable debug logging
+- `g`, `--generate-config` - generate the default `git_config.yml` in the current directory
 - `-l`, `--list` – list available languages and styles
 - `-s`, `--squash` – squash commits on the current branch and summarize them
 - `-u`, `--update` – check for updates
