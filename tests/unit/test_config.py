@@ -61,7 +61,6 @@ def test_load_config_reads_existing(tmp_path, monkeypatch):
     assert result["load_tokens_from"] == "/tmp/tokens.yml"
 
 
-
 def test_repo_config_precedence(tmp_path):
     repo_cfg = tmp_path / "cai_config.yml"
 

@@ -254,6 +254,7 @@ def _serialize_config(cfg: dict[str, Any]) -> dict[str, Any]:
             out[k] = v
     return out
 
+
 def ordered_default_config(
     default_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:

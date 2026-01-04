@@ -7,11 +7,15 @@ import re
 import subprocess
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-import yaml
+
 import requests
+import yaml
+from git_cai_cli.core.config import (
+    _serialize_config,
+    ordered_default_config,
+)
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.squash import squash_branch
-from git_cai_cli.core.config import DEFAULT_CONFIG, _serialize_config, ordered_default_config
 
 log = logging.getLogger(__name__)
 

@@ -119,7 +119,7 @@ def run(
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
-    
+
     if crazy:
         rc = manager.commit_crazy(commit_message)
         raise typer.Exit(code=rc)

@@ -19,7 +19,7 @@ Flags:
   -a, --all               Stage all modified and deleted files that are already tracked by Git
   -c, --crazy             Commit immediately without opening editor (trust LLM output)
   -d, --debug             Enable debug logging
-  -g, --generate-config   Generate default cai_config.yml in the current directory  
+  -g, --generate-config   Generate default cai_config.yml in the current directory
   -l, --list              List information about available languages and styles
   -s, --squash            Squash commits on this branch and summarize them
   -u, --update            Check for updates
