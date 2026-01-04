@@ -18,6 +18,9 @@ def callback(
     help_flag: bool = typer.Option(
         False, "-h", "--help", help="Show help", is_eager=True
     ),
+    crazy: bool = typer.Option(
+        False, "-c", "--crazy", help="Commit immediately without opening editor"
+    ),
     enable_debug: bool = typer.Option(
         False, "--debug", "-d", help="Enable debug logging"
     ),
@@ -62,6 +65,7 @@ def callback(
         enable_debug=enable_debug,
         list_arg=list_arg,
         stage_tracked=stage_tracked,
+        crazy=crazy,
     )
 
 

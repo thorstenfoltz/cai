@@ -10,6 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 import requests
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.squash import squash_branch
+from git_cai_cli.core.gitutils import commit_with_edit_template
 
 log = logging.getLogger(__name__)
 
@@ -111,6 +112,21 @@ class CliManager:
         except (FileNotFoundError, subprocess.SubprocessError, OSError) as update_error:
             log.error("Error during update: %s", update_error)
             print("❌ An error occurred while updating. Check logs for details.")
+
+    def commit_crazy(self, message: str) -> int:
+        """
+        Commit immediately using -m, without opening an editor.
+        """
+        try:
+            subprocess.run(
+                ["git", "commit", "-m", message],
+                check=True,
+                text=True,
+            )
+            return 0
+        except subprocess.CalledProcessError as e:
+            log.error("git commit failed with exit code %d", e.returncode)
+            return e.returncode or 1
 
     def enable_debug(self) -> None:
         """

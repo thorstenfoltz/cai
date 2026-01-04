@@ -38,6 +38,7 @@ def run(
     enable_debug: bool,
     list_arg: str | None,
     stage_tracked: bool,
+    crazy: bool,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -118,5 +119,9 @@ def run(
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
+    
+    if crazy:
+        rc = manager.commit_crazy(commit_message)
+        raise typer.Exit(code=rc)
 
     commit_with_edit_template(commit_message)
