@@ -12,7 +12,11 @@ from git_cai_cli.core.config import (
 )
 
 
-def test_load_config_creates_fallback(tmp_path):
+def test_load_config_creates_fallback(tmp_path, monkeypatch):
+    from git_cai_cli.core import config as config_module
+
+    monkeypatch.setattr(config_module, "_find_repo_config", lambda: None)
+
     fallback = tmp_path / "cai_config.yml"
 
     config = load_config(
@@ -30,7 +34,11 @@ def test_load_config_creates_fallback(tmp_path):
     assert isinstance(data["load_tokens_from"], str)
 
 
-def test_load_config_reads_existing(tmp_path):
+def test_load_config_reads_existing(tmp_path, monkeypatch):
+    from git_cai_cli.core import config as config_module
+
+    monkeypatch.setattr(config_module, "_find_repo_config", lambda: None)
+
     fallback = tmp_path / "cai_config.yml"
 
     cfg = {
@@ -51,6 +59,7 @@ def test_load_config_reads_existing(tmp_path):
 
     assert result["default"] == "openai"
     assert result["load_tokens_from"] == "/tmp/tokens.yml"
+
 
 
 def test_repo_config_precedence(tmp_path):
