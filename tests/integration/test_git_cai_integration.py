@@ -15,28 +15,22 @@ def test_git_cai_creates_commit_with_fake_llm(tmp_path):
 
     env = {
         **os.environ,
-
         # Fake LLM
         "CAI_FAKE_LLM": "1",
-
         # Disable all user/system git config
         "GIT_CONFIG_GLOBAL": "/dev/null",
         "GIT_CONFIG_SYSTEM": "/dev/null",
-
         # Explicit identity (no user credentials)
         "GIT_AUTHOR_NAME": "CI",
         "GIT_AUTHOR_EMAIL": "ci@example.com",
         "GIT_COMMITTER_NAME": "CI",
         "GIT_COMMITTER_EMAIL": "ci@example.com",
-
         # Deterministic timestamps
         "GIT_AUTHOR_DATE": "2000-01-01T00:00:00Z",
         "GIT_COMMITTER_DATE": "2000-01-01T00:00:00Z",
-
         # Disable editor and prompts
         "GIT_EDITOR": "true",
         "GIT_TERMINAL_PROMPT": "0",
-
         # Disable GPG signing
         "GIT_COMMIT_GPGSIGN": "false",
     }
@@ -65,4 +59,3 @@ def test_git_cai_creates_commit_with_fake_llm(tmp_path):
     # Verify commit message exists and is non-empty
     assert log.stdout.strip()
     assert "file.txt" in log.stdout
-
