@@ -1,7 +1,7 @@
 git-cai(1)
 ==========
 Thorsten Foltz
-December 2025
+January 2026
 
 NAME
 ----
@@ -10,7 +10,9 @@ git-cai - AI-powered commit message generator
 SYNOPSIS
 --------
 [verse]
-'git cai' [-a] [-d] [-l <type>] [-s] [-u] [-v]
+`git cai` [-a | --all] [-c | --crazy] [-d | --debug] [-g | --generate-config]
+        [-l <type> | --list <type>] [-s | --squash] [-u | --update] [-v | --version]
+
 
 DESCRIPTION
 -----------
