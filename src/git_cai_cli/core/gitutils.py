@@ -12,6 +12,7 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Callable
+
 from git_cai_cli.core.editors import EDITOR_BLOCK_FLAGS, TERMINAL_EDITORS
 
 log = logging.getLogger(__name__)
@@ -31,7 +32,8 @@ def commit_direct(commit_message: str) -> int:
     except subprocess.CalledProcessError as e:
         log.error("git commit failed with exit code %d", e.returncode)
         return e.returncode or 1
-    
+
+
 def _editor_executable(argv: list[str]) -> str:
     """
     Extract the executable name from an argv list.
@@ -119,6 +121,7 @@ def get_git_editor() -> str:
 
     return shutil.which("vi") or shutil.which("nano") or "vi"
 
+
 def _normalize_editor(editor: str) -> list[str]:
     parts = shlex.split(editor)
     exe = os.path.basename(parts[0])
@@ -128,6 +131,7 @@ def _normalize_editor(editor: str) -> list[str]:
         parts.insert(1, block_flag)
 
     return parts
+
 
 def sha256_of_file(path: Path) -> str:
     """Compute SHA256 hash of a file."""
@@ -139,6 +143,7 @@ def sha256_of_file(path: Path) -> str:
                 break
             h.update(chunk)
     return h.hexdigest()
+
 
 def commit_with_edit_template(commit_message: str) -> int:
     """Open git commit editor with a pre-filled commit message template."""
@@ -158,10 +163,7 @@ def commit_with_edit_template(commit_message: str) -> int:
     # 2. Create temp file with correct semantics
     with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as tf:
         if editor_exe not in TERMINAL_EDITORS:
-            tf.write(
-                "# DELETE THIS LINE TO ACCEPT THE COMMIT\n"
-                "#\n"
-            )
+            tf.write("# DELETE THIS LINE TO ACCEPT THE COMMIT\n\n")
         tf.write(commit_message)
         tf.flush()
         tf_name = Path(tf.name)

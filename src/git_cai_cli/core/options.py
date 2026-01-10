@@ -132,17 +132,17 @@ class CliManager:
         except subprocess.CalledProcessError as e:
             log.error("git commit failed with exit code %d", e.returncode)
             return e.returncode or 1
-        
+
     def editor_list(self) -> list[str]:
         """
         Return a list of supported editors.
         """
         return [
             "Tested editors, but more should work:",
-            "Nano",         # Nano
-            "Vi",           # Vi
-            "Vim",          # Vim
-            "VS Code",      # Visual Studio Code
+            "Nano",  # Nano
+            "Vi",  # Vi
+            "Vim",  # Vim
+            "VS Code",  # Visual Studio Code
         ]
 
     def enable_debug(self) -> None:
