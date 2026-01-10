@@ -132,6 +132,23 @@ class CliManager:
         except subprocess.CalledProcessError as e:
             log.error("git commit failed with exit code %d", e.returncode)
             return e.returncode or 1
+        
+    def editor_list(self) -> list[str]:
+        """
+        Return a list of supported editors.
+        """
+        return [
+            "code",      # Visual Studio Code
+            "subl",      # Sublime Text
+            "vim",       # Vim
+            "nano",      # Nano
+            "emacs",     # Emacs
+            "notepad",   # Notepad (Windows)
+            "notepad++", # Notepad++ (Windows)
+            "atom",      # Atom
+            "gedit",     # Gedit (Linux)
+            "kate",      # Kate (Linux)
+        ]
 
     def enable_debug(self) -> None:
         """
@@ -167,10 +184,12 @@ class CliManager:
         return """
 Available list options:
 
+editor    - List supported editors
 language  - List supported languages
 style     - Show available commit message styles
 
 Usage:
+git cai -l editor
 git cai -l language
 git cai -l style
 """

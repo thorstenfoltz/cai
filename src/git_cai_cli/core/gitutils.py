@@ -12,6 +12,7 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Callable
+from git_cai_cli.core.editors import EDITOR_BLOCK_FLAGS, TERMINAL_EDITORS
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +31,13 @@ def commit_direct(commit_message: str) -> int:
     except subprocess.CalledProcessError as e:
         log.error("git commit failed with exit code %d", e.returncode)
         return e.returncode or 1
+    
+def _editor_executable(argv: list[str]) -> str:
+    """
+    Extract the executable name from an argv list.
+    """
+    exe = os.path.basename(argv[0])
+    return os.path.splitext(exe)[0]
 
 
 def find_git_root(
@@ -111,6 +119,15 @@ def get_git_editor() -> str:
 
     return shutil.which("vi") or shutil.which("nano") or "vi"
 
+def _normalize_editor(editor: str) -> list[str]:
+    parts = shlex.split(editor)
+    exe = os.path.basename(parts[0])
+
+    block_flag = EDITOR_BLOCK_FLAGS.get(exe)
+    if block_flag and block_flag not in parts:
+        parts.insert(1, block_flag)
+
+    return parts
 
 def sha256_of_file(path: Path) -> str:
     """Compute SHA256 hash of a file."""
@@ -123,11 +140,28 @@ def sha256_of_file(path: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
-
 def commit_with_edit_template(commit_message: str) -> int:
     """Open git commit editor with a pre-filled commit message template."""
-    # create temp file with initial message
+
+    # 1. Resolve editor
+    editor = get_git_editor()
+    argv = _normalize_editor(editor)
+
+    if not shutil.which(argv[0]):
+        log.error(
+            "Editor %r not found in PATH; please set GIT_EDITOR properly.", argv[0]
+        )
+        return 1
+
+    editor_exe = _editor_executable(argv)
+
+    # 2. Create temp file with correct semantics
     with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as tf:
+        if editor_exe not in TERMINAL_EDITORS:
+            tf.write(
+                "# DELETE THIS LINE TO ACCEPT THE COMMIT\n"
+                "#\n"
+            )
         tf.write(commit_message)
         tf.flush()
         tf_name = Path(tf.name)
@@ -135,33 +169,34 @@ def commit_with_edit_template(commit_message: str) -> int:
     try:
         original_hash = sha256_of_file(tf_name)
 
-        editor = get_git_editor()
-        parts = shlex.split(editor)
-        if not shutil.which(parts[0]):
-            log.error(
-                "Editor %r not found in PATH; please set GIT_EDITOR properly.", parts[0]
-            )
-            return 1
-        rc = subprocess.run(parts + [str(tf_name)], check=False).returncode
-
+        # 3. Launch editor
+        rc = subprocess.run(argv + [str(tf_name)], check=False).returncode
         if rc != 0:
             log.error("Editor exited with non-zero status -> aborting commit.")
             return rc or 1
 
+        # 4. Evaluate result
         new_hash = sha256_of_file(tf_name)
+        content = tf_name.read_text(encoding="utf-8")
 
-        # If the file was not changed, treat as "user didn't save" and abort.
-        if new_hash == original_hash:
-            log.warning("Aborting commit: commit message not saved.")
-            return 1
+        if editor_exe in TERMINAL_EDITORS:
+            # vim / nano behavior
+            if new_hash == original_hash:
+                log.warning("Aborting commit: message not saved.")
+                return 1
+        else:
+            # GUI editor behavior
+            if content.lstrip().startswith("# DELETE THIS LINE"):
+                log.warning("Aborting commit: commit not explicitly accepted.")
+                return 1
 
-        # file changed (or saved). Run git commit using the file as message.
-        try:
-            subprocess.run(["git", "commit", "-F", str(tf_name)], check=True)
-            return 0
-        except subprocess.CalledProcessError as e:
-            log.error("git commit failed with exit code %d", e.returncode)
-            return e.returncode or 1
+        # 5. Commit
+        subprocess.run(["git", "commit", "-F", str(tf_name)], check=True)
+        return 0
+
+    except subprocess.CalledProcessError as e:
+        log.error("git commit failed with exit code %d", e.returncode)
+        return e.returncode or 1
 
     finally:
         try:
