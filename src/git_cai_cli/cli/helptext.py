@@ -15,7 +15,7 @@ Usage:
   git cai        Generate commit message from staged changes
 
 Flags:
-  -h,                     Show this help message
+  -h, --help              Show this help message or opens manual
   -a, --all               Stage all modified and deleted files that are already tracked by Git
   -c, --crazy             Commit immediately without opening editor (trust LLM output)
   -d, --debug             Enable debug logging

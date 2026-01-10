@@ -138,13 +138,8 @@ class CliManager:
         Return a list of supported editors.
         """
         return [
-            "Supported editors:",
-            "Atom",         # Atom
-            "Kate",         # Kate (KDE)
+            "Tested editors, but more should work:",
             "Nano",         # Nano
-            "Nvim",         # Neovim
-            "PyCharm",      # PyCharm
-            "Sublime Text", # Sublime Text
             "Vi",           # Vi
             "Vim",          # Vim
             "VS Code",      # Visual Studio Code
@@ -184,7 +179,7 @@ class CliManager:
         return """
 Available list options:
 
-editor    - List supported editors
+editor    - List supported and tested editors
 language  - List supported languages
 style     - Show available commit message styles
 
