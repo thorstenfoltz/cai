@@ -138,16 +138,16 @@ class CliManager:
         Return a list of supported editors.
         """
         return [
-            "code",      # Visual Studio Code
-            "subl",      # Sublime Text
-            "vim",       # Vim
-            "nano",      # Nano
-            "emacs",     # Emacs
-            "notepad",   # Notepad (Windows)
-            "notepad++", # Notepad++ (Windows)
-            "atom",      # Atom
-            "gedit",     # Gedit (Linux)
-            "kate",      # Kate (Linux)
+            "Supported editors:",
+            "Atom",         # Atom
+            "Kate",         # Kate (KDE)
+            "Nano",         # Nano
+            "Nvim",         # Neovim
+            "PyCharm",      # PyCharm
+            "Sublime Text", # Sublime Text
+            "Vi",           # Vi
+            "Vim",          # Vim
+            "VS Code",      # Visual Studio Code
         ]
 
     def enable_debug(self) -> None:

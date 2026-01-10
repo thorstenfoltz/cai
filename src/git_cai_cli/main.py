@@ -70,6 +70,10 @@ def run(
             return
 
         option = list_arg.lower()
+        if option == "editor":
+            for editor in manager.editor_list():
+                typer.echo(editor)
+            return
         if option == "language":
             typer.echo(manager.print_available_languages())
             return
