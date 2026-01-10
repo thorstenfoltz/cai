@@ -133,6 +133,18 @@ class CliManager:
             log.error("git commit failed with exit code %d", e.returncode)
             return e.returncode or 1
 
+    def editor_list(self) -> list[str]:
+        """
+        Return a list of supported editors.
+        """
+        return [
+            "Tested editors, but more should work:",
+            "Nano",  # Nano
+            "Vi",  # Vi
+            "Vim",  # Vim
+            "VS Code",  # Visual Studio Code
+        ]
+
     def enable_debug(self) -> None:
         """
         Enable verbose/debug logging.
@@ -167,10 +179,12 @@ class CliManager:
         return """
 Available list options:
 
+editor    - List supported and tested editors
 language  - List supported languages
 style     - Show available commit message styles
 
 Usage:
+git cai -l editor
 git cai -l language
 git cai -l style
 """

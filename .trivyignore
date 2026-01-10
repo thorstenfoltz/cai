@@ -1,2 +1,8 @@
-CVE-2024-12797
-CVE-2025-27516
+# urllib3 vulnerability is introduced via twine, which is a dev-only dependency
+# used exclusively for package publishing. It is not included in runtime
+# environments or production artifacts. No production attack surface exists.
+#
+# Upstream fix pending in twine.
+#
+# Reviewed: 2026-01-10
+CVE-2026-21441 

@@ -56,6 +56,9 @@ LIST TYPES
 ----------
 The argument to `--list` must be one of the following:
 
+editor::
+List supported and tested editors as default git editor. Most likely more editors will work.
+
 language::
 List supported languages.
 

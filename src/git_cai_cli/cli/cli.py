@@ -34,7 +34,7 @@ def callback(
         False, "--list", "-l", help="List information", is_flag=True
     ),
     list_arg: str = typer.Argument(
-        None, help="Optional argument for --list: 'language' or 'style'"
+        None, help="Optional argument for --list: 'language', 'style' or 'editor'"
     ),
     stage_tracked: bool = typer.Option(
         False, "--all", "-a", help="Stage all tracked files"
