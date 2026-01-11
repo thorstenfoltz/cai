@@ -8,8 +8,6 @@ from typing import Any, Dict, Optional, Type
 
 import requests
 from git_cai_cli.core.languages import LANGUAGE_MAP
-from google import genai  # type: ignore[reportUnknownImport]
-from google.genai import types  # type: ignore[reportUnknownImport]
 from groq import Groq
 from openai import OpenAI
 
@@ -191,29 +189,49 @@ class CommitMessageGenerator:
             base_url=url,
         )
         return response
-
+    
     def generate_gemini(
         self,
         content: str,
-        genai_cls: Type[Any] = genai.Client,
         system_prompt_override: Optional[str] = None,
     ) -> str:
         """
         Shared Gemini call for commit generation or commit history summarization.
+        Uses direct HTTP API instead of the Google SDK.
         """
-        client = genai_cls(api_key=self.token)
         model = self.config["gemini"]["model"]
         temperature = self.config["gemini"]["temperature"]
 
-        response = client.models.generate_content(
-            model=model,
-            contents=content,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt_override,
-                temperature=temperature,
-            ),
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self.token,
+        }
+
+        text = content
+        if system_prompt_override:
+            text = f"{system_prompt_override}\n\n{text}"
+
+        request = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": text}
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": temperature,
+            },
+        }
+
+        response = requests.post(url, json=request, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        return (
+            response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
         )
-        return response.text
 
     def generate_groq(
         self,
