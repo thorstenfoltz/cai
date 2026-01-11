@@ -131,34 +131,50 @@ class CommitMessageGenerator:
     def generate_anthropic(
         self,
         content: str,
-        anthropic_cls: Type[Any] = Anthropic,
         system_prompt_override: Optional[str] = None,
     ) -> str:
         """
         Shared Anthropic call for commit generation or commit history summarization.
+        Uses direct HTTP API instead of the Anthropic SDK.
         """
-        client = anthropic_cls(api_key=self.token)
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.token,
+            "anthropic-version": "2023-06-01",
+        }
+
         model = self.config["anthropic"]["model"]
         temperature = self.config["anthropic"]["temperature"]
 
-        prompt = [
-            {
-                "role": "assistant",
-                "content": system_prompt_override,
-            },
+        messages = []
+
+        if system_prompt_override:
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": system_prompt_override,
+                }
+            )
+
+        messages.append(
             {
                 "role": "user",
                 "content": content,
-            },
-        ]
-
-        response = client.messages.create(
-            model=model,
-            messages=prompt,
-            temperature=temperature,
-            max_tokens=4096,  # this field is required by Anthropic API
+            }
         )
-        return response.content[0].text.strip()
+
+        request = {
+            "model": model,
+            "max_tokens": 8192,
+            "temperature": temperature,
+            "messages": messages,
+        }
+
+        response = requests.post(url, json=request, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        return response.json()["content"][0]["text"].strip()
 
     def generate_deepseek(
         self,
