@@ -9,10 +9,8 @@ requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
     "openai>=1.0",
-    "google-genai>=1.39",
     "typer>=0.19.2",
     "requests>=2.32.5",
-    "groq>=0.37.0",
 ]
 license = "MIT"
 classifiers = [
