@@ -11,10 +11,8 @@ depends=(
   python
   python-yaml
   python-openai
-  python-google-genai
   python-requests
   python-typer
-  python-groq
   git
 )
 makedepends=(
