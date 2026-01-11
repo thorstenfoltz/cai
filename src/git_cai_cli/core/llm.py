@@ -188,7 +188,7 @@ class CommitMessageGenerator:
             base_url=url,
         )
         return response
-    
+
     def generate_gemini(
         self,
         content: str,
@@ -213,13 +213,7 @@ class CommitMessageGenerator:
             text = f"{system_prompt_override}\n\n{text}"
 
         request = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": text}
-                    ]
-                }
-            ],
+            "contents": [{"parts": [{"text": text}]}],
             "generationConfig": {
                 "temperature": temperature,
             },
@@ -228,10 +222,8 @@ class CommitMessageGenerator:
         response = requests.post(url, json=request, headers=headers, timeout=30)
         response.raise_for_status()
 
-        return (
-            response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        )
-    
+        return response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+
     def generate_groq(
         self,
         content: str,

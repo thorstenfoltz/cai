@@ -208,6 +208,7 @@ def test_generate_anthropic():
         ],
     }
 
+
 # test gemini
 def test_generate_gemini():
     """
@@ -230,15 +231,7 @@ def test_generate_gemini():
 
     mock_post = MagicMock()
     mock_post.return_value.json.return_value = {
-        "candidates": [
-            {
-                "content": {
-                    "parts": [
-                        {"text": "   gemini text   "}
-                    ]
-                }
-            }
-        ]
+        "candidates": [{"content": {"parts": [{"text": "   gemini text   "}]}}]
     }
 
     with patch(f"{module_path}.requests.post", mock_post):
@@ -262,17 +255,12 @@ def test_generate_gemini():
     }
 
     assert kwargs["json"] == {
-        "contents": [
-            {
-                "parts": [
-                    {"text": "sys\n\nabc"}
-                ]
-            }
-        ],
+        "contents": [{"parts": [{"text": "sys\n\nabc"}]}],
         "generationConfig": {
             "temperature": 0.6,
         },
     }
+
 
 # test groq
 def test_generate_groq():
@@ -296,13 +284,7 @@ def test_generate_groq():
 
     mock_post = MagicMock()
     mock_post.return_value.json.return_value = {
-        "choices": [
-            {
-                "message": {
-                    "content": "   groq result   "
-                }
-            }
-        ]
+        "choices": [{"message": {"content": "   groq result   "}}]
     }
 
     with patch(f"{module_path}.requests.post", mock_post):
@@ -330,7 +312,6 @@ def test_generate_groq():
             {"role": "user", "content": "abc"},
         ],
     }
-
 
 
 # test xai
