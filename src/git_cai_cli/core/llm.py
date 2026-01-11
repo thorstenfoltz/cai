@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional, Type
 
 import requests
 from git_cai_cli.core.languages import LANGUAGE_MAP
-from groq import Groq
 from openai import OpenAI
 
 log = logging.getLogger(__name__)
@@ -232,37 +231,53 @@ class CommitMessageGenerator:
         return (
             response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
         )
-
+    
     def generate_groq(
         self,
         content: str,
-        genai_cls: Type[Any] = Groq,
         system_prompt_override: Optional[str] = None,
     ) -> str:
         """
         Shared Groq call for commit generation or commit history summarization.
+        Uses direct HTTP API instead of the Groq SDK.
         """
-        client = genai_cls(api_key=self.token)
+        url = "https://api.groq.com/openai/v1/chat/completions"
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+
         model = self.config["groq"]["model"]
         temperature = self.config["groq"]["temperature"]
 
-        prompt = [
-            {
-                "role": "system",
-                "content": system_prompt_override,
-            },
+        messages = []
+
+        if system_prompt_override:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": system_prompt_override,
+                }
+            )
+
+        messages.append(
             {
                 "role": "user",
                 "content": content,
-            },
-        ]
-
-        response = client.chat.completions.create(
-            model=model,
-            messages=prompt,
-            temperature=temperature,
+            }
         )
-        return response.choices[0].message.content.strip()
+
+        request = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+
+        response = requests.post(url, json=request, headers=headers, timeout=30)
+        response.raise_for_status()
+
+        return response.json()["choices"][0]["message"]["content"].strip()
 
     def generate_mistral(
         self,
