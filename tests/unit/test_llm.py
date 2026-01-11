@@ -208,6 +208,7 @@ def test_generate_anthropic():
         ],
     }
 
+
 # test gemini
 def test_generate_gemini(generator):
     """
