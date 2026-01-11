@@ -12,7 +12,6 @@ dependencies = [
     "google-genai>=1.39",
     "typer>=0.19.2",
     "requests>=2.32.5",
-    "anthropic>=0.75.0",
     "groq>=0.37.0",
 ]
 license = "MIT"

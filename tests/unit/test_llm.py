@@ -153,24 +153,60 @@ def test_generate_openai(generator):
 
 
 # test anthropic
-def test_generate_anthropic(generator):
+def test_generate_anthropic():
     """
     Test that the generate_anthropic method returns the correct message text
     """
-    mock_cls = MagicMock()
-    mock_client = MagicMock()
+    config = {
+        "anthropic": {
+            "model": "claude-sonnet-4-5",
+            "temperature": 0.7,
+        }
+    }
 
-    mock_response = MagicMock()
-    mock_response.content = [MagicMock(text="  test  ")]
-
-    mock_client.messages.create.return_value = mock_response
-    mock_cls.return_value = mock_client
-
-    result = generator.generate_anthropic(
-        "abc", anthropic_cls=mock_cls, system_prompt_override="sys"
+    gen = CommitMessageGenerator(
+        token="fake-token",
+        config=config,
+        default_model="anthropic",
     )
+
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "content": [{"text": "   test   "}],
+    }
+
+    with patch(f"{module_path}.requests.post", mock_post):
+        result = gen.generate_anthropic("abc", system_prompt_override="sys")
+
     assert result == "test"
-    mock_client.messages.create.assert_called_once()
+    mock_post.assert_called_once()
+
+    # --- Extract call details ---
+    args, kwargs = mock_post.call_args
+
+    # Positional arg 0 = URL
+    called_url = args[0]
+    assert called_url == "https://api.anthropic.com/v1/messages"
+
+    assert kwargs["timeout"] == 30
+
+    assert kwargs["headers"] == {
+        "Content-Type": "application/json",
+        "x-api-key": "fake-token",
+        "anthropic-version": "2023-06-01",
+    }
+
+    assert kwargs["json"] == {
+        "model": "claude-sonnet-4-5",
+        "max_tokens": 8192,
+        "temperature": 0.7,
+        "messages": [
+            {"role": "assistant", "content": "sys"},
+            {"role": "user", "content": "abc"},
+        ],
+    }
 
 
 # test gemini
