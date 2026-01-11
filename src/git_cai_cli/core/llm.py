@@ -7,7 +7,6 @@ from collections.abc import Callable
 from typing import Any, Dict, Optional, Type
 
 import requests
-from anthropic import Anthropic
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from google import genai  # type: ignore[reportUnknownImport]
 from google.genai import types  # type: ignore[reportUnknownImport]
