@@ -208,41 +208,129 @@ def test_generate_anthropic():
         ],
     }
 
-
 # test gemini
-def test_generate_gemini(generator):
+def test_generate_gemini():
     """
     Test that the generate_gemini method returns the correct message text
     """
-    mock_cls = MagicMock()
-    mock_client = MagicMock()
+    config = {
+        "gemini": {
+            "model": "gemini-2.5-flash",
+            "temperature": 0.6,
+        }
+    }
 
-    mock_client.models.generate_content.return_value = MagicMock(text="gemini text")
-    mock_cls.return_value = mock_client
-
-    result = generator.generate_gemini(
-        "abc", genai_cls=mock_cls, system_prompt_override="sys"
+    gen = CommitMessageGenerator(
+        token="fake-token",
+        config=config,
+        default_model="gemini",
     )
-    assert result == "gemini text"
 
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": "   gemini text   "}
+                    ]
+                }
+            }
+        ]
+    }
+
+    with patch(f"{module_path}.requests.post", mock_post):
+        result = gen.generate_gemini("abc", system_prompt_override="sys")
+
+    assert result == "gemini text"
+    mock_post.assert_called_once()
+
+    args, kwargs = mock_post.call_args
+
+    assert args[0] == (
+        "https://generativelanguage.googleapis.com/v1beta/"
+        "models/gemini-2.5-flash:generateContent"
+    )
+
+    assert kwargs["timeout"] == 30
+
+    assert kwargs["headers"] == {
+        "Content-Type": "application/json",
+        "x-goog-api-key": "fake-token",
+    }
+
+    assert kwargs["json"] == {
+        "contents": [
+            {
+                "parts": [
+                    {"text": "sys\n\nabc"}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.6,
+        },
+    }
 
 # test groq
-def test_generate_groq(generator):
+def test_generate_groq():
     """
     Test that the generate_groq method returns the correct message text
     """
-    mock_cls = MagicMock()
-    mock_client = MagicMock()
+    config = {
+        "groq": {
+            "model": "llama-3.3-70b-versatile",
+            "temperature": 0.7,
+        }
+    }
 
-    mock_client.chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message=MagicMock(content=" groq result "))]
+    gen = CommitMessageGenerator(
+        token="fake-token",
+        config=config,
+        default_model="groq",
     )
-    mock_cls.return_value = mock_client
 
-    result = generator.generate_groq(
-        "abc", genai_cls=mock_cls, system_prompt_override="sys"
-    )
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [
+            {
+                "message": {
+                    "content": "   groq result   "
+                }
+            }
+        ]
+    }
+
+    with patch(f"{module_path}.requests.post", mock_post):
+        result = gen.generate_groq("abc", system_prompt_override="sys")
+
     assert result == "groq result"
+    mock_post.assert_called_once()
+
+    args, kwargs = mock_post.call_args
+
+    assert args[0] == "https://api.groq.com/openai/v1/chat/completions"
+
+    assert kwargs["timeout"] == 30
+
+    assert kwargs["headers"] == {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer fake-token",
+    }
+
+    assert kwargs["json"] == {
+        "model": "llama-3.3-70b-versatile",
+        "temperature": 0.7,
+        "messages": [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "abc"},
+        ],
+    }
+
 
 
 # test xai
