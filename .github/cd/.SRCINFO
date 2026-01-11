@@ -17,7 +17,6 @@ pkgbase = cai
 	depends = python-requests
 	depends = python-typer
 	depends = python-groq
-	depends = python-anthropic
 	depends = git
 	source = cai-Y.Y.Y.tar.gz::https://github.com/thorstenfoltz/cai/archive/refs/tags/Y.Y.Y.tar.gz
 	sha256sums = YYYYYY

@@ -15,7 +15,6 @@ depends=(
   python-requests
   python-typer
   python-groq
-  python-anthropic
   git
 )
 makedepends=(
