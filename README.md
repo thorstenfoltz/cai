@@ -180,7 +180,7 @@ git cai -g
 - `emoji` – enable or disable emojis
 - `load_tokens_from` – path to the file where API tokens are stored
 - `prompt_file` - path to the file where the prompt for the commit is stored
-- `squash_prompt_file` - path to the file where the prompt for the squash is stored 
+- `squash_prompt_file` - path to the file where the prompt for the squash is stored
 
 ---
 
