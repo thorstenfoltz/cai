@@ -29,9 +29,44 @@ def test_load_config_creates_fallback(tmp_path, monkeypatch):
     # Runtime config keeps Path
     assert isinstance(config["load_tokens_from"], Path)
 
+    # Prompt paths are set and files are created
+    assert isinstance(config["prompt_file"], Path)
+    assert isinstance(config["squash_prompt_file"], Path)
+    assert config["prompt_file"].is_file()
+    assert config["squash_prompt_file"].is_file()
+
     # Serialized file contains string
     data = yaml.safe_load(fallback.read_text())
     assert isinstance(data["load_tokens_from"], str)
+    assert isinstance(data["prompt_file"], str)
+    assert isinstance(data["squash_prompt_file"], str)
+
+
+def test_load_config_normalizes_yaml_null_to_none_behavior(tmp_path, monkeypatch):
+    from git_cai_cli.core import config as config_module
+
+    monkeypatch.setattr(config_module, "_find_repo_config", lambda: None)
+
+    fallback = tmp_path / "cai_config.yml"
+
+    cfg = {
+        "default": "openai",
+        "language": None,
+        "style": None,
+        "emoji": None,
+        "openai": {"model": "x", "temperature": 0},
+    }
+
+    fallback.write_text(yaml.safe_dump(cfg))
+
+    result = load_config(
+        fallback_config_file=fallback,
+        allowed_languages={"en"},
+    )
+
+    assert result["language"] == "none"
+    assert result["style"] == "none"
+    assert result["emoji"] == "none"
 
 
 def test_load_config_reads_existing(tmp_path, monkeypatch):

@@ -55,61 +55,54 @@ def test_language_name_default(generator):
 
 def test_emoji_enabled(generator):
     """
-    Test that the _emoji_enabled method returns the correct string when emojis are enabled
+    Test that the _emoji_instruction method returns the correct string when emojis are enabled
     """
     assert (
         "Use relevant emojis in the commit message where appropriate. Emojis should enhance the clarity and tone of the message."
-        in generator._emoji_enabled()
+        in generator._emoji_instruction()
     )
 
 
 def test_emoji_disabled(generator):
     """
-    Test that the _emoji_enabled method returns the correct string when emojis are disabled
+    Test that the _emoji_instruction method returns the correct string when emojis are disabled
     """
     generator.config["emoji"] = False
-    assert "Do not use any emojis in the commit message." in generator._emoji_enabled()
-
-
-def test_system_prompt_full(generator):
-    """
-    Test that the _system_prompt method returns the full system prompt string
-    """
-    expected = (
-        "You are an expert software engineer assistant. "
-        "Your task is to generate a concise, professional git commit message, "
-        "summarizing the provided git diff changes in Spanish. "
-        "Keep the message clear and focused on what was changed and why. "
-        "Always include a headline, followed by a bullet-point list of changes. "
-        "If you detect sensitive information, mention it at the top, but still generate the message. "
-        "Write the commit message in the following tone style: professional. "
-        "Use relevant emojis in the commit message where appropriate. Emojis should enhance the clarity and tone of the message.."
+    assert (
+        "Do not use any emojis in the commit message." in generator._emoji_instruction()
     )
 
-    out = generator._system_prompt("Spanish")
-    assert out == expected
 
-
-def test_summary_prompt_full(generator):
+def test_build_commit_prompt_contains_base_and_instructions(generator):
     """
-    Test that the _summary_prompt method returns the full summary prompt string
+    Test that _build_commit_prompt includes the base prompt and config instructions
     """
-    expected = (
-        "You are an expert software engineer assistant. "
-        "Your task is to summarize multiple existing commit messages "
-        "into a single clean git commit message. "
-        "Write the final message in Japanese. "
-        "Do not list each commit individually. "
-        "Instead, infer the main purpose and overall change. "
-        "Format:\n"
-        "1. One short, clear headline.\n"
-        "2. A concise bullet list describing the main themes of the work. "
-        "Write the commit message in the following tone style: professional. "
-        "Use relevant emojis in the commit message where appropriate. Emojis should enhance the clarity and tone of the message.."
-    )
+    out = generator._build_commit_prompt()
 
-    out = generator._summary_prompt("Japanese")
-    assert out == expected
+    # Base prompt content (from default file or hardcoded)
+    assert "expert software engineer" in out
+    assert "git commit message" in out
+
+    # Config instructions appended
+    assert "English" in out
+    assert "professional" in out
+    assert "emojis" in out.lower()
+
+
+def test_build_squash_prompt_contains_base_and_instructions(generator):
+    """
+    Test that _build_squash_prompt includes the base prompt and config instructions
+    """
+    out = generator._build_squash_prompt()
+
+    # Base prompt content (from default file or hardcoded)
+    assert "expert software engineer" in out
+    assert "summarize" in out.lower()
+
+    # Config instructions appended
+    assert "English" in out
+    assert "professional" in out
+    assert "emojis" in out.lower()
 
 
 # test dispatch
@@ -202,8 +195,8 @@ def test_generate_anthropic():
         "model": "claude-sonnet-4-5",
         "max_tokens": 8192,
         "temperature": 0.7,
+        "system": "sys",
         "messages": [
-            {"role": "assistant", "content": "sys"},
             {"role": "user", "content": "abc"},
         ],
     }

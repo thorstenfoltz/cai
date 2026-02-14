@@ -3,7 +3,10 @@ Use LLMs to generate git commit messages from diffs or multiple commits.
 """
 
 import logging
+import os
 from collections.abc import Callable
+from importlib import resources
+from pathlib import Path
 from typing import Any, Dict, Optional, Type
 
 import requests
@@ -11,6 +14,103 @@ from git_cai_cli.core.languages import LANGUAGE_MAP
 from openai import OpenAI
 
 log = logging.getLogger(__name__)
+
+# Hardcoded fallback prompts (last resort when no file is found)
+_HARDCODED_COMMIT_PROMPT = (
+    "You are an expert software engineer assistant. "
+    "Your task is to generate a concise, professional git commit message, "
+    "summarizing the provided git diff changes. "
+    "Keep the message clear and focused on what was changed and why. "
+    "Always include a headline, followed by a bullet-point list of changes. "
+    "If you detect sensitive information, mention it at the top, but still generate the message."
+)
+
+_HARDCODED_SQUASH_PROMPT = (
+    "You are an expert software engineer assistant. "
+    "Your task is to summarize multiple existing commit messages "
+    "into a single clean git commit message. "
+    "Do not list each commit individually. "
+    "Instead, infer the main purpose and overall change. "
+    "Format:\n"
+    "1. One short, clear headline.\n"
+    "2. A concise bullet list describing the main themes of the work."
+)
+
+
+def load_prompt_file(
+    config_key: str,
+    config: Dict[str, Any],
+    default_filename: str,
+    hardcoded_fallback: str,
+) -> str:
+    """
+    Load a prompt with a three-tier fallback strategy:
+
+    1. User-defined file path from config (config_key).
+    2. Default bundled file from the package defaults/ directory.
+    3. Hardcoded fallback string.
+
+    Args:
+        config_key: Config key that holds the path (e.g. "prompt_file").
+        config: The full configuration dictionary.
+        default_filename: Name of the default file (e.g. "commit_prompt.md").
+        hardcoded_fallback: Hardcoded prompt string used as last resort.
+
+    Returns:
+        The prompt text.
+    """
+    # 1) Try user-defined path from config
+    user_path = config.get(config_key, "")
+    if isinstance(user_path, Path):
+        user_path = str(user_path)
+
+    if user_path and isinstance(user_path, str) and user_path.strip():
+        expanded = os.path.expandvars(user_path.strip())
+        path = Path(expanded).expanduser()
+        if not path.is_absolute():
+            path = path.resolve()
+
+        if path.is_file():
+            log.info(
+                "Loading prompt from user-defined file: %s (config key: '%s')",
+                path,
+                config_key,
+            )
+            content = path.read_text(encoding="utf-8").strip()
+            log.debug("User prompt loaded (%d characters).", len(content))
+            return content
+
+        log.warning(
+            "Prompt file '%s' from config key '%s' not found. Falling back to default.",
+            path,
+            config_key,
+        )
+
+    # 2) Try default bundled file
+    try:
+        defaults_pkg = resources.files("git_cai_cli.defaults")
+        default_file = defaults_pkg / default_filename
+        if default_file.is_file():  # type: ignore[union-attr]
+            content = default_file.read_text(encoding="utf-8").strip()  # type: ignore[union-attr]
+            log.info(
+                "Loading prompt from default file: %s",
+                default_filename,
+            )
+            log.debug("Default prompt loaded (%d characters).", len(content))
+            return content
+    except (TypeError, FileNotFoundError, ModuleNotFoundError) as exc:
+        log.debug(
+            "Could not load default prompt file '%s': %s",
+            default_filename,
+            exc,
+        )
+
+    # 3) Hardcoded fallback
+    log.info(
+        "Using hardcoded fallback prompt (no file found for config key '%s').",
+        config_key,
+    )
+    return hardcoded_fallback
 
 
 class CommitMessageGenerator:
@@ -27,23 +127,33 @@ class CommitMessageGenerator:
         """
         Generate a commit message from a diff.
         """
-        language_name = self._language_name(self.config["language"], LANGUAGE_MAP)
-        prompt = self._system_prompt(language_name=language_name)
+        prompt = self._build_commit_prompt()
+        log.debug("Commit system prompt preview: %r", prompt[:400])
         return self._dispatch_generate(content=git_diff, system_prompt=prompt)
 
     def summarize_commit_history(self, commit_messages: str) -> str:
         """
         Summarize multiple commit messages into one high-level commit message.
         """
-        language_name = self._language_name(self.config["language"], LANGUAGE_MAP)
-        prompt = self._summary_prompt(language_name=language_name)
+        prompt = self._build_squash_prompt()
+        log.debug("Squash system prompt preview: %r", prompt[:400])
         return self._dispatch_generate(content=commit_messages, system_prompt=prompt)
 
-    def _emoji_enabled(self) -> str:
+    def _emoji_instruction(self) -> str:
         """
-        Returns whether emojis are enabled in commit messages.
+        Returns an emoji instruction string, or empty string if emoji is set to "none".
         """
-        if self.config.get("emoji", True):
+        emoji_value = self.config.get("emoji", True)
+
+        if emoji_value is None:
+            log.info("Emoji setting is None — no emoji instruction added to prompt.")
+            return ""
+
+        if isinstance(emoji_value, str) and emoji_value.strip().lower() == "none":
+            log.info("Emoji setting is 'none' — no emoji instruction added to prompt.")
+            return ""
+
+        if emoji_value:
             emoji_instruction = (
                 "Use relevant emojis in the commit message where appropriate. "
                 "Emojis should enhance the clarity and tone of the message."
@@ -54,42 +164,115 @@ class CommitMessageGenerator:
             log.info("Emojis are disabled for commit messages.")
         return emoji_instruction
 
+    def _language_instruction(self) -> str:
+        """
+        Returns a language instruction string, or empty string if language is "none".
+        """
+        lang_code = self.config.get("language", "en")
+
+        if lang_code is None:
+            log.info(
+                "Language setting is None — no language instruction added to prompt."
+            )
+            return ""
+
+        if isinstance(lang_code, str) and lang_code.strip().lower() == "none":
+            log.info(
+                "Language setting is 'none' — no language instruction added to prompt."
+            )
+            return ""
+
+        language_name = self._language_name(lang_code, LANGUAGE_MAP)
+        return f"Write the commit message in {language_name}."
+
+    def _style_instruction(self) -> str:
+        """
+        Returns a style instruction string, or empty string if style is "none".
+        """
+        style = self.config.get("style", "professional")
+
+        if style is None:
+            log.info("Style setting is None — no style instruction added to prompt.")
+            return ""
+
+        if isinstance(style, str) and style.strip().lower() == "none":
+            log.info("Style setting is 'none' — no style instruction added to prompt.")
+            return ""
+
+        return f"Write the commit message in the following tone style: {style}."
+
+    def _config_instructions(self) -> str:
+        """
+        Build the config-driven instruction suffix (language, style, emoji).
+        Only non-empty parts are included.
+        """
+        parts = [
+            self._language_instruction(),
+            self._style_instruction(),
+            self._emoji_instruction(),
+        ]
+        return " ".join(p for p in parts if p)
+
     # ---------------------------
     # PROMPTS
     # ---------------------------
 
+    def _build_commit_prompt(self) -> str:
+        """
+        Build the full commit prompt by loading the base prompt from file
+        (with fallback) and appending config-driven instructions.
+        """
+        base = load_prompt_file(
+            config_key="prompt_file",
+            config=self.config,
+            default_filename="commit_prompt.md",
+            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+        )
+
+        suffix = self._config_instructions()
+        if suffix:
+            prompt = f"{base} {suffix}"
+        else:
+            prompt = base
+
+        log.debug("Final commit prompt (%d characters).", len(prompt))
+        return prompt
+
+    def _build_squash_prompt(self) -> str:
+        """
+        Build the full squash prompt by loading the base prompt from file
+        (with fallback) and appending config-driven instructions.
+        """
+        base = load_prompt_file(
+            config_key="squash_prompt_file",
+            config=self.config,
+            default_filename="squash_prompt.md",
+            hardcoded_fallback=_HARDCODED_SQUASH_PROMPT,
+        )
+
+        suffix = self._config_instructions()
+        if suffix:
+            prompt = f"{base} {suffix}"
+        else:
+            prompt = base
+
+        log.debug("Final squash prompt (%d characters).", len(prompt))
+        return prompt
+
+    # Keep old method names as aliases for backward compatibility in tests
     def _system_prompt(self, language_name: str) -> str:
         """
-        Prompt used when generating commit messages from diffs.
+        Legacy method — builds the commit prompt with config instructions.
+        Kept for backward compatibility.
         """
-        return (
-            "You are an expert software engineer assistant. "
-            "Your task is to generate a concise, professional git commit message, "
-            f"summarizing the provided git diff changes in {language_name}. "
-            "Keep the message clear and focused on what was changed and why. "
-            "Always include a headline, followed by a bullet-point list of changes. "
-            "If you detect sensitive information, mention it at the top, but still generate the message. "
-            f"Write the commit message in the following tone style: {self.config['style']}. "
-            f"{self._emoji_enabled()}."
-        )
+        return self._build_commit_prompt()
 
     def _summary_prompt(self, language_name: str) -> str:
         """
-        Prompt used when summarizing multiple commit messages into a single commit.
+        Legacy method — builds the squash prompt with config instructions.
+        Kept for backward compatibility.
         """
-        return (
-            "You are an expert software engineer assistant. "
-            "Your task is to summarize multiple existing commit messages "
-            "into a single clean git commit message. "
-            f"Write the final message in {language_name}. "
-            "Do not list each commit individually. "
-            "Instead, infer the main purpose and overall change. "
-            "Format:\n"
-            "1. One short, clear headline.\n"
-            "2. A concise bullet list describing the main themes of the work. "
-            f"Write the commit message in the following tone style: {self.config['style']}. "
-            f"{self._emoji_enabled()}."
-        )
+        return self._build_squash_prompt()
 
     # ---------------------------
     # DISPATCH
@@ -143,29 +326,18 @@ class CommitMessageGenerator:
         model = self.config["anthropic"]["model"]
         temperature = self.config["anthropic"]["temperature"]
 
-        messages = []
+        # Anthropic Messages API expects system prompt via the top-level "system" field.
+        messages = [{"role": "user", "content": content}]
 
-        if system_prompt_override:
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": system_prompt_override,
-                }
-            )
-
-        messages.append(
-            {
-                "role": "user",
-                "content": content,
-            }
-        )
-
-        request = {
+        request: dict[str, Any] = {
             "model": model,
             "max_tokens": 8192,
             "temperature": temperature,
             "messages": messages,
         }
+
+        if system_prompt_override:
+            request["system"] = system_prompt_override
 
         response = requests.post(url, json=request, headers=headers, timeout=30)
         response.raise_for_status()

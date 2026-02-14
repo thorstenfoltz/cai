@@ -30,6 +30,12 @@ def callback(
         "--generate-config",
         help="Generate default cai_config.yml in the current directory",
     ),
+    generate_prompts: bool = typer.Option(
+        False,
+        "-p",
+        "--generate-prompts",
+        help="Generate default commit/squash prompt files in the current directory",
+    ),
     list_flag: bool = typer.Option(
         False, "--list", "-l", help="List information", is_flag=True
     ),
@@ -74,6 +80,22 @@ def callback(
         try:
             manager.generate_config_here()
             typer.echo("cai_config.yml created in current directory.")
+        except RuntimeError as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(code=1)
+
+        raise typer.Exit()
+
+    if generate_prompts:
+        from git_cai_cli.core.options import CliManager
+
+        manager = CliManager(package_name="git-cai-cli")
+
+        try:
+            manager.generate_prompts_here()
+            typer.echo(
+                "commit_prompt.md and squash_prompt.md created in current directory."
+            )
         except RuntimeError as e:
             typer.echo(f"Error: {e}", err=True)
             raise typer.Exit(code=1)

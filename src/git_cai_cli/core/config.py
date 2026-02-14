@@ -14,6 +14,7 @@ with any home or default configuration.
 import logging
 import os
 import stat
+from importlib import resources
 from pathlib import Path
 from typing import Any, Optional, cast
 
@@ -34,7 +35,7 @@ TOKENS_FILE = CONFIG_DIR / "tokens.yml"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
-    "openai": {"model": "gpt-5.1", "temperature": 0},
+    "openai": {"model": "gpt-5.2", "temperature": 0},
     "deepseek": {"model": "deepseek-chat", "temperature": 0},
     "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
     "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
@@ -45,6 +46,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "style": "professional",
     "emoji": True,
     "load_tokens_from": TOKENS_FILE,
+    "prompt_file": "",
+    "squash_prompt_file": "",
 }
 
 TOKEN_TEMPLATE = {
@@ -112,6 +115,82 @@ def load_config(
     """
     log.debug("Loading configuration")
 
+    def _normalize_none_like(config_dict: dict[str, Any]) -> None:
+        """Normalize None/'None'/'none' consistently across config keys."""
+        none_like = {"none"}
+
+        for key in ("language", "style", "emoji"):
+            if key not in config_dict:
+                continue
+            value = config_dict.get(key)
+            if value is None:
+                config_dict[key] = "none"
+                continue
+            if isinstance(value, str) and value.strip().lower() in none_like:
+                config_dict[key] = "none"
+
+        for key in ("prompt_file", "squash_prompt_file"):
+            if key not in config_dict:
+                continue
+            value = config_dict.get(key)
+            if value is None:
+                config_dict[key] = ""
+
+    def _ensure_prompt_files(prompt_dir: Path) -> tuple[Path, Path]:
+        """Ensure default prompt files exist in prompt_dir."""
+        prompt_dir.mkdir(parents=True, exist_ok=True)
+
+        commit_path = prompt_dir / "commit_prompt.md"
+        squash_path = prompt_dir / "squash_prompt.md"
+
+        def _read_bundled(name: str) -> str:
+            try:
+                defaults_pkg = resources.files("git_cai_cli.defaults")
+                default_file = defaults_pkg / name
+                if default_file.is_file():  # type: ignore[union-attr]
+                    return default_file.read_text(encoding="utf-8")  # type: ignore[union-attr]
+            except (TypeError, FileNotFoundError, ModuleNotFoundError):
+                pass
+
+            # last resort: import hardcoded strings
+            from git_cai_cli.core.llm import (  # local import to avoid cycles
+                _HARDCODED_COMMIT_PROMPT,
+                _HARDCODED_SQUASH_PROMPT,
+            )
+
+            return (
+                _HARDCODED_COMMIT_PROMPT
+                if name == "commit_prompt.md"
+                else _HARDCODED_SQUASH_PROMPT
+            )
+
+        if not commit_path.exists() or commit_path.stat().st_size == 0:
+            commit_path.write_text(_read_bundled("commit_prompt.md"), encoding="utf-8")
+            log.info("Default commit prompt written to %s", commit_path)
+
+        if not squash_path.exists() or squash_path.stat().st_size == 0:
+            squash_path.write_text(_read_bundled("squash_prompt.md"), encoding="utf-8")
+            log.info("Default squash prompt written to %s", squash_path)
+
+        return commit_path, squash_path
+
+    def _normalize_prompt_paths(config_dict: dict[str, Any], base_dir: Path) -> None:
+        """Normalize prompt file paths (expand ~/$VARS and resolve relative paths)."""
+        for key in ("prompt_file", "squash_prompt_file"):
+            raw = config_dict.get(key)
+            if not isinstance(raw, str):
+                continue
+            if not raw.strip():
+                continue
+
+            expanded = os.path.expandvars(raw.strip())
+            path = Path(expanded).expanduser()
+            if not path.is_absolute():
+                path = (base_dir / path).resolve()
+
+            config_dict[key] = str(path)
+            log.debug("Normalized %s to %s", key, path)
+
     if default_config is None:
         log.debug("Using built-in default configuration")
         default_config = DEFAULT_CONFIG.copy()
@@ -134,9 +213,12 @@ def load_config(
                 f"Failed to parse repository config {repo_config_file}: {e}"
             ) from e
 
+        _normalize_none_like(config)
         _validate_config_keys(config, DEFAULT_CONFIG)
         config["language"] = _validate_language(config, languages)
-        config["style"] = _validate_style(config.get("style"))
+        config["style"] = _validate_style(cast(str | None, config.get("style")))
+
+        _normalize_prompt_paths(config, base_dir=repo_config_file.parent)
 
         log.info("Repository configuration validated successfully")
         return config
@@ -151,6 +233,13 @@ def load_config(
 
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
 
+        # Create default prompt files in the config directory and reference them
+        commit_prompt_path, squash_prompt_path = _ensure_prompt_files(
+            fallback_config_file.parent
+        )
+        default_config["prompt_file"] = commit_prompt_path
+        default_config["squash_prompt_file"] = squash_prompt_path
+
         ordered = ordered_default_config(default_config)
 
         with fallback_config_file.open("w", encoding="utf-8") as f:
@@ -158,6 +247,7 @@ def load_config(
 
         log.info("Default home configuration written")
 
+        _normalize_none_like(default_config)
         default_config["language"] = _validate_language(default_config, languages)
         default_config["style"] = _validate_style(
             cast(str | None, default_config.get("style"))
@@ -177,9 +267,12 @@ def load_config(
         )
         return default_config
 
+    _normalize_none_like(config)
     _validate_config_keys(config, DEFAULT_CONFIG)
     config["language"] = _validate_language(config, languages)
-    config["style"] = _validate_style(config.get("style"))
+    config["style"] = _validate_style(cast(str | None, config.get("style")))
+
+    _normalize_prompt_paths(config, base_dir=fallback_config_file.parent)
 
     return config
 
@@ -221,7 +314,8 @@ def load_token(
 
     if not tokens_file.exists():
         log.warning(
-            "Token file %s does not exist, creating template", tokens_file  # nosemgrep
+            "Token file %s does not exist, creating template",
+            tokens_file,  # nosemgrep
         )
         with tokens_file.open("w", encoding="utf-8") as f:
             yaml.safe_dump(token_template, f)
@@ -264,7 +358,15 @@ def ordered_default_config(
     if default_config is None:
         default_config = DEFAULT_CONFIG
 
-    priority_keys = ["default", "language", "style", "emoji", "load_tokens_from"]
+    priority_keys = [
+        "default",
+        "language",
+        "style",
+        "emoji",
+        "load_tokens_from",
+        "prompt_file",
+        "squash_prompt_file",
+    ]
 
     ordered: dict[str, Any] = {}
 
