@@ -17,6 +17,8 @@ def test_validate_config_keys_valid_minimal(caplog):
         "style": "professional",
         "emoji": True,
         "load_tokens_from": "/path/to/tokens.yml",
+        "prompt_file": "",
+        "squash_prompt_file": "",
     }
 
     config = {
@@ -26,6 +28,8 @@ def test_validate_config_keys_valid_minimal(caplog):
         "style": "professional",
         "emoji": True,
         "load_tokens_from": "/path/to/tokens.yml",
+        "prompt_file": "",
+        "squash_prompt_file": "",
     }
 
     _validate_config_keys(config, reference)
@@ -140,11 +144,27 @@ def test_validate_language_invalid_fallback(caplog):
     assert "not supported" in caplog.text
 
 
+def test_validate_language_invalid_fallback_respects_allowed_set(caplog):
+    caplog.set_level("WARNING")
+
+    result = _validate_language({"language": "xx"}, {"de"})
+    assert result == "de"
+    assert "not supported" in caplog.text
+
+
 def test_validate_language_missing_fallback(caplog):
     caplog.set_level("WARNING")
 
     result = _validate_language({}, {"en", "de"})
     assert result == "en"
+    assert "not supported" in caplog.text
+
+
+def test_validate_language_missing_fallback_respects_allowed_set(caplog):
+    caplog.set_level("WARNING")
+
+    result = _validate_language({}, {"de"})
+    assert result == "de"
     assert "not supported" in caplog.text
 
 
@@ -173,7 +193,11 @@ def test_validate_style_invalid_value():
     assert "Invalid style" in str(exc.value)
 
 
-@pytest.mark.parametrize("style", [None, "", 123])
+def test_validate_style_none_is_allowed():
+    assert _validate_style(None) == "none"
+
+
+@pytest.mark.parametrize("style", ["", 123])
 def test_validate_style_invalid_type(style):
     with pytest.raises(ValueError) as exc:
         _validate_style(style)  # type: ignore[arg-type]

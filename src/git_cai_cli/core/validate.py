@@ -20,7 +20,15 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
     """
     log.debug("Validating configuration keys")
 
-    allowed_global_keys = {"language", "default", "style", "emoji", "load_tokens_from"}
+    allowed_global_keys = {
+        "language",
+        "default",
+        "style",
+        "emoji",
+        "load_tokens_from",
+        "prompt_file",
+        "squash_prompt_file",
+    }
     allowed_provider_keys = set(reference.keys()) - allowed_global_keys
 
     config_keys = set(config.keys())
@@ -35,7 +43,7 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
     missing_globals = allowed_global_keys - config_keys
     if missing_globals:
         log.warning(
-            "Config is missing global keys: %s",
+            "Config is missing global keys: %s. Using defaults for missing keys.",
             ", ".join(sorted(missing_globals)),
         )
 
@@ -71,28 +79,68 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
 
 
 def _validate_language(config: dict[str, Any], allowed_languages: set[str]) -> str:
+    """Validate the configured language code.
+
+    - Returns an allowed language code.
+    - Returns "none" if language injection should be disabled.
+
+    Notes:
+    - Missing/invalid values fall back to a *supported* default language ("en" if
+      available, otherwise the first language in the allowed set).
     """
-    Validate that the language code exists in the allowed set.
-    Returns the ISO 639-1 code.
-    """
+
+    if not allowed_languages:
+        raise ValueError("allowed_languages must not be empty")
+
     lang_code = config.get("language")
-    if not lang_code or lang_code not in allowed_languages:
+
+    # Only treat explicit YAML null as "none". Missing key should fall back.
+    if "language" in config and lang_code is None:
+        log.info("Language set to None — language instruction disabled in prompt.")
+        return "none"
+
+    if isinstance(lang_code, str) and lang_code.strip().lower() == "none":
+        log.info("Language set to 'none' — language instruction disabled in prompt.")
+        return "none"
+
+    fallback = "en" if "en" in allowed_languages else sorted(allowed_languages)[0]
+
+    if not isinstance(lang_code, str) or not lang_code.strip():
         log.warning(
-            "Language code '%s' is not supported. Falling back to 'en'.", lang_code
+            "Language code '%s' is not supported. Falling back to '%s'.",
+            lang_code,
+            fallback,
         )
-        return "en"
-    return lang_code
+        return fallback
+
+    normalized = lang_code.strip().lower()
+    if normalized not in allowed_languages:
+        log.warning(
+            "Language code '%s' is not supported. Falling back to '%s'.",
+            normalized,
+            fallback,
+        )
+        return fallback
+
+    return normalized
 
 
-def _validate_llm_call(fn, *args, token: str | None, **kwargs) -> Any:
+def _validate_llm_call(
+    fn,
+    *args,
+    token: str | None,
+    requires_token: bool = True,
+    **kwargs,
+) -> Any:
     """
     Executes an LLM call and converts authentication-related failures
     into clean, user-facing errors.
     """
-    if not token or not token.strip():
+    if requires_token and (not token or not token.strip()):
         log.error("LLM API token is missing.")
         log.error(
             "If this is the first run after installation, this is expected. Please configure your API key."
+            " Perhaps your chosen model is not able to use certain settings. Run in debug mode for more details."
         )
         raise ValueError("API token is missing. Please configure your API key.")
 
@@ -143,6 +191,7 @@ def _validate_style(style: str | None) -> str:
         - sarcastic    : "Oh look, another config bug. Shocking, right?"
         - apologetic   : "Sorry, my bad — this commit fixes the config error."
         - academic     : "This commit introduces a revised configuration parser based on robust principles."
+        - None         : "No style instruction will be included in the prompt, allowing the model to choose its own tone".
 
     Parameters
     ----------
@@ -171,15 +220,24 @@ def _validate_style(style: str | None) -> str:
         "academic",
     }
 
+    if style is None:
+        log.info("Style set to None — style instruction disabled in prompt.")
+        return "none"
+
     if not style or not isinstance(style, str):
         raise ValueError(
-            f"Style must be a non-empty string. Allowed styles: {', '.join(sorted(allowed_styles))}"
+            f"Style must be a non-empty string. Allowed styles: {', '.join(sorted(allowed_styles))}, none"
         )
 
     normalized = style.lower().strip()
+
+    if normalized == "none":
+        log.info("Style set to 'none' — style instruction disabled in prompt.")
+        return "none"
+
     if normalized not in allowed_styles:
         raise ValueError(
-            f"Invalid style '{style}'. Allowed styles: {', '.join(sorted(allowed_styles))}"
+            f"Invalid style '{style}'. Allowed styles: {', '.join(sorted(allowed_styles))}, none"
         )
 
     log.info("Using style: %s", normalized)

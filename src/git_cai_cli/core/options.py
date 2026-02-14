@@ -5,6 +5,7 @@ Core manager for CLI utilities.
 import logging
 import re
 import subprocess
+from importlib import resources
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
@@ -171,6 +172,42 @@ class CliManager:
 
         log.info("Default configuration written to %s", path)
 
+    def generate_prompts_here(self) -> None:
+        """Generate default prompt files in the current working directory."""
+        commit_path = Path.cwd() / "commit_prompt.md"
+        squash_path = Path.cwd() / "squash_prompt.md"
+
+        for p in (commit_path, squash_path):
+            if p.exists():
+                raise RuntimeError(f"{p.name} already exists in this directory.")
+
+        def _read_default(name: str) -> str:
+            try:
+                defaults_pkg = resources.files("git_cai_cli.defaults")
+                default_file = defaults_pkg / name
+                if default_file.is_file():  # type: ignore[union-attr]
+                    return default_file.read_text(encoding="utf-8")  # type: ignore[union-attr]
+            except (TypeError, FileNotFoundError, ModuleNotFoundError):
+                pass
+
+            # last resort: hardcoded prompts
+            from git_cai_cli.core.llm import (
+                _HARDCODED_COMMIT_PROMPT,
+                _HARDCODED_SQUASH_PROMPT,
+            )
+
+            return (
+                _HARDCODED_COMMIT_PROMPT
+                if name == "commit_prompt.md"
+                else _HARDCODED_SQUASH_PROMPT
+            )
+
+        commit_path.write_text(_read_default("commit_prompt.md"), encoding="utf-8")
+        squash_path.write_text(_read_default("squash_prompt.md"), encoding="utf-8")
+
+        log.info("Default commit prompt written to %s", commit_path)
+        log.info("Default squash prompt written to %s", squash_path)
+
     def list(self) -> str:
         """
         Return informational text for the --list / -l flag.
@@ -264,6 +301,10 @@ git cai -l style
             "neutral": {
                 "description": "Objective and to the point.",
                 "example": "Fix typo in configuration loader.",
+            },
+            "none": {
+                "description": "No style instruction will be included in the prompt, allowing the model to choose its own tone.",
+                "example": "Model's choice of style.",
             },
             "professional": {
                 "description": "Clear, concise, and formal. Default style.",

@@ -32,3 +32,23 @@ def test_all_flags_combined(monkeypatch):
     args = ["--list", "--all", "--squash", "--update", "--debug"]
     result = runner.invoke(cli.app, args)
     assert result.exit_code == 0
+
+
+def test_generate_prompts_flag(monkeypatch):
+    """Test -p / --generate-prompts flag."""
+
+    called = {"ok": False}
+
+    def _fake_generate(self):
+        called["ok"] = True
+
+    monkeypatch.setattr(
+        "git_cai_cli.core.options.CliManager.generate_prompts_here",
+        _fake_generate,
+        raising=True,
+    )
+
+    result = runner.invoke(cli.app, ["-p"])
+    assert result.exit_code == 0
+    assert called["ok"] is True
+    assert "commit_prompt.md" in result.stdout

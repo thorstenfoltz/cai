@@ -66,7 +66,7 @@ check-protected-access-in-special-methods=no
                                            # Don’t warn about protected attr access in dunder methods
 
 [DESIGN]
-max-args=10                                # Max arguments per function
+max-args=15                                # Max arguments per function
 max-attributes=7                           # Max attributes per class
 max-branches=20                            # Max branches per function
 max-locals=30                              # Max locals per function
@@ -77,7 +77,7 @@ min-public-methods=1                       # Min public methods per class
 max-nested-blocks=15                       # Max nesting depth
 max-bool-expr=15                           # Max boolean subexpressions in a condition
 max-parents=7                              # Max base classes per class
-max-positional-arguments=10                # Max positional arguments per function
+max-positional-arguments=15                # Max positional arguments per function
 
 [EXCEPTIONS]
 overgeneral-exceptions=builtins.BaseException,builtins.Exception
@@ -94,6 +94,7 @@ disable=logging-too-many-args,
         import-error,
         wrong-import-order,
         import-outside-toplevel,
+        duplicate-code,
                                            # Disable noisy/meta warnings
 
 

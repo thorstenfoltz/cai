@@ -235,3 +235,13 @@ def test_stage_tracked_files_git_failure() -> None:
     with patch("subprocess.run", return_value=completed):
         with pytest.raises(RuntimeError):
             manager.stage_tracked_files()
+
+
+def test_generate_prompts_here_creates_files(tmp_path, monkeypatch):
+    manager = CliManager()
+    monkeypatch.chdir(tmp_path)
+
+    manager.generate_prompts_here()
+
+    assert (tmp_path / "commit_prompt.md").is_file()
+    assert (tmp_path / "squash_prompt.md").is_file()

@@ -20,6 +20,7 @@ def config():
         "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
         "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
         "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
+        "ollama": {"model": "llama3.1", "temperature": 0},
         "language": "en",
         "default": "groq",
         "style": "professional",
@@ -55,61 +56,54 @@ def test_language_name_default(generator):
 
 def test_emoji_enabled(generator):
     """
-    Test that the _emoji_enabled method returns the correct string when emojis are enabled
+    Test that the _emoji_instruction method returns the correct string when emojis are enabled
     """
     assert (
         "Use relevant emojis in the commit message where appropriate. Emojis should enhance the clarity and tone of the message."
-        in generator._emoji_enabled()
+        in generator._emoji_instruction()
     )
 
 
 def test_emoji_disabled(generator):
     """
-    Test that the _emoji_enabled method returns the correct string when emojis are disabled
+    Test that the _emoji_instruction method returns the correct string when emojis are disabled
     """
     generator.config["emoji"] = False
-    assert "Do not use any emojis in the commit message." in generator._emoji_enabled()
-
-
-def test_system_prompt_full(generator):
-    """
-    Test that the _system_prompt method returns the full system prompt string
-    """
-    expected = (
-        "You are an expert software engineer assistant. "
-        "Your task is to generate a concise, professional git commit message, "
-        "summarizing the provided git diff changes in Spanish. "
-        "Keep the message clear and focused on what was changed and why. "
-        "Always include a headline, followed by a bullet-point list of changes. "
-        "If you detect sensitive information, mention it at the top, but still generate the message. "
-        "Write the commit message in the following tone style: professional. "
-        "Use relevant emojis in the commit message where appropriate. Emojis should enhance the clarity and tone of the message.."
+    assert (
+        "Do not use any emojis in the commit message." in generator._emoji_instruction()
     )
 
-    out = generator._system_prompt("Spanish")
-    assert out == expected
 
-
-def test_summary_prompt_full(generator):
+def test_build_commit_prompt_contains_base_and_instructions(generator):
     """
-    Test that the _summary_prompt method returns the full summary prompt string
+    Test that _build_commit_prompt includes the base prompt and config instructions
     """
-    expected = (
-        "You are an expert software engineer assistant. "
-        "Your task is to summarize multiple existing commit messages "
-        "into a single clean git commit message. "
-        "Write the final message in Japanese. "
-        "Do not list each commit individually. "
-        "Instead, infer the main purpose and overall change. "
-        "Format:\n"
-        "1. One short, clear headline.\n"
-        "2. A concise bullet list describing the main themes of the work. "
-        "Write the commit message in the following tone style: professional. "
-        "Use relevant emojis in the commit message where appropriate. Emojis should enhance the clarity and tone of the message.."
-    )
+    out = generator._build_commit_prompt()
 
-    out = generator._summary_prompt("Japanese")
-    assert out == expected
+    # Base prompt content (from default file or hardcoded)
+    assert "expert software engineer" in out
+    assert "git commit message" in out
+
+    # Config instructions appended
+    assert "English" in out
+    assert "professional" in out
+    assert "emojis" in out.lower()
+
+
+def test_build_squash_prompt_contains_base_and_instructions(generator):
+    """
+    Test that _build_squash_prompt includes the base prompt and config instructions
+    """
+    out = generator._build_squash_prompt()
+
+    # Base prompt content (from default file or hardcoded)
+    assert "expert software engineer" in out
+    assert "summarize" in out.lower()
+
+    # Config instructions appended
+    assert "English" in out
+    assert "professional" in out
+    assert "emojis" in out.lower()
 
 
 # test dispatch
@@ -202,8 +196,8 @@ def test_generate_anthropic():
         "model": "claude-sonnet-4-5",
         "max_tokens": 8192,
         "temperature": 0.7,
+        "system": "sys",
         "messages": [
-            {"role": "assistant", "content": "sys"},
             {"role": "user", "content": "abc"},
         ],
     }
@@ -367,3 +361,102 @@ def test_generate_xai():
             {"role": "user", "content": "hello x"},
         ],
     }
+
+
+def test_generate_ollama():
+    config = {
+        "ollama": {
+            "model": "llama3.1",
+            "temperature": 0.2,
+        }
+    }
+
+    gen = CommitMessageGenerator(
+        token=None,
+        config=config,
+        default_model="ollama",
+    )
+
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.status_code = 200
+    mock_post.return_value.raise_for_status.return_value = None
+    mock_post.return_value.json.return_value = {
+        "message": {"content": "   ollama text   "},
+    }
+
+    with (
+        patch.dict(f"{module_path}.os.environ", {}, clear=True),
+        patch(f"{module_path}.shutil.which", return_value="/usr/bin/ollama"),
+        patch(f"{module_path}.requests.get", return_value=MagicMock(status_code=200)),
+        patch(f"{module_path}.requests.post", mock_post),
+    ):
+        result = gen.generate_ollama("abc", system_prompt_override="sys")
+
+    assert result == "ollama text"
+    mock_post.assert_called_once()
+
+    args, kwargs = mock_post.call_args
+    assert args[0] == "http://localhost:11434/api/chat"
+    assert kwargs["timeout"] == 300
+    assert kwargs["json"] == {
+        "model": "llama3.1",
+        "messages": [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "abc"},
+        ],
+        "stream": False,
+        "options": {"temperature": 0.2},
+    }
+
+
+def test_generate_ollama_autostarts_and_stops_server():
+    config = {
+        "ollama": {
+            "model": "llama3.1",
+            "temperature": 0.0,
+        }
+    }
+
+    gen = CommitMessageGenerator(
+        token=None,
+        config=config,
+        default_model="ollama",
+    )
+
+    module_path = CommitMessageGenerator.__module__
+
+    # First _ollama_is_running() -> False (two calls), then True (one call)
+    mock_get = MagicMock(
+        side_effect=[
+            MagicMock(status_code=404),
+            MagicMock(status_code=404),
+            MagicMock(status_code=200),
+        ]
+    )
+
+    mock_post = MagicMock()
+    mock_post.return_value.status_code = 200
+    mock_post.return_value.raise_for_status.return_value = None
+    mock_post.return_value.json.return_value = {
+        "message": {"content": "ok"},
+    }
+
+    proc = MagicMock()
+    proc.poll.return_value = None
+    proc.pid = 1234
+
+    with (
+        patch.dict(f"{module_path}.os.environ", {}, clear=True),
+        patch(f"{module_path}.shutil.which", return_value="/usr/bin/ollama"),
+        patch(f"{module_path}.requests.get", mock_get),
+        patch(f"{module_path}.requests.post", mock_post),
+        patch(f"{module_path}.subprocess.Popen", return_value=proc) as popen,
+        patch(f"{module_path}.os.killpg") as killpg,
+    ):
+        assert gen.generate_ollama("abc", system_prompt_override=None) == "ok"
+        gen.close()
+
+    popen.assert_called_once()
+    killpg.assert_called_once()
