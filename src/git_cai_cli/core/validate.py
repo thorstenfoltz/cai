@@ -102,12 +102,18 @@ def _validate_language(config: dict[str, Any], allowed_languages: set[str]) -> s
     return lang_code
 
 
-def _validate_llm_call(fn, *args, token: str | None, **kwargs) -> Any:
+def _validate_llm_call(
+    fn,
+    *args,
+    token: str | None,
+    requires_token: bool = True,
+    **kwargs,
+) -> Any:
     """
     Executes an LLM call and converts authentication-related failures
     into clean, user-facing errors.
     """
-    if not token or not token.strip():
+    if requires_token and (not token or not token.strip()):
         log.error("LLM API token is missing.")
         log.error(
             "If this is the first run after installation, this is expected. Please configure your API key."

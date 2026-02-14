@@ -19,6 +19,7 @@ Currently supported providers:
 - xAI
 - Mistral
 - DeepSeek
+- Ollama (local)
 
 ---
 
@@ -26,7 +27,9 @@ Currently supported providers:
 
 - Python 3.10 or higher
 - [pipx](https://pypi.org/project/pipx/)
-- An API key for at least one of the following providers:
+- Either:
+  - Ollama installed and running locally, or
+  - An API key for at least one of the following providers:
   - OpenAI
   - Gemini (free tier available)
   - Anthropic
@@ -111,6 +114,8 @@ On first execution, cai automatically creates two configuration files:
 Don't be scared the first run will show an error. It only misses a token.
 Add your provider API keys to `tokens.yml`. Once configured, cai will reuse them automatically.
 Set your preferred LLM in `cai_config.yml` (Groq by default).
+
+If you want to use Ollama, set `default: ollama` and configure the `ollama:` block (model/temperature). Make sure Ollama is running (e.g. `ollama serve`).
 
 ### Repository-specific configuration
 

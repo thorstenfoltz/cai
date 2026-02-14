@@ -10,7 +10,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from git_cai_cli.core.config import load_config, load_token
+from git_cai_cli.core.config import TOKENLESS_PROVIDERS, load_config, load_token
 from git_cai_cli.core.gitutils import (
     _has_upstream,
     commit_with_edit_template,
@@ -93,7 +93,8 @@ def squash_branch() -> None:
     config = load_config()
     provider = config["default"]
     token = load_token(config=config)
-    if not token:
+
+    if provider not in TOKENLESS_PROVIDERS and not token:
         log.error(
             "Missing %s token in %s/.config/cai/tokens.yml",  # nosemgrep
             provider,
@@ -102,106 +103,128 @@ def squash_branch() -> None:
         sys.exit(1)
     generator = CommitMessageGenerator(token, config, provider)
 
-    # 1) Working tree handling
-    if staged:
-        log.info("Staged changes detected — committing them first before squashing...")
-        diff = git_diff_excluding(repo_root)
-
-        if not diff.strip():
-            log.error("Staged changes detected, but diff is empty. Aborting.")
-            return
-
-        msg = generator.generate(diff)
-
-        result = commit_with_edit_template(msg)
-        if result != 0:
-            log.info("Commit aborted — squash cancelled.")
-            return
-
-    else:
-        if unstaged:
-            log.error(
-                "Unstaged changes present. Please stage or discard them before squashing."
+    try:
+        # 1) Working tree handling
+        if staged:
+            log.info(
+                "Staged changes detected — committing them first before squashing..."
             )
+            diff = git_diff_excluding(repo_root)
+
+            if not diff.strip():
+                log.error("Staged changes detected, but diff is empty. Aborting.")
+                return
+
+            try:
+                msg = generator.generate(diff)
+            except ValueError as e:
+                log.error("%s", e)
+                sys.exit(1)
+
+            result = commit_with_edit_template(msg)
+            if result != 0:
+                log.info("Commit aborted — squash cancelled.")
+                return
+
+        else:
+            if unstaged:
+                log.error(
+                    "Unstaged changes present. Please stage or discard them before squashing."
+                )
+                return
+            log.info("Working tree clean — proceeding to squash history.")
+
+        # 2) Determine branch base
+        if not _has_commits():
+            log.info("Repository has no commits — nothing to squash.")
             return
-        log.info("Working tree clean — proceeding to squash history.")
+        merge_base = _get_branch_base()
 
-    # 2) Determine branch base
-    if not _has_commits():
-        log.info("Repository has no commits — nothing to squash.")
-        return
-    merge_base = _get_branch_base()
+        # 3) Summarize commit history
+        commit_log = subprocess.check_output(
+            [
+                "git",
+                "--no-pager",
+                "log",
+                f"{merge_base}..HEAD",
+                "--pretty=format:%B",
+            ],
+            text=True,
+        ).strip()
 
-    # 3) Summarize commit history
-    commit_log = subprocess.check_output(
-        ["git", "--no-pager", "log", f"{merge_base}..HEAD", "--pretty=format:%B"],
-        text=True,
-    ).strip()
+        if not commit_log:
+            log.info("Nothing to squash — branch contains only one commit.")
+            return
 
-    if not commit_log:
-        log.info("Nothing to squash — branch contains only one commit.")
-        return
+        log.info("Summarizing commit history using LLM...")
+        try:
+            summary_message = generator.summarize_commit_history(commit_log)
+        except ValueError as e:
+            log.error("%s", e)
+            sys.exit(1)
 
-    log.info("Summarizing commit history using LLM...")
-    summary_message = generator.summarize_commit_history(commit_log)
-
-    # 4) Let user edit the summary without making a commit yet
-    log.info(
-        "Opening editor for final squash commit message. Save = continue, exit w/o save = cancel."
-    )
-
-    # write to temp file
-    with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as tf:
-        tf.write(summary_message)
-        tf.flush()
-        tf_name = Path(tf.name)
-
-    original_hash = sha256_of_file(tf_name)
-
-    editor = get_git_editor()
-    parts = shlex.split(editor)
-    if not shutil.which(parts[0]):
-        # This editor command requires shell interpretation
-        rc = subprocess.run(
-            f'{editor} "{tf_name}"', shell=True, check=False  # nosemgrep
-        ).returncode  # nosec # nosemgrep
-    else:
-        rc = subprocess.run(parts + [str(tf_name)], check=False).returncode
-
-    if rc != 0:
-        log.info("Editor exited non-zero — squash cancelled.")
-        tf_name.unlink(missing_ok=True)
-        return
-
-    new_hash = sha256_of_file(tf_name)
-
-    if new_hash == original_hash:
-        log.info("Squash cancelled (user did not save message).")
-        tf_name.unlink(missing_ok=True)
-        return
-
-    # User saved → read message into final_message
-    final_message = tf_name.read_text(encoding="utf-8").strip()
-    tf_name.unlink(missing_ok=True)
-
-    # 5) Perform squash
-    subprocess.run(["git", "reset", "--soft", merge_base], check=True)
-    subprocess.run(["git", "commit", "-m", final_message], check=True)
-
-    log.info("🎉 Branch successfully squashed into one commit. ✅")
-
-    if _has_upstream():
-        log.warning(
-            "Your branch has a remote upstream.\n"
-            "Since squashing rewrites commit history, your next push will require:\n\n"
-            "    git push --force-with-lease\n\n"
-            "This is a safe force-push that prevents overwriting others' commits.\n\n"
-        )
-        choice = input("Shall I execute it for you now? [yes/no]: ").strip().lower()
-        if choice in ("y", "yes"):
-            subprocess.run(["git", "push", "--force-with-lease"], check=True)
-            log.info("✅ Successfully pushed the squashed branch to remote.")
-    else:
+        # 4) Let user edit the summary without making a commit yet
         log.info(
-            "No upstream branch detected. Normal `git push` will work as expected."
+            "Opening editor for final squash commit message. Save = continue, exit w/o save = cancel."
         )
+
+        # write to temp file
+        with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as tf:
+            tf.write(summary_message)
+            tf.flush()
+            tf_name = Path(tf.name)
+
+        original_hash = sha256_of_file(tf_name)
+
+        editor = get_git_editor()
+        parts = shlex.split(editor)
+        if not shutil.which(parts[0]):
+            # This editor command requires shell interpretation
+            rc = subprocess.run(
+                f'{editor} "{tf_name}"',
+                shell=True,
+                check=False,  # nosemgrep
+            ).returncode  # nosec # nosemgrep
+        else:
+            rc = subprocess.run(parts + [str(tf_name)], check=False).returncode
+
+        if rc != 0:
+            log.info("Editor exited non-zero — squash cancelled.")
+            tf_name.unlink(missing_ok=True)
+            return
+
+        new_hash = sha256_of_file(tf_name)
+
+        if new_hash == original_hash:
+            log.info("Squash cancelled (user did not save message).")
+            tf_name.unlink(missing_ok=True)
+            return
+
+        # User saved → read message into final_message
+        final_message = tf_name.read_text(encoding="utf-8").strip()
+        tf_name.unlink(missing_ok=True)
+
+        # 5) Perform squash
+        subprocess.run(["git", "reset", "--soft", merge_base], check=True)
+        subprocess.run(["git", "commit", "-m", final_message], check=True)
+
+        log.info("🎉 Branch successfully squashed into one commit. ✅")
+
+        if _has_upstream():
+            log.warning(
+                "Your branch has a remote upstream.\n"
+                "Since squashing rewrites commit history, your next push will require:\n\n"
+                "    git push --force-with-lease\n\n"
+                "This is a safe force-push that prevents overwriting others' commits.\n\n"
+            )
+            choice = input("Shall I execute it for you now? [yes/no]: ").strip().lower()
+            if choice in ("y", "yes"):
+                subprocess.run(["git", "push", "--force-with-lease"], check=True)
+                log.info("✅ Successfully pushed the squashed branch to remote.")
+        else:
+            log.info(
+                "No upstream branch detected. Normal `git push` will work as expected."
+            )
+
+    finally:
+        generator.close()

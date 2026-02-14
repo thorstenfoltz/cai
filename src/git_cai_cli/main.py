@@ -48,7 +48,7 @@ def run(
     ensure_git_alias()
 
     # Lazy imports
-    from git_cai_cli.core.config import load_config, load_token
+    from git_cai_cli.core.config import TOKENLESS_PROVIDERS, load_config, load_token
     from git_cai_cli.core.gitutils import (
         commit_with_edit_template,
         find_git_root,
@@ -115,14 +115,18 @@ def run(
 
     generator = CommitMessageGenerator(token, config, provider)
     try:
-        commit_message = _validate_llm_call(
-            generator.generate,
-            diff,
-            token=token,
-        )
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        try:
+            commit_message = _validate_llm_call(
+                generator.generate,
+                diff,
+                token=token,
+                requires_token=provider not in TOKENLESS_PROVIDERS,
+            )
+        except ValueError as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(code=1)
+    finally:
+        generator.close()
 
     if crazy:
         rc = manager.commit_crazy(commit_message)

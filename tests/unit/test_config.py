@@ -165,6 +165,22 @@ def test_load_token_missing_key(tmp_path, caplog):
     assert "Token for provider 'openai' not found" in caplog.text
 
 
+def test_load_token_tokenless_provider_does_not_error(tmp_path, caplog):
+    tokens = tmp_path / "tokens.yml"
+    tokens.write_text(yaml.safe_dump({"openai": "abc123"}))
+
+    config = {
+        "default": "ollama",
+        "load_tokens_from": tokens,
+    }
+
+    caplog.set_level("ERROR")
+    result = load_token(config=config)
+
+    assert result is None
+    assert "Token for provider 'ollama' not found" not in caplog.text
+
+
 def test_serialize_config_converts_path():
     cfg = {"x": Path("/tmp/test")}
     out = _serialize_config(cfg)

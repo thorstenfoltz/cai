@@ -41,6 +41,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
     "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
     "mistral": {"model": "codestral-2508", "temperature": 0},
+    "ollama": {"model": "llama3.1", "temperature": 0},
     "language": "en",
     "default": "groq",
     "style": "professional",
@@ -49,6 +50,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "prompt_file": "",
     "squash_prompt_file": "",
 }
+
+# Providers that do not require an API token in tokens.yml
+TOKENLESS_PROVIDERS: set[str] = {"ollama"}
 
 TOKEN_TEMPLATE = {
     "anthropic": "PUT-YOUR-ANTHROPIC-TOKEN-HERE",
@@ -311,6 +315,10 @@ def load_token(
 
     tokens_file.parent.mkdir(parents=True, exist_ok=True)
     key_name = config["default"]
+
+    if key_name in TOKENLESS_PROVIDERS:
+        log.info("Provider '%s' does not require a token.", key_name)
+        return None
 
     if not tokens_file.exists():
         log.warning(

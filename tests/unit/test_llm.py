@@ -20,6 +20,7 @@ def config():
         "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
         "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
         "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
+        "ollama": {"model": "llama3.1", "temperature": 0},
         "language": "en",
         "default": "groq",
         "style": "professional",
@@ -360,3 +361,102 @@ def test_generate_xai():
             {"role": "user", "content": "hello x"},
         ],
     }
+
+
+def test_generate_ollama():
+    config = {
+        "ollama": {
+            "model": "llama3.1",
+            "temperature": 0.2,
+        }
+    }
+
+    gen = CommitMessageGenerator(
+        token=None,
+        config=config,
+        default_model="ollama",
+    )
+
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.status_code = 200
+    mock_post.return_value.raise_for_status.return_value = None
+    mock_post.return_value.json.return_value = {
+        "message": {"content": "   ollama text   "},
+    }
+
+    with (
+        patch.dict(f"{module_path}.os.environ", {}, clear=True),
+        patch(f"{module_path}.shutil.which", return_value="/usr/bin/ollama"),
+        patch(f"{module_path}.requests.get", return_value=MagicMock(status_code=200)),
+        patch(f"{module_path}.requests.post", mock_post),
+    ):
+        result = gen.generate_ollama("abc", system_prompt_override="sys")
+
+    assert result == "ollama text"
+    mock_post.assert_called_once()
+
+    args, kwargs = mock_post.call_args
+    assert args[0] == "http://localhost:11434/api/chat"
+    assert kwargs["timeout"] == 300
+    assert kwargs["json"] == {
+        "model": "llama3.1",
+        "messages": [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "abc"},
+        ],
+        "stream": False,
+        "options": {"temperature": 0.2},
+    }
+
+
+def test_generate_ollama_autostarts_and_stops_server():
+    config = {
+        "ollama": {
+            "model": "llama3.1",
+            "temperature": 0.0,
+        }
+    }
+
+    gen = CommitMessageGenerator(
+        token=None,
+        config=config,
+        default_model="ollama",
+    )
+
+    module_path = CommitMessageGenerator.__module__
+
+    # First _ollama_is_running() -> False (two calls), then True (one call)
+    mock_get = MagicMock(
+        side_effect=[
+            MagicMock(status_code=404),
+            MagicMock(status_code=404),
+            MagicMock(status_code=200),
+        ]
+    )
+
+    mock_post = MagicMock()
+    mock_post.return_value.status_code = 200
+    mock_post.return_value.raise_for_status.return_value = None
+    mock_post.return_value.json.return_value = {
+        "message": {"content": "ok"},
+    }
+
+    proc = MagicMock()
+    proc.poll.return_value = None
+    proc.pid = 1234
+
+    with (
+        patch.dict(f"{module_path}.os.environ", {}, clear=True),
+        patch(f"{module_path}.shutil.which", return_value="/usr/bin/ollama"),
+        patch(f"{module_path}.requests.get", mock_get),
+        patch(f"{module_path}.requests.post", mock_post),
+        patch(f"{module_path}.subprocess.Popen", return_value=proc) as popen,
+        patch(f"{module_path}.os.killpg") as killpg,
+    ):
+        assert gen.generate_ollama("abc", system_prompt_override=None) == "ok"
+        gen.close()
+
+    popen.assert_called_once()
+    killpg.assert_called_once()

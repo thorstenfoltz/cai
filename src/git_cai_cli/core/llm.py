@@ -4,10 +4,15 @@ Use LLMs to generate git commit messages from diffs or multiple commits.
 
 import logging
 import os
+import shutil
+import signal
+import subprocess
+import time
 from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, Optional, Type
+from urllib.parse import urlparse
 
 import requests
 from git_cai_cli.core.languages import LANGUAGE_MAP
@@ -122,6 +127,14 @@ class CommitMessageGenerator:
         self.token = token
         self.config = config
         self.default_model = default_model
+
+        # Ollama lifecycle tracking (only used when provider == "ollama")
+        self._ollama_proc: subprocess.Popen[str] | None = None
+        self._ollama_started_by_us: bool = False
+
+    def close(self) -> None:
+        """Release resources started by this generator (best-effort)."""
+        self._stop_ollama_server_if_started_by_us()
 
     def generate(self, git_diff: str) -> str:
         """
@@ -292,6 +305,7 @@ class CommitMessageGenerator:
             "xai": self.generate_xai,
             "mistral": self.generate_mistral,
             "deepseek": self.generate_deepseek,
+            "ollama": self.generate_ollama,
         }
 
         if self.default_model not in model_dispatch:
@@ -326,6 +340,8 @@ class CommitMessageGenerator:
         model = self.config["anthropic"]["model"]
         temperature = self.config["anthropic"]["temperature"]
 
+        log.info("Using anthropic model '%s'.", model)
+
         # Anthropic Messages API expects system prompt via the top-level "system" field.
         messages = [{"role": "user", "content": content}]
 
@@ -354,12 +370,16 @@ class CommitMessageGenerator:
         It uses the OpenAI SDK.
         """
         url = "https://api.deepseek.com"
-        response = self.generate_openai(
+        model = self.config["deepseek"]["model"]
+        temperature = self.config["deepseek"]["temperature"]
+        return self.generate_openai(
             content=content,
             system_prompt_override=system_prompt_override,
             base_url=url,
+            model_override=model,
+            temperature_override=temperature,
+            provider_name="deepseek",
         )
-        return response
 
     def generate_gemini(
         self,
@@ -372,6 +392,8 @@ class CommitMessageGenerator:
         """
         model = self.config["gemini"]["model"]
         temperature = self.config["gemini"]["temperature"]
+
+        log.info("Using gemini model '%s'.", model)
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
@@ -414,6 +436,8 @@ class CommitMessageGenerator:
 
         model = self.config["groq"]["model"]
         temperature = self.config["groq"]["temperature"]
+
+        log.info("Using groq model '%s'.", model)
 
         messages = []
 
@@ -460,6 +484,8 @@ class CommitMessageGenerator:
         model = self.config["mistral"]["model"]
         temperature = self.config["mistral"]["temperature"]
 
+        log.info("Using mistral model '%s'.", model)
+
         prompt = [
             {
                 "role": "system",
@@ -480,12 +506,178 @@ class CommitMessageGenerator:
         response = requests.post(url, json=request, headers=headers, timeout=30)
         return response.json()["choices"][0]["message"]["content"].strip()
 
+    def _ollama_base_url(self) -> str:
+        host = os.environ.get("OLLAMA_HOST", "").strip()
+        if not host:
+            return "http://localhost:11434"
+
+        # Ollama commonly accepts values like "127.0.0.1:11434" without scheme.
+        if "://" not in host:
+            host = f"http://{host}"
+
+        return host.rstrip("/")
+
+    def _ollama_is_running(self) -> bool:
+        base = self._ollama_base_url()
+        for path in ("/api/version", "/api/tags"):
+            try:
+                r = requests.get(f"{base}{path}", timeout=1)
+                if r.status_code == 200:
+                    return True
+            except requests.RequestException:
+                continue
+        return False
+
+    def _start_ollama_server_if_needed(self) -> None:
+        if self._ollama_is_running():
+            return
+
+        base = self._ollama_base_url()
+        parsed = urlparse(base)
+        hostname = parsed.hostname
+        if hostname not in ("localhost", "127.0.0.1", "::1"):
+            raise ValueError(
+                f"Failed to reach Ollama at {base}. If you set OLLAMA_HOST to a remote host, ensure it is reachable."
+            )
+
+        if self._ollama_proc is None or self._ollama_proc.poll() is not None:
+            log.info("Ollama is not running; starting 'ollama serve'...")
+            try:
+                self._ollama_proc = subprocess.Popen(
+                    ["ollama", "serve"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    start_new_session=True,
+                )
+            except OSError as exc:
+                raise ValueError("Failed to start Ollama server.") from exc
+            self._ollama_started_by_us = True
+
+        deadline = time.time() + 8
+        while time.time() < deadline:
+            if self._ollama_proc is not None and self._ollama_proc.poll() is not None:
+                raise ValueError(
+                    "Ollama failed to start. Try running `ollama serve` manually to see the error."
+                )
+            if self._ollama_is_running():
+                return
+            time.sleep(0.1)
+
+        raise ValueError(
+            "Timed out waiting for Ollama to start. Try running `ollama serve` manually."
+        )
+
+    def _stop_ollama_server_if_started_by_us(self) -> None:
+        if not self._ollama_started_by_us:
+            return
+        if self._ollama_proc is None:
+            return
+        if self._ollama_proc.poll() is not None:
+            return
+
+        log.info("Stopping Ollama server started by cai...")
+
+        try:
+            os.killpg(self._ollama_proc.pid, signal.SIGTERM)
+        except Exception:
+            try:
+                self._ollama_proc.terminate()
+            except Exception:
+                return
+
+        try:
+            self._ollama_proc.wait(timeout=2)
+        except Exception:
+            try:
+                os.killpg(self._ollama_proc.pid, signal.SIGKILL)
+            except Exception:
+                try:
+                    self._ollama_proc.kill()
+                except Exception:
+                    pass
+
+    def _ensure_ollama_installed(self) -> None:
+        if shutil.which("ollama") is None:
+            raise ValueError(
+                "Ollama is not installed or not on PATH. Install it from https://ollama.com and try again."
+            )
+
+    def generate_ollama(
+        self,
+        content: str,
+        system_prompt_override: Optional[str] = None,
+    ) -> str:
+        """Generate using the local Ollama HTTP API."""
+        self._ensure_ollama_installed()
+        self._start_ollama_server_if_needed()
+
+        model = self.config["ollama"]["model"]
+        temperature = self.config["ollama"]["temperature"]
+
+        log.info("Using ollama model '%s'.", model)
+
+        url = f"{self._ollama_base_url()}/api/chat"
+
+        messages: list[dict[str, str]] = []
+        if system_prompt_override:
+            messages.append({"role": "system", "content": system_prompt_override})
+        messages.append({"role": "user", "content": content})
+
+        request: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+            },
+        }
+
+        try:
+            response = requests.post(url, json=request, timeout=300)
+        except requests.RequestException as exc:
+            raise ValueError(
+                "Failed to reach Ollama. Ensure it is running (try: `ollama serve`)."
+            ) from exc
+
+        try:
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            # Try to surface Ollama's error message if possible.
+            err = ""
+            try:
+                err = str(response.json().get("error", "")).strip()
+            except Exception:
+                err = response.text.strip()
+            suffix = f" ({err})" if err else ""
+            raise ValueError(
+                f"Ollama request failed with HTTP {response.status_code}{suffix}."
+            ) from exc
+
+        data = response.json()
+
+        # /api/chat format
+        if isinstance(data, dict) and isinstance(data.get("message"), dict):
+            out = str(data["message"].get("content", "")).strip()
+            if out:
+                return out
+
+        # /api/generate fallback format (some setups proxy this endpoint)
+        out = str(data.get("response", "")).strip() if isinstance(data, dict) else ""
+        if out:
+            return out
+
+        raise ValueError("Ollama returned an empty response.")
+
     def generate_openai(
         self,
         content: str,
         openai_cls: Type[Any] = OpenAI,
         system_prompt_override: Optional[str] = None,
         base_url: Optional[str] = None,
+        model_override: Optional[str] = None,
+        temperature_override: Optional[float] = None,
+        provider_name: str = "openai",
     ) -> str:
         """
         Shared OpenAI call for commit generation or commit history summarization.
@@ -495,8 +687,18 @@ class CommitMessageGenerator:
             client_kwargs["base_url"] = base_url
 
         client = openai_cls(**client_kwargs)
-        model = self.config["openai"]["model"]
-        temperature = self.config["openai"]["temperature"]
+        model = (
+            model_override
+            if model_override is not None
+            else self.config["openai"]["model"]
+        )
+        temperature = (
+            temperature_override
+            if temperature_override is not None
+            else self.config["openai"]["temperature"]
+        )
+
+        log.info("Using %s model '%s'.", provider_name, model)
 
         messages = [
             {"role": "system", "content": system_prompt_override},
@@ -527,6 +729,8 @@ class CommitMessageGenerator:
 
         model = self.config["xai"]["model"]
         temperature = self.config["xai"]["temperature"]
+
+        log.info("Using xai model '%s'.", model)
 
         prompt = [
             {
