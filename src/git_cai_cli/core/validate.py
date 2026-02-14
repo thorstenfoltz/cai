@@ -79,13 +79,22 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
 
 
 def _validate_language(config: dict[str, Any], allowed_languages: set[str]) -> str:
+    """Validate the configured language code.
+
+    - Returns an allowed language code.
+    - Returns "none" if language injection should be disabled.
+
+    Notes:
+    - Missing/invalid values fall back to a *supported* default language ("en" if
+      available, otherwise the first language in the allowed set).
     """
-    Validate that the language code exists in the allowed set.
-    Returns the ISO 639-1 code, or "none" to disable language injection.
-    """
+
+    if not allowed_languages:
+        raise ValueError("allowed_languages must not be empty")
+
     lang_code = config.get("language")
 
-    # Only treat explicit YAML null as "none". Missing key should fall back to 'en'.
+    # Only treat explicit YAML null as "none". Missing key should fall back.
     if "language" in config and lang_code is None:
         log.info("Language set to None — language instruction disabled in prompt.")
         return "none"
@@ -94,12 +103,26 @@ def _validate_language(config: dict[str, Any], allowed_languages: set[str]) -> s
         log.info("Language set to 'none' — language instruction disabled in prompt.")
         return "none"
 
-    if not lang_code or lang_code not in allowed_languages:
+    fallback = "en" if "en" in allowed_languages else sorted(allowed_languages)[0]
+
+    if not isinstance(lang_code, str) or not lang_code.strip():
         log.warning(
-            "Language code '%s' is not supported. Falling back to 'en'.", lang_code
+            "Language code '%s' is not supported. Falling back to '%s'.",
+            lang_code,
+            fallback,
         )
-        return "en"
-    return lang_code
+        return fallback
+
+    normalized = lang_code.strip().lower()
+    if normalized not in allowed_languages:
+        log.warning(
+            "Language code '%s' is not supported. Falling back to '%s'.",
+            normalized,
+            fallback,
+        )
+        return fallback
+
+    return normalized
 
 
 def _validate_llm_call(

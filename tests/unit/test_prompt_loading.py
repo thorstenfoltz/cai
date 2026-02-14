@@ -6,12 +6,11 @@ from unittest.mock import patch
 
 import pytest
 from git_cai_cli.core.llm import (
-    CommitMessageGenerator,
     _HARDCODED_COMMIT_PROMPT,
     _HARDCODED_SQUASH_PROMPT,
+    CommitMessageGenerator,
     load_prompt_file,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

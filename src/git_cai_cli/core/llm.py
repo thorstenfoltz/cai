@@ -273,14 +273,14 @@ class CommitMessageGenerator:
         return prompt
 
     # Keep old method names as aliases for backward compatibility in tests
-    def _system_prompt(self, language_name: str) -> str:
+    def _system_prompt(self, _language_name: str | None = None) -> str:
         """
         Legacy method — builds the commit prompt with config instructions.
         Kept for backward compatibility.
         """
         return self._build_commit_prompt()
 
-    def _summary_prompt(self, language_name: str) -> str:
+    def _summary_prompt(self, _language_name: str | None = None) -> str:
         """
         Legacy method — builds the squash prompt with config instructions.
         Kept for backward compatibility.
@@ -543,7 +543,7 @@ class CommitMessageGenerator:
         if self._ollama_proc is None or self._ollama_proc.poll() is not None:
             log.info("Ollama is not running; starting 'ollama serve'...")
             try:
-                self._ollama_proc = subprocess.Popen(
+                self._ollama_proc = subprocess.Popen(  # pylint: disable=consider-using-with
                     ["ollama", "serve"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -580,22 +580,25 @@ class CommitMessageGenerator:
 
         try:
             os.killpg(self._ollama_proc.pid, signal.SIGTERM)
-        except Exception:
+        except (ProcessLookupError, PermissionError, OSError):
             try:
                 self._ollama_proc.terminate()
-            except Exception:
+            except (ProcessLookupError, OSError):
                 return
 
         try:
             self._ollama_proc.wait(timeout=2)
-        except Exception:
+            log.info("Ollama server stopped successfully.")
+        except subprocess.TimeoutExpired:
             try:
                 os.killpg(self._ollama_proc.pid, signal.SIGKILL)
-            except Exception:
+                log.info("Ollama server killed successfully.")
+            except (ProcessLookupError, PermissionError, OSError):
                 try:
                     self._ollama_proc.kill()
-                except Exception:
-                    pass
+                    log.info("Ollama server killed successfully (fallback).")
+                except (ProcessLookupError, OSError):
+                    pass  # nosec B110
 
     def _ensure_ollama_installed(self) -> None:
         if shutil.which("ollama") is None:
@@ -647,7 +650,7 @@ class CommitMessageGenerator:
             err = ""
             try:
                 err = str(response.json().get("error", "")).strip()
-            except Exception:
+            except ValueError:
                 err = response.text.strip()
             suffix = f" ({err})" if err else ""
             raise ValueError(

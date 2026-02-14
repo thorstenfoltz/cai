@@ -144,11 +144,27 @@ def test_validate_language_invalid_fallback(caplog):
     assert "not supported" in caplog.text
 
 
+def test_validate_language_invalid_fallback_respects_allowed_set(caplog):
+    caplog.set_level("WARNING")
+
+    result = _validate_language({"language": "xx"}, {"de"})
+    assert result == "de"
+    assert "not supported" in caplog.text
+
+
 def test_validate_language_missing_fallback(caplog):
     caplog.set_level("WARNING")
 
     result = _validate_language({}, {"en", "de"})
     assert result == "en"
+    assert "not supported" in caplog.text
+
+
+def test_validate_language_missing_fallback_respects_allowed_set(caplog):
+    caplog.set_level("WARNING")
+
+    result = _validate_language({}, {"de"})
+    assert result == "de"
     assert "not supported" in caplog.text
 
 
