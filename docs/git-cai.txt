@@ -1,7 +1,7 @@
 git-cai(1)
 ==========
 Thorsten Foltz
-January 2026
+February 2026
 
 NAME
 ----
@@ -11,7 +11,8 @@ SYNOPSIS
 --------
 [verse]
 `git cai` [-a | --all] [-c | --crazy] [-d | --debug] [-g | --generate-config]
-        [-l <type> | --list <type>] [-s | --squash] [-u | --update] [-v | --version]
+        [-l [editor|language|style] | --list [editor|language|style]]
+        [-p | --generate-prompts] [-s | --squash] [-u | --update] [-v | --version]
 
 
 DESCRIPTION
@@ -21,6 +22,38 @@ messages from staged changes using AI.
 
 The command is invoked as `git cai` and integrates into Git using the
 standard Git extension mechanism.
+
+git-cai behaves like `git commit`, but with the commit message pre-filled:
+
+- It reads the staged diff (`git diff --cached`).
+- It sends the diff to the configured LLM provider/model.
+- It opens your configured Git editor so you can review/edit before committing.
+
+SETUP
+-----
+First run / configuration:
+
+- Run `git cai` once. If no config exists yet, git-cai creates:
+  `~/.config/cai/cai_config.yml` (global config) and ensures default prompt files exist:
+  `~/.config/cai/commit_prompt.md` and `~/.config/cai/squash_prompt.md`.
+- Add at least one API key to `~/.config/cai/tokens.yml` (created as a template if missing).
+  The YAML keys are provider names (for example: `openai`, `anthropic`, `gemini`,
+  `groq`, `xai`, `mistral`, `deepseek`).
+  If you use `ollama` as provider, no token is required.
+- In `~/.config/cai/cai_config.yml`, set `default:` to the provider you want and
+  adjust the provider block (model/temperature) as needed.
+
+Repository-specific setup (optional):
+
+- Put a `cai_config.yml` (or `cai_config.yaml`) into the repository root.
+  This repository config is authoritative and is not merged with the home config.
+- Generate a starting point with `git cai -g` (creates `cai_config.yml` in the
+  current directory).
+
+Custom prompts (optional):
+
+- Generate prompt files in the current directory with `git cai -p`.
+- Point `prompt_file` / `squash_prompt_file` in `cai_config.yml` to your custom files.
 
 OPTIONS
 -------
@@ -40,12 +73,12 @@ Enable debug logging.
 -g, --generate-config::
 Generate default cai_config.yml in the current directory.
 
--l <type>, --list <type>::
-List information about available languages and styles.
+-l, --list::
+List information. Provide one of `editor`, `language`, or `style` as the next argument.
 
--p <type>, --prompts <type>::
+-p, --generate-prompts::
 Generate default commit_prompt.md and squash_prompt.md in the current directory.
-Allow to use own prompts.
+Use these as a starting point for custom prompts.
 
 -s, --squash::
 Squash commits on the current branch and summarize them.
@@ -71,6 +104,12 @@ Show available commit message styles.
 
 CONFIGURATION
 -------------
+Configuration precedence:
+
+1. Repository config: `<repo-root>/cai_config.yml` or `<repo-root>/cai_config.yaml`
+2. Home config: `~/.config/cai/cai_config.yml`
+3. Built-in defaults (written to the home config file on first run)
+
 Authentication tokens are loaded from:
 
 ----
@@ -83,11 +122,76 @@ Config is loaded by default from:
 $HOME/.config/cai/cai_config.yml
 ----
 
-cai_config.yml can be loaded from the root of a repository. A file must simply stored
-there. Configuration can be different to the default file.
+cai_config.yml (or cai_config.yaml) can be loaded from the root of a repository.
+If present, it replaces the home config for that repository.
 
 Tokens can be loaded from everywhere defined within "load_tokens_from"
 in cai_config.yml
+
+FILES
+-----
+`~/.config/cai/cai_config.yml`::
+Global configuration (created automatically if missing).
+
+`~/.config/cai/tokens.yml`::
+Provider API keys (created as a template if missing).
+
+`~/.config/cai/commit_prompt.md` and `~/.config/cai/squash_prompt.md`::
+Default prompt files (created automatically if missing/empty). You can point
+`prompt_file` and `squash_prompt_file` to other locations.
+
+`<repo-root>/.caiignore`::
+Optional ignore file. Patterns are appended as exclusions when git-cai runs
+`git diff --cached`.
+
+EDITOR
+------
+git-cai uses the same editor resolution as Git (via `git var GIT_EDITOR` and the
+usual `GIT_EDITOR`/`VISUAL`/`EDITOR` environment variables).
+
+In the default commit-message flow, git-cai opens an editor with the generated
+message in a temporary file:
+
+- Save and exit to continue with the commit.
+- Close without saving to abort.
+
+If you use a GUI editor, the template starts with a line `# DELETE THIS LINE...`.
+Delete it to accept the commit.
+
+EXAMPLES
+--------
+Generate a commit message from staged changes:
+
+----
+git add -A
+git cai
+----
+
+Stage tracked changes (like `git commit -a`) and generate a message:
+
+----
+git cai -a
+----
+
+Commit immediately without opening the editor:
+
+----
+git cai -c
+----
+
+Squash all commits on the current branch into one (rewrites history):
+
+----
+git cai -s
+----
+
+Show supported styles/languages/editors:
+
+----
+git cai -l style
+git cai -l language
+git cai -l editor
+----
 
 SEE ALSO
 --------

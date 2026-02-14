@@ -33,7 +33,8 @@ git-cai \- AI\-powered commit message generator
 .sp
 .nf
 \f(CRgit cai\fP [\-a | \-\-all] [\-c | \-\-crazy] [\-d | \-\-debug] [\-g | \-\-generate\-config]
-        [\-l <type> | \-\-list <type>] [\-s | \-\-squash] [\-u | \-\-update] [\-v | \-\-version]
+        [\-l [editor|language|style] | \-\-list [editor|language|style]]
+        [\-p | \-\-generate\-prompts] [\-s | \-\-squash] [\-u | \-\-update] [\-v | \-\-version]
 .fi
 .br
 .SH "DESCRIPTION"
@@ -43,6 +44,133 @@ messages from staged changes using AI.
 .sp
 The command is invoked as \f(CRgit cai\fP and integrates into Git using the
 standard Git extension mechanism.
+.sp
+git\-cai behaves like \f(CRgit commit\fP, but with the commit message pre\-filled:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+It reads the staged diff (\f(CRgit diff \-\-cached\fP).
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+It sends the diff to the configured LLM provider/model.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+It opens your configured Git editor so you can review/edit before committing.
+.RE
+.SH "SETUP"
+.sp
+First run / configuration:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Run \f(CRgit cai\fP once. If no config exists yet, git\-cai creates:
+\f(CR~/.config/cai/cai_config.yml\fP (global config) and ensures default prompt files exist:
+\f(CR~/.config/cai/commit_prompt.md\fP and \f(CR~/.config/cai/squash_prompt.md\fP.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Add at least one API key to \f(CR~/.config/cai/tokens.yml\fP (created as a template if missing).
+The YAML keys are provider names (for example: \f(CRopenai\fP, \f(CRanthropic\fP, \f(CRgemini\fP,
+\f(CRgroq\fP, \f(CRxai\fP, \f(CRmistral\fP, \f(CRdeepseek\fP).
+If you use \f(CRollama\fP as provider, no token is required.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+In \f(CR~/.config/cai/cai_config.yml\fP, set \f(CRdefault:\fP to the provider you want and
+adjust the provider block (model/temperature) as needed.
+.RE
+.sp
+Repository\-specific setup (optional):
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Put a \f(CRcai_config.yml\fP (or \f(CRcai_config.yaml\fP) into the repository root.
+This repository config is authoritative and is not merged with the home config.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Generate a starting point with \f(CRgit cai \-g\fP (creates \f(CRcai_config.yml\fP in the
+current directory).
+.RE
+.sp
+Custom prompts (optional):
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Generate prompt files in the current directory with \f(CRgit cai \-p\fP.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Point \f(CRprompt_file\fP / \f(CRsquash_prompt_file\fP in \f(CRcai_config.yml\fP to your custom files.
+.RE
 .SH "OPTIONS"
 .sp
 \-h, \-\-help
@@ -71,15 +199,15 @@ Enable debug logging.
 Generate default cai_config.yml in the current directory.
 .RE
 .sp
-\-l <type>, \-\-list <type>
+\-l, \-\-list
 .RS 4
-List information about available languages and styles.
+List information. Provide one of \f(CReditor\fP, \f(CRlanguage\fP, or \f(CRstyle\fP as the next argument.
 .RE
 .sp
-\-p <type>, \-\-prompts <type>
+\-p, \-\-generate\-prompts
 .RS 4
 Generate default commit_prompt.md and squash_prompt.md in the current directory.
-Allow to use own prompts.
+Use these as a starting point for custom prompts.
 .RE
 .sp
 \-s, \-\-squash
@@ -116,6 +244,41 @@ Show available commit message styles.
 .RE
 .SH "CONFIGURATION"
 .sp
+Configuration precedence:
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 1.\h'+01'\c
+.\}
+.el \{\
+.  sp -1
+.  IP " 1." 4.2
+.\}
+Repository config: \f(CR<repo\-root>/cai_config.yml\fP or \f(CR<repo\-root>/cai_config.yaml\fP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 2.\h'+01'\c
+.\}
+.el \{\
+.  sp -1
+.  IP " 2." 4.2
+.\}
+Home config: \f(CR~/.config/cai/cai_config.yml\fP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04' 3.\h'+01'\c
+.\}
+.el \{\
+.  sp -1
+.  IP " 3." 4.2
+.\}
+Built\-in defaults (written to the home config file on first run)
+.RE
+.sp
 Authentication tokens are loaded from:
 .sp
 .if n .RS 4
@@ -136,11 +299,120 @@ $HOME/.config/cai/cai_config.yml
 .fi
 .if n .RE
 .sp
-cai_config.yml can be loaded from the root of a repository. A file must simply stored
-there. Configuration can be different to the default file.
+cai_config.yml (or cai_config.yaml) can be loaded from the root of a repository.
+If present, it replaces the home config for that repository.
 .sp
 Tokens can be loaded from everywhere defined within "load_tokens_from"
 in cai_config.yml
+.SH "FILES"
+.sp
+\f(CR~/.config/cai/cai_config.yml\fP
+.RS 4
+Global configuration (created automatically if missing).
+.RE
+.sp
+\f(CR~/.config/cai/tokens.yml\fP
+.RS 4
+Provider API keys (created as a template if missing).
+.RE
+.sp
+\f(CR~/.config/cai/commit_prompt.md\fP and \f(CR~/.config/cai/squash_prompt.md\fP
+.RS 4
+Default prompt files (created automatically if missing/empty). You can point
+\f(CRprompt_file\fP and \f(CRsquash_prompt_file\fP to other locations.
+.RE
+.sp
+\f(CR<repo\-root>/.caiignore\fP
+.RS 4
+Optional ignore file. Patterns are appended as exclusions when git\-cai runs
+\f(CRgit diff \-\-cached\fP.
+.RE
+.SH "EDITOR"
+.sp
+git\-cai uses the same editor resolution as Git (via \f(CRgit var GIT_EDITOR\fP and the
+usual \f(CRGIT_EDITOR\fP/\f(CRVISUAL\fP/\f(CREDITOR\fP environment variables).
+.sp
+In the default commit\-message flow, git\-cai opens an editor with the generated
+message in a temporary file:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Save and exit to continue with the commit.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Close without saving to abort.
+.RE
+.sp
+If you use a GUI editor, the template starts with a line \f(CR# DELETE THIS LINE...\fP.
+Delete it to accept the commit.
+.SH "EXAMPLES"
+.sp
+Generate a commit message from staged changes:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git add \-A
+git cai
+.fam
+.fi
+.if n .RE
+.sp
+Stage tracked changes (like \f(CRgit commit \-a\fP) and generate a message:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-a
+.fam
+.fi
+.if n .RE
+.sp
+Commit immediately without opening the editor:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-c
+.fam
+.fi
+.if n .RE
+.sp
+Squash all commits on the current branch into one (rewrites history):
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-s
+.fam
+.fi
+.if n .RE
+.sp
+Show supported styles/languages/editors:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l style
+git cai \-l language
+git cai \-l editor
+.fam
+.fi
+.if n .RE
 .SH "SEE ALSO"
 .sp
 git(1)

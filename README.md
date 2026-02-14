@@ -46,7 +46,7 @@ Currently supported providers:
 - Generates meaningful, context-aware commit messages using an LLM
 - Seamless integration with Git
 - Supports multiple LLM providers and models
-- Global configuration with **per-repository overrides**
+- Global configuration with per-repository overrides
 - Repository-specific language, style, and model selection
 - Optional commit squashing with automatic summary generation
 
@@ -103,7 +103,7 @@ The syntax is identical to `.gitignore`.
 
 ## Configuration
 
-On first execution, cai automatically creates two configuration files:
+On first execution, cai automatically creates the base configuration in your home directory.
 
 - Global configuration:  
   ~/.config/cai/cai_config.yml
@@ -111,15 +111,40 @@ On first execution, cai automatically creates two configuration files:
 - API tokens:  
   ~/.config/cai/tokens.yml
 
+It also creates two Markdown prompt files:
+
+- Default commit prompt:  
+  ~/.config/cai/commit_prompt.md
+- Default squash prompt:  
+  ~/.config/cai/squash_prompt.md
+
 Don't be scared the first run will show an error. It only misses a token.
 Add your provider API keys to `tokens.yml`. Once configured, cai will reuse them automatically.
 Set your preferred LLM in `cai_config.yml` (Groq by default).
 
-If you want to use Ollama, set `default: ollama` and configure the `ollama:` block (model/temperature). Make sure Ollama is running (e.g. `ollama serve`).
+If you want to use Ollama, set `default: ollama` and configure the `ollama:` block (model/temperature). Ollama is automatically started when used.
+
+### Custom prompts (Markdown)
+
+The generated commit message is guided by prompt files.
+
+- By default, `cai_config.yml` points to the auto-created prompt files in `~/.config/cai/`.
+- To use your own prompts in a repository, generate templates at the root of the repository:
+
+```sh
+git cai -p
+```
+
+This creates:
+
+- `commit_prompt.md`
+- `squash_prompt.md`
+
+Then set `prompt_file` and/or `squash_prompt_file` in your `cai_config.yml` (also repo) to point to those files.
 
 ### Repository-specific configuration
 
-Each repository can be configured **independently**.
+Each repository can be configured independently.
 
 If a `cai_config.yml` file exists in the root of a repository, cai will use it instead of the global configuration.  
 This allows different projects to use different providers, models, languages, and styles.
@@ -154,6 +179,8 @@ git cai -g
 - `style` – tone or style of the commit message
 - `emoji` – enable or disable emojis
 - `load_tokens_from` – path to the file where API tokens are stored
+- `prompt_file` - path to the file where the prompt for the commit is stored
+- `squash_prompt_file` - path to the file where the prompt for the squash is stored 
 
 ---
 
@@ -165,8 +192,9 @@ In addition to `git cai`, the following options are available:
 - `-a`, `--all` – stage all tracked modified and deleted files
 - `-c`, `--crazy` – Trust the LLM and commit without checking
 - `-d`, `--debug` – enable debug logging
-- `-g`, `--generate-config` – generate the default `git_config.yml` in the current directory
-- `-l`, `--list` – list available languages and styles
+- `-g`, `--generate-config` – generate the default `cai_config.yml` in the current directory
+- `-l`, `--list` – list available languages, styles, and supported editors
+- `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
 - `-s`, `--squash` – squash commits on the current branch and summarize them
 - `-u`, `--update` – check for updates
 - `-v`, `--version` – show the installed version
