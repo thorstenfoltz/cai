@@ -20,8 +20,8 @@ Flags:
   -c, --crazy             Commit immediately without opening editor (trust LLM output)
   -d, --debug             Enable debug logging
   -g, --generate-config   Generate default cai_config.yml in the current directory
-  -p, --generate-prompts  Generate default commit_prompt.md and squash_prompt.md in the current directory
   -l, --list              List information about available languages and styles
+  -p, --prompts           Generate default commit_prompt.md and squash_prompt.md in the current directory. Allow customization of prompts.
   -s, --squash            Squash commits on this branch and summarize them
   -u, --update            Check for updates
   -v, --version           Show installed version

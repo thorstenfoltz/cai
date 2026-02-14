@@ -43,6 +43,10 @@ Generate default cai_config.yml in the current directory.
 -l <type>, --list <type>::
 List information about available languages and styles.
 
+-p <type>, --prompts <type>::
+Generate default commit_prompt.md and squash_prompt.md in the current directory.
+Allow to use own prompts.
+
 -s, --squash::
 Squash commits on the current branch and summarize them.
 
