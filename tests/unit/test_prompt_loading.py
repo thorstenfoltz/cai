@@ -172,15 +172,20 @@ class TestLoadPromptFileDefault:
 class TestLoadPromptFileHardcoded:
     """Tests for the hardcoded fallback when no files are available."""
 
-    def test_hardcoded_fallback_when_default_missing(self):
+    def test_hardcoded_fallback_when_default_missing(self, tmp_path):
         """
         Hardcoded fallback is used when both user file and default file are missing.
         """
         config = {"prompt_file": ""}
+        empty_dir = tmp_path / "no_config"
+        empty_dir.mkdir()
 
-        with patch(
-            "git_cai_cli.core.llm.resources.files",
-            side_effect=ModuleNotFoundError("mock"),
+        with (
+            patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir),
+            patch(
+                "git_cai_cli.core.llm.resources.files",
+                side_effect=ModuleNotFoundError("mock"),
+            ),
         ):
             result = load_prompt_file(
                 config_key="prompt_file",
@@ -191,15 +196,20 @@ class TestLoadPromptFileHardcoded:
 
         assert result == _HARDCODED_COMMIT_PROMPT
 
-    def test_hardcoded_squash_fallback_when_default_missing(self):
+    def test_hardcoded_squash_fallback_when_default_missing(self, tmp_path):
         """
         Hardcoded squash fallback is used when both user file and default file are missing.
         """
         config = {"squash_prompt_file": ""}
+        empty_dir = tmp_path / "no_config"
+        empty_dir.mkdir()
 
-        with patch(
-            "git_cai_cli.core.llm.resources.files",
-            side_effect=ModuleNotFoundError("mock"),
+        with (
+            patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir),
+            patch(
+                "git_cai_cli.core.llm.resources.files",
+                side_effect=ModuleNotFoundError("mock"),
+            ),
         ):
             result = load_prompt_file(
                 config_key="squash_prompt_file",
@@ -252,7 +262,7 @@ class TestLoadPromptFileLogging:
         assert "not found" in caplog.text.lower()
 
     def test_logs_default_file_loaded(self, caplog):
-        """Logs info when loading from default bundled file."""
+        """Logs info about missing local file and shows full default path."""
         caplog.set_level("INFO")
         config = {"prompt_file": ""}
 
@@ -263,16 +273,24 @@ class TestLoadPromptFileLogging:
             hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
         )
 
+        assert "no local prompt file" in caplog.text.lower()
         assert "default file" in caplog.text.lower()
+        # Full path must be logged, not just the filename
+        assert "commit_prompt.md" in caplog.text
 
-    def test_logs_hardcoded_fallback(self, caplog):
-        """Logs info when using hardcoded fallback."""
-        caplog.set_level("INFO")
+    def test_logs_hardcoded_fallback(self, tmp_path, caplog):
+        """Logs warning when using hardcoded fallback."""
+        caplog.set_level("WARNING")
         config = {"prompt_file": ""}
+        empty_dir = tmp_path / "no_config"
+        empty_dir.mkdir()
 
-        with patch(
-            "git_cai_cli.core.llm.resources.files",
-            side_effect=ModuleNotFoundError("mock"),
+        with (
+            patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir),
+            patch(
+                "git_cai_cli.core.llm.resources.files",
+                side_effect=ModuleNotFoundError("mock"),
+            ),
         ):
             load_prompt_file(
                 config_key="prompt_file",
@@ -282,6 +300,11 @@ class TestLoadPromptFileLogging:
             )
 
         assert "hardcoded fallback" in caplog.text.lower()
+        assert any(
+            r.levelname == "WARNING"
+            for r in caplog.records
+            if "hardcoded" in r.message.lower()
+        )
 
 
 # ---------------------------------------------------------------------------
