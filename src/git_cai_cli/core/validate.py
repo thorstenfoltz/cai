@@ -39,11 +39,11 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
         log.error("Unknown config keys detected: %s", ", ".join(sorted(unknown_keys)))
         raise KeyError("Unknown config keys: " + ", ".join(sorted(unknown_keys)))
 
-    # Warn on missing global keys (non-fatal)
+    # Info on missing global keys (non-fatal; defaults or global config will be used)
     missing_globals = allowed_global_keys - config_keys
     if missing_globals:
-        log.warning(
-            "Config is missing global keys: %s. Using defaults for missing keys.",
+        log.info(
+            "Config does not define: %s. Global or default values will be used.",
             ", ".join(sorted(missing_globals)),
         )
 

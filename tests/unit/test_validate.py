@@ -58,8 +58,8 @@ def test_validate_config_keys_unknown_key():
     assert "Unknown config keys: unknown" in str(exc.value)
 
 
-def test_validate_config_keys_missing_globals_warn(caplog):
-    caplog.set_level("WARNING")
+def test_validate_config_keys_missing_globals_info(caplog):
+    caplog.set_level("INFO")
 
     reference = {
         "openai": {},
@@ -75,7 +75,8 @@ def test_validate_config_keys_missing_globals_warn(caplog):
 
     _validate_config_keys(config, reference)
 
-    assert "Config is missing global keys" in caplog.text
+    assert "Config does not define:" in caplog.text
+    assert "Global or default values will be used" in caplog.text
 
 
 def test_validate_config_keys_no_providers():

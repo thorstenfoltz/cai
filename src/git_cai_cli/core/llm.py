@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional, Type
 from urllib.parse import urlparse
 
 import requests
+from git_cai_cli.core.config import CONFIG_DIR
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from openai import OpenAI
 
@@ -91,28 +92,40 @@ def load_prompt_file(
             config_key,
         )
 
-    # 2) Try default bundled file
+    # 2a) Try global config directory (~/.config/cai/)
+    log.info("No local prompt file configured for '%s'.", config_key)
+    global_path = CONFIG_DIR / default_filename
+    if global_path.is_file():
+        content = global_path.read_text(encoding="utf-8").strip()
+        log.info(
+            "Loading prompt from default file: %s",
+            global_path,
+        )
+        log.debug("Default prompt loaded (%d characters).", len(content))
+        return content
+
+    # 2b) Try bundled package file (last file-based fallback)
     try:
         defaults_pkg = resources.files("git_cai_cli.defaults")
         default_file = defaults_pkg / default_filename
         if default_file.is_file():  # type: ignore[union-attr]
             content = default_file.read_text(encoding="utf-8").strip()  # type: ignore[union-attr]
             log.info(
-                "Loading prompt from default file: %s",
-                default_filename,
+                "Loading prompt from bundled package default: %s",
+                default_file,
             )
-            log.debug("Default prompt loaded (%d characters).", len(content))
+            log.debug("Bundled prompt loaded (%d characters).", len(content))
             return content
     except (TypeError, FileNotFoundError, ModuleNotFoundError) as exc:
         log.debug(
-            "Could not load default prompt file '%s': %s",
+            "Could not load bundled prompt file '%s': %s",
             default_filename,
             exc,
         )
 
     # 3) Hardcoded fallback
-    log.info(
-        "Using hardcoded fallback prompt (no file found for config key '%s').",
+    log.warning(
+        "No prompt file found for config key '%s'. Using hardcoded fallback values.",
         config_key,
     )
     return hardcoded_fallback
