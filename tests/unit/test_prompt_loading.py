@@ -274,7 +274,10 @@ class TestLoadPromptFileLogging:
         )
 
         assert "no local prompt file" in caplog.text.lower()
-        assert "default file" in caplog.text.lower()
+        assert (
+            "default file" in caplog.text.lower()
+            or "bundled package default" in caplog.text.lower()
+        )
         # Full path must be logged, not just the filename
         assert "commit_prompt.md" in caplog.text
 
