@@ -556,12 +556,14 @@ class CommitMessageGenerator:
         if self._ollama_proc is None or self._ollama_proc.poll() is not None:
             log.info("Ollama is not running; starting 'ollama serve'...")
             try:
-                self._ollama_proc = subprocess.Popen(  # pylint: disable=consider-using-with
-                    ["ollama", "serve"],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    text=True,
-                    start_new_session=True,
+                self._ollama_proc = (
+                    subprocess.Popen(  # pylint: disable=consider-using-with
+                        ["ollama", "serve"],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        text=True,
+                        start_new_session=True,
+                    )
                 )
             except OSError as exc:
                 raise ValueError("Failed to start Ollama server.") from exc
