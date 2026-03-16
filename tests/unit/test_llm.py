@@ -2,6 +2,7 @@
 Unit tests for git_cai_cli.core.llm module.
 """
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -460,3 +461,211 @@ def test_generate_ollama_autostarts_and_stops_server():
 
     popen.assert_called_once()
     killpg.assert_called_once()
+
+
+# ---------------------------
+# Token usage logging tests
+# ---------------------------
+
+
+def test_token_usage_logged_openai(caplog):
+    """Verify token usage is logged for OpenAI when token_logging is enabled."""
+    config = {
+        "openai": {"model": "gpt-5.1", "temperature": 0},
+        "token_logging": True,
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="openai")
+
+    mock_client = MagicMock()
+    mock_instance = MagicMock()
+    mock_usage = MagicMock()
+    mock_usage.prompt_tokens = 100
+    mock_usage.completion_tokens = 50
+    mock_completion = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="msg"))],
+        usage=mock_usage,
+    )
+    mock_instance.chat.completions.create.return_value = mock_completion
+    mock_client.return_value = mock_instance
+
+    with caplog.at_level(logging.INFO):
+        gen.generate_openai(
+            "diff", openai_cls=mock_client, system_prompt_override="sys"
+        )
+
+    assert "Token usage [openai]: prompt=100, completion=50, total=150" in caplog.text
+
+
+def test_token_usage_logged_anthropic(caplog):
+    """Verify token usage is logged for Anthropic when token_logging is enabled."""
+    config = {
+        "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
+        "token_logging": True,
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="anthropic")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "content": [{"text": "msg"}],
+        "usage": {"input_tokens": 200, "output_tokens": 80},
+    }
+
+    with caplog.at_level(logging.INFO):
+        with patch(f"{module_path}.requests.post", mock_post):
+            gen.generate_anthropic("diff", system_prompt_override="sys")
+
+    assert (
+        "Token usage [anthropic]: prompt=200, completion=80, total=280" in caplog.text
+    )
+
+
+def test_token_usage_logged_gemini(caplog):
+    """Verify token usage is logged for Gemini with usageMetadata format."""
+    config = {
+        "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
+        "token_logging": True,
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="gemini")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "candidates": [{"content": {"parts": [{"text": "msg"}]}}],
+        "usageMetadata": {"promptTokenCount": 150, "candidatesTokenCount": 60},
+    }
+
+    with caplog.at_level(logging.INFO):
+        with patch(f"{module_path}.requests.post", mock_post):
+            gen.generate_gemini("diff", system_prompt_override="sys")
+
+    assert "Token usage [gemini]: prompt=150, completion=60, total=210" in caplog.text
+
+
+def test_token_usage_logged_groq(caplog):
+    """Verify token usage is logged for Groq (OpenAI-compatible format)."""
+    config = {
+        "groq": {"model": "llama-3.3-70b", "temperature": 0},
+        "token_logging": True,
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="groq")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}],
+        "usage": {"prompt_tokens": 120, "completion_tokens": 40},
+    }
+
+    with caplog.at_level(logging.INFO):
+        with patch(f"{module_path}.requests.post", mock_post):
+            gen.generate_groq("diff", system_prompt_override="sys")
+
+    assert "Token usage [groq]: prompt=120, completion=40, total=160" in caplog.text
+
+
+def test_token_usage_logged_ollama(caplog):
+    """Verify token usage is logged for Ollama (eval_count format)."""
+    config = {
+        "ollama": {"model": "llama3.1", "temperature": 0},
+        "token_logging": True,
+    }
+
+    gen = CommitMessageGenerator(token=None, config=config, default_model="ollama")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.status_code = 200
+    mock_post.return_value.raise_for_status.return_value = None
+    mock_post.return_value.json.return_value = {
+        "message": {"content": "msg"},
+        "prompt_eval_count": 90,
+        "eval_count": 35,
+    }
+
+    with caplog.at_level(logging.INFO):
+        with (
+            patch.dict(f"{module_path}.os.environ", {}, clear=True),
+            patch(f"{module_path}.shutil.which", return_value="/usr/bin/ollama"),
+            patch(
+                f"{module_path}.requests.get",
+                return_value=MagicMock(status_code=200),
+            ),
+            patch(f"{module_path}.requests.post", mock_post),
+        ):
+            gen.generate_ollama("diff", system_prompt_override="sys")
+
+    assert "Token usage [ollama]: prompt=90, completion=35, total=125" in caplog.text
+
+
+def test_token_usage_not_available(caplog):
+    """Verify debug log when token usage is not in API response."""
+    config = {
+        "groq": {"model": "llama-3.3-70b", "temperature": 0},
+        "token_logging": True,
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="groq")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    # Response without 'usage' key
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}],
+    }
+
+    with caplog.at_level(logging.DEBUG):
+        with patch(f"{module_path}.requests.post", mock_post):
+            gen.generate_groq("diff", system_prompt_override="sys")
+
+    assert "Token usage not available" in caplog.text
+
+
+def test_token_usage_disabled(caplog):
+    """Verify no token logging when token_logging is disabled."""
+    config = {
+        "groq": {"model": "llama-3.3-70b", "temperature": 0},
+        "token_logging": False,
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="groq")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+    }
+
+    with caplog.at_level(logging.DEBUG):
+        with patch(f"{module_path}.requests.post", mock_post):
+            gen.generate_groq("diff", system_prompt_override="sys")
+
+    assert "Token usage" not in caplog.text
+
+
+def test_token_usage_disabled_when_key_missing(caplog):
+    """Verify token logging is disabled when token_logging key is not in config (backward compat)."""
+    config = {
+        "groq": {"model": "llama-3.3-70b", "temperature": 0},
+        # token_logging key intentionally absent — simulating old config
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="groq")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+    }
+
+    with caplog.at_level(logging.DEBUG):
+        with patch(f"{module_path}.requests.post", mock_post):
+            gen.generate_groq("diff", system_prompt_override="sys")
+
+    assert "Token usage" not in caplog.text

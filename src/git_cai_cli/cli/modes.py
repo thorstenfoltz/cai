@@ -47,6 +47,9 @@ def validate_options(
     enable_debug: bool,
     help_flag: bool,
     version_flag: bool,
+    provider_override: str | None = None,
+    model_override: str | None = None,
+    time_flag: bool = False,
 ) -> None:
     """
     Validates the combination of command-line options provided by the user.
@@ -61,6 +64,20 @@ def validate_options(
     if stage_tracked and mode is not Mode.COMMIT:
         typer.echo(
             "Error: --all cannot be used with --list, --update, or --squash.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if (provider_override or model_override) and mode in (Mode.LIST, Mode.UPDATE):
+        typer.echo(
+            "Error: --provider/--model cannot be used with --list or --update.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if time_flag and mode in (Mode.LIST, Mode.UPDATE):
+        typer.echo(
+            "Error: --time cannot be used with --list or --update.",
             err=True,
         )
         raise typer.Exit(code=1)

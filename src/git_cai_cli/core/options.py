@@ -190,16 +190,16 @@ class CliManager:
             except (TypeError, FileNotFoundError, ModuleNotFoundError):
                 pass
 
-            # last resort: hardcoded prompts
-            from git_cai_cli.core.llm import (
-                _HARDCODED_COMMIT_PROMPT,
-                _HARDCODED_SQUASH_PROMPT,
+            # last resort: hardcoded fallback strings
+            from git_cai_cli.core.prompts_fallback import (
+                HARDCODED_COMMIT_PROMPT,
+                HARDCODED_SQUASH_PROMPT,
             )
 
             return (
-                _HARDCODED_COMMIT_PROMPT
+                HARDCODED_COMMIT_PROMPT
                 if name == "commit_prompt.md"
-                else _HARDCODED_SQUASH_PROMPT
+                else HARDCODED_SQUASH_PROMPT
             )
 
         commit_path.write_text(_read_default("commit_prompt.md"), encoding="utf-8")
@@ -239,11 +239,20 @@ git cai -l style
             lines.append(f"  - {name} → {code}")
         return "\n".join(lines)
 
-    def squash_branch(self) -> None:
+    def squash_branch(
+        self,
+        provider_override: str | None = None,
+        model_override: str | None = None,
+        time_flag: bool = False,
+    ) -> None:
         """
         Squash commits on the current branch and summarize them.
         """
-        return squash_branch()
+        return squash_branch(
+            provider_override=provider_override,
+            model_override=model_override,
+            time_flag=time_flag,
+        )
 
     def stage_tracked_files(self) -> None:
         """

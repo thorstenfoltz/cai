@@ -6,10 +6,12 @@ from unittest.mock import patch
 
 import pytest
 from git_cai_cli.core.llm import (
-    _HARDCODED_COMMIT_PROMPT,
-    _HARDCODED_SQUASH_PROMPT,
     CommitMessageGenerator,
     load_prompt_file,
+)
+from git_cai_cli.core.prompts_fallback import (
+    HARDCODED_COMMIT_PROMPT,
+    HARDCODED_SQUASH_PROMPT,
 )
 
 # ---------------------------------------------------------------------------
@@ -64,7 +66,7 @@ class TestLoadPromptFileUserDefined:
             config_key="prompt_file",
             config=config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         assert result == "Custom user prompt content"
@@ -77,7 +79,7 @@ class TestLoadPromptFileUserDefined:
             config_key="prompt_file",
             config=config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         # Should get either default file content or hardcoded fallback
@@ -95,7 +97,7 @@ class TestLoadPromptFileUserDefined:
             config_key="prompt_file",
             config=config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         assert result == "Custom prompt"
@@ -108,7 +110,7 @@ class TestLoadPromptFileUserDefined:
             config_key="prompt_file",
             config=config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         assert len(result) > 0
@@ -121,7 +123,7 @@ class TestLoadPromptFileUserDefined:
             config_key="prompt_file",
             config=config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         assert len(result) > 0
@@ -143,7 +145,7 @@ class TestLoadPromptFileDefault:
             config_key="prompt_file",
             config=config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         assert "expert software engineer" in result.lower()
@@ -157,7 +159,7 @@ class TestLoadPromptFileDefault:
             config_key="squash_prompt_file",
             config=config,
             default_filename="squash_prompt.md",
-            hardcoded_fallback=_HARDCODED_SQUASH_PROMPT,
+            hardcoded_fallback=HARDCODED_SQUASH_PROMPT,
         )
 
         assert "expert software engineer" in result.lower()
@@ -191,10 +193,10 @@ class TestLoadPromptFileHardcoded:
                 config_key="prompt_file",
                 config=config,
                 default_filename="commit_prompt.md",
-                hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+                hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
             )
 
-        assert result == _HARDCODED_COMMIT_PROMPT
+        assert result == HARDCODED_COMMIT_PROMPT
 
     def test_hardcoded_squash_fallback_when_default_missing(self, tmp_path):
         """
@@ -215,10 +217,10 @@ class TestLoadPromptFileHardcoded:
                 config_key="squash_prompt_file",
                 config=config,
                 default_filename="squash_prompt.md",
-                hardcoded_fallback=_HARDCODED_SQUASH_PROMPT,
+                hardcoded_fallback=HARDCODED_SQUASH_PROMPT,
             )
 
-        assert result == _HARDCODED_SQUASH_PROMPT
+        assert result == HARDCODED_SQUASH_PROMPT
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +243,7 @@ class TestLoadPromptFileLogging:
             config_key="prompt_file",
             config=config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         assert "user-defined file" in caplog.text.lower()
@@ -256,7 +258,7 @@ class TestLoadPromptFileLogging:
             config_key="prompt_file",
             config=config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         assert "not found" in caplog.text.lower()
@@ -270,7 +272,7 @@ class TestLoadPromptFileLogging:
             config_key="prompt_file",
             config=config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         assert "no local prompt file" in caplog.text.lower()
@@ -299,7 +301,7 @@ class TestLoadPromptFileLogging:
                 config_key="prompt_file",
                 config=config,
                 default_filename="commit_prompt.md",
-                hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+                hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
             )
 
         assert "hardcoded fallback" in caplog.text.lower()

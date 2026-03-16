@@ -15,16 +15,20 @@ Usage:
   git cai        Generate commit message from staged changes
 
 Flags:
-  -h, --help              Show this help message or opens manual
-  -a, --all               Stage all modified and deleted files that are already tracked by Git
-  -c, --crazy             Commit immediately without opening editor (trust LLM output)
-  -d, --debug             Enable debug logging
-  -g, --generate-config   Generate default cai_config.yml in the current directory
-  -l, --list              List information about available languages and styles
-  -p, --prompts           Generate default commit_prompt.md and squash_prompt.md in the current directory. Allow customization of prompts.
-  -s, --squash            Squash commits on this branch and summarize them
-  -u, --update            Check for updates
-  -v, --version           Show installed version
+  -a, --all                Stage all modified and deleted files that are already tracked by Git
+  -c, --crazy              Commit immediately without opening editor (trust LLM output)
+  -d, --debug              Enable debug logging
+  -g, --generate-config    Generate default cai_config.yml in the current directory
+  -h, --help               Show this help message or opens manual
+  -i, --install-completion Install shell completion for git-cai
+  -l, --list               List information about available languages, styles, and editors
+  -m, --model NAME         Override model for this invocation (requires --provider)
+  -p, --generate-prompts   Generate default commit_prompt.md and squash_prompt.md
+  -P, --provider NAME      Override LLM provider for this invocation
+  -s, --squash             Squash commits on this branch and summarize them
+  -t, --time               Measure and log commit message generation time
+  -u, --update             Check for updates
+  -v, --version            Show installed version
 
 Configuration:
   Tokens are loaded from {HOME}/.config/cai/tokens.yml

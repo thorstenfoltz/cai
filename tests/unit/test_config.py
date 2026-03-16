@@ -187,3 +187,70 @@ def test_serialize_config_converts_path():
 
     assert out["x"] == "/tmp/test"
     assert isinstance(out["x"], str)
+
+
+# -------------------------------------------
+# Tests for new config keys
+# -------------------------------------------
+
+
+def test_default_config_contains_new_keys():
+    """Verify DEFAULT_CONFIG includes token_logging and measure_time."""
+    assert "token_logging" in DEFAULT_CONFIG
+    assert "measure_time" in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG["token_logging"] is True
+    assert DEFAULT_CONFIG["measure_time"] is False
+
+
+def test_fresh_config_includes_new_keys(tmp_path, monkeypatch):
+    """Verify a freshly generated config file includes new keys."""
+    from git_cai_cli.core import config as config_module
+
+    monkeypatch.setattr(config_module, "_find_repo_config", lambda: None)
+
+    fallback = tmp_path / "cai_config.yml"
+
+    config = load_config(
+        fallback_config_file=fallback,
+        allowed_languages={"en"},
+    )
+
+    # Runtime config has the keys
+    assert "token_logging" in config
+    assert "measure_time" in config
+
+    # Written YAML file also has the keys
+    data = yaml.safe_load(fallback.read_text())
+    assert "token_logging" in data
+    assert "measure_time" in data
+
+
+def test_old_config_without_new_keys_loads_fine(tmp_path, monkeypatch):
+    """Verify an old config file without new keys loads without error."""
+    from git_cai_cli.core import config as config_module
+
+    monkeypatch.setattr(config_module, "_find_repo_config", lambda: None)
+
+    fallback = tmp_path / "cai_config.yml"
+
+    # Write old-style config without new keys
+    old_cfg = {
+        "default": "openai",
+        "language": "en",
+        "style": "professional",
+        "emoji": True,
+        "openai": {"model": "gpt", "temperature": 0},
+        "load_tokens_from": "/tmp/tokens.yml",
+    }
+    fallback.write_text(yaml.safe_dump(old_cfg))
+
+    # Should load without error
+    config = load_config(
+        fallback_config_file=fallback,
+        allowed_languages={"en"},
+    )
+
+    assert config["default"] == "openai"
+    # New keys are absent — consumers must use .get() with defaults
+    assert config.get("token_logging", False) is False
+    assert config.get("measure_time", False) is False

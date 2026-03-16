@@ -47,6 +47,9 @@ git_cai_cli = ["defaults/*.md"]
 [tool.setuptools.data-files]
 "share/man/man1" = ["docs/man/git-cai.1"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"
 local_scheme = "no-local-version"

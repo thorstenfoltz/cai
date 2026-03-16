@@ -204,3 +204,82 @@ def test_validate_style_invalid_type(style):
         _validate_style(style)  # type: ignore[arg-type]
 
     assert "Style must be a non-empty string" in str(exc.value)
+
+
+# -------------------------------------------
+# Tests for new config keys (token_logging, measure_time)
+# -------------------------------------------
+
+
+def test_new_config_keys_accepted_by_validator(caplog):
+    """Verify token_logging and measure_time are accepted as valid global keys."""
+    caplog.set_level("WARNING")
+
+    reference = {
+        "openai": {},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "load_tokens_from": "/path/to/tokens.yml",
+        "prompt_file": "",
+        "squash_prompt_file": "",
+        "token_logging": True,
+        "measure_time": False,
+    }
+
+    config = {
+        "openai": {"model": "gpt", "temperature": 0},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "load_tokens_from": "/path/to/tokens.yml",
+        "prompt_file": "",
+        "squash_prompt_file": "",
+        "token_logging": True,
+        "measure_time": True,
+    }
+
+    _validate_config_keys(config, reference)
+
+    # No warnings or errors
+    assert caplog.text == ""
+
+
+def test_missing_new_config_keys_non_fatal(caplog):
+    """Verify missing token_logging/measure_time keys are non-fatal (backward compat)."""
+    caplog.set_level("INFO")
+
+    reference = {
+        "openai": {},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "load_tokens_from": "/path",
+        "prompt_file": "",
+        "squash_prompt_file": "",
+        "token_logging": True,
+        "measure_time": False,
+    }
+
+    # Config WITHOUT the new keys — simulates old config file
+    config = {
+        "openai": {"model": "gpt", "temperature": 0},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "load_tokens_from": "/path",
+        "prompt_file": "",
+        "squash_prompt_file": "",
+    }
+
+    # Should NOT raise
+    _validate_config_keys(config, reference)
+
+    # Should log info about missing keys
+    assert "Config does not define:" in caplog.text
+    assert "measure_time" in caplog.text
+    assert "token_logging" in caplog.text

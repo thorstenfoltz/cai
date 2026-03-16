@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-02-14
+.\"      Date: 2026-03-16
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-02-14" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-03-16" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -33,8 +33,11 @@ git-cai \- AI\-powered commit message generator
 .sp
 .nf
 \f(CRgit cai\fP [\-a | \-\-all] [\-c | \-\-crazy] [\-d | \-\-debug] [\-g | \-\-generate\-config]
+        [\-i | \-\-install\-completion]
         [\-l [editor|language|style] | \-\-list [editor|language|style]]
-        [\-p | \-\-generate\-prompts] [\-s | \-\-squash] [\-u | \-\-update] [\-v | \-\-version]
+        [\-m MODEL | \-\-model MODEL] [\-p | \-\-generate\-prompts]
+        [\-P PROVIDER | \-\-provider PROVIDER]
+        [\-s | \-\-squash] [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
 .fi
 .br
 .SH "DESCRIPTION"
@@ -199,9 +202,23 @@ Enable debug logging.
 Generate default cai_config.yml in the current directory.
 .RE
 .sp
+\-i, \-\-install\-completion
+.RS 4
+Install shell completion for \f(CRgit cai\fP. Supports bash, zsh, and fish.
+After installation, restart your terminal or source your shell configuration.
+Completions include all flags and provider names for \f(CR\-\-provider\fP.
+.RE
+.sp
 \-l, \-\-list
 .RS 4
 List information. Provide one of \f(CReditor\fP, \f(CRlanguage\fP, or \f(CRstyle\fP as the next argument.
+.RE
+.sp
+\-m, \-\-model MODEL
+.RS 4
+Override the model for this invocation. Must be used together with \f(CR\-\-provider\fP.
+The model name is passed directly to the provider\(cqs API.
+Example: \f(CRgit cai \-P openai \-m gpt\-4o\fP
 .RE
 .sp
 \-p, \-\-generate\-prompts
@@ -210,9 +227,25 @@ Generate default commit_prompt.md and squash_prompt.md in the current directory.
 Use these as a starting point for custom prompts.
 .RE
 .sp
+\-P, \-\-provider PROVIDER
+.RS 4
+Override the LLM provider for this invocation. The model from the configuration
+for that provider is used unless \f(CR\-\-model\fP is also specified.
+Available providers: \f(CRanthropic\fP, \f(CRdeepseek\fP, \f(CRgemini\fP, \f(CRgroq\fP,
+\f(CRmistral\fP, \f(CRollama\fP, \f(CRopenai\fP, \f(CRxai\fP.
+Example: \f(CRgit cai \-P anthropic\fP
+.RE
+.sp
 \-s, \-\-squash
 .RS 4
 Squash commits on the current branch and summarize them.
+.RE
+.sp
+\-t, \-\-time
+.RS 4
+Measure and log the time taken to generate the commit message.
+Can also be permanently enabled via \f(CRmeasure_time: true\fP in
+\f(CRcai_config.yml\fP.
 .RE
 .sp
 \-u, \-\-update
@@ -410,6 +443,46 @@ Show supported styles/languages/editors:
 git cai \-l style
 git cai \-l language
 git cai \-l editor
+.fam
+.fi
+.if n .RE
+.sp
+Override the provider for a single invocation:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-P anthropic
+.fam
+.fi
+.if n .RE
+.sp
+Override both provider and model:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-P openai \-m gpt\-4o
+.fam
+.fi
+.if n .RE
+.sp
+Measure generation time:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-t
+.fam
+.fi
+.if n .RE
+.sp
+Install shell completion:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-i
 .fam
 .fi
 .if n .RE

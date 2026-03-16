@@ -28,6 +28,8 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
         "load_tokens_from",
         "prompt_file",
         "squash_prompt_file",
+        "token_logging",
+        "measure_time",
     }
     allowed_provider_keys = set(reference.keys()) - allowed_global_keys
 

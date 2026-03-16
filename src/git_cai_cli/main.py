@@ -5,6 +5,7 @@ Handles command-line arguments, logging configuration, and mode dispatching.
 
 import logging
 import sys
+import time
 from pathlib import Path
 
 import typer
@@ -39,6 +40,9 @@ def run(
     list_arg: str | None,
     stage_tracked: bool,
     crazy: bool,
+    provider_override: str | None = None,
+    model_override: str | None = None,
+    time_flag: bool = False,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -48,7 +52,12 @@ def run(
     ensure_git_alias()
 
     # Lazy imports
-    from git_cai_cli.core.config import TOKENLESS_PROVIDERS, load_config, load_token
+    from git_cai_cli.core.config import (
+        TOKENLESS_PROVIDERS,
+        apply_provider_overrides,
+        load_config,
+        load_token,
+    )
     from git_cai_cli.core.gitutils import (
         commit_with_edit_template,
         find_git_root,
@@ -56,6 +65,7 @@ def run(
     )
     from git_cai_cli.core.llm import CommitMessageGenerator
     from git_cai_cli.core.options import CliManager
+    from git_cai_cli.core.spinner import Spinner
     from git_cai_cli.core.validate import _validate_llm_call
 
     log = logging.getLogger(__name__)
@@ -91,7 +101,11 @@ def run(
         raise typer.Exit(code=1)
 
     if mode is Mode.SQUASH:
-        manager.squash_branch()
+        manager.squash_branch(
+            provider_override=provider_override,
+            model_override=model_override,
+            time_flag=time_flag,
+        )
         return
 
     if mode is Mode.UPDATE:
@@ -105,6 +119,8 @@ def run(
         raise typer.Exit(code=1)
 
     config = load_config()
+    apply_provider_overrides(config, provider_override, model_override)
+
     provider = config["default"]
     token = load_token(config=config)
 
@@ -113,20 +129,28 @@ def run(
         log.info("No changes to commit. Did you run 'git add'?")
         raise typer.Exit()
 
+    measure = time_flag or config.get("measure_time", False)
+    start = time.perf_counter() if measure else None
+
     generator = CommitMessageGenerator(token, config, provider)
     try:
         try:
-            commit_message = _validate_llm_call(
-                generator.generate,
-                diff,
-                token=token,
-                requires_token=provider not in TOKENLESS_PROVIDERS,
-            )
+            with Spinner("Generating commit message"):
+                commit_message = _validate_llm_call(
+                    generator.generate,
+                    diff,
+                    token=token,
+                    requires_token=provider not in TOKENLESS_PROVIDERS,
+                )
         except ValueError as e:
             typer.echo(f"Error: {e}", err=True)
             raise typer.Exit(code=1)
     finally:
         generator.close()
+
+    if start is not None:
+        elapsed = time.perf_counter() - start
+        log.info("Commit message generated in %.2fs", elapsed)
 
     if crazy:
         rc = manager.commit_crazy(commit_message)
