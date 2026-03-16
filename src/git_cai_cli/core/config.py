@@ -18,6 +18,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Optional, cast
 
+import typer
 import yaml
 from git_cai_cli.core.gitutils import find_git_root
 from git_cai_cli.core.languages import ALLOWED_LANGUAGES
@@ -49,10 +50,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "load_tokens_from": TOKENS_FILE,
     "prompt_file": "",
     "squash_prompt_file": "",
+    "token_logging": True,  # nosec B105 - local-only provider that doesn't use API tokens
+    "measure_time": False,
 }
 
 # Providers that do not require an API token in tokens.yml
-TOKENLESS_PROVIDERS: set[str] = {"ollama"}
+TOKENLESS_PROVIDERS: set[str] = {
+    "ollama"  # nosec B105 - local-only provider that doesn't use API tokens
+}
 
 TOKEN_TEMPLATE = {
     "anthropic": "PUT-YOUR-ANTHROPIC-TOKEN-HERE",
@@ -156,16 +161,16 @@ def load_config(
             except (TypeError, FileNotFoundError, ModuleNotFoundError):
                 pass
 
-            # last resort: import hardcoded strings
-            from git_cai_cli.core.llm import (  # local import to avoid cycles
-                _HARDCODED_COMMIT_PROMPT,
-                _HARDCODED_SQUASH_PROMPT,
+            # last resort: use hardcoded fallback strings
+            from git_cai_cli.core.prompts_fallback import (
+                HARDCODED_COMMIT_PROMPT,
+                HARDCODED_SQUASH_PROMPT,
             )
 
             return (
-                _HARDCODED_COMMIT_PROMPT
+                HARDCODED_COMMIT_PROMPT
                 if name == "commit_prompt.md"
-                else _HARDCODED_SQUASH_PROMPT
+                else HARDCODED_SQUASH_PROMPT
             )
 
         if not commit_path.exists() or commit_path.stat().st_size == 0:
@@ -374,6 +379,8 @@ def ordered_default_config(
         "load_tokens_from",
         "prompt_file",
         "squash_prompt_file",
+        "token_logging",
+        "measure_time",
     ]
 
     ordered: dict[str, Any] = {}
@@ -386,3 +393,69 @@ def ordered_default_config(
         ordered[key] = default_config[key]
 
     return ordered
+
+
+# Known provider names derived from DEFAULT_CONFIG provider blocks
+KNOWN_PROVIDERS = frozenset(
+    {
+        "openai",
+        "gemini",
+        "anthropic",
+        "groq",
+        "xai",
+        "mistral",
+        "deepseek",
+        "ollama",
+    }
+)
+
+
+def apply_provider_overrides(
+    config: dict,
+    provider_override: str | None,
+    model_override: str | None,
+) -> None:
+    """
+    Apply --provider and --model overrides to the config dict in-place.
+
+    Raises typer.Exit on validation errors.
+    """
+    if model_override and not provider_override:
+        log.error(
+            "Cannot specify --model without --provider. Model: '%s'",
+            model_override,
+        )
+        typer.echo(
+            f"Error: --model requires --provider. Model: '{model_override}'",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if provider_override:
+        if provider_override not in KNOWN_PROVIDERS:
+            log.error(
+                "Unknown provider '%s'. Available: %s",
+                provider_override,
+                ", ".join(sorted(KNOWN_PROVIDERS)),
+            )
+            typer.echo(
+                f"Error: Unknown provider '{provider_override}'. "
+                f"Available: {', '.join(sorted(KNOWN_PROVIDERS))}",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
+        config["default"] = provider_override
+        log.info("Provider overridden to '%s'.", provider_override)
+
+    if model_override:
+        provider = config["default"]
+        if provider not in config or not isinstance(config[provider], dict):
+            config[provider] = {"model": model_override, "temperature": 0}
+        else:
+            config[provider]["model"] = model_override
+        log.info(
+            "Model overridden to '%s' for provider '%s'.",
+            model_override,
+            provider,
+        )

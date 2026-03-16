@@ -46,9 +46,13 @@ Currently supported providers:
 - Generates meaningful, context-aware commit messages using an LLM
 - Seamless integration with Git
 - Supports multiple LLM providers and models
+- Override provider and model per invocation (`-P`, `-m`)
 - Global configuration with per-repository overrides
 - Repository-specific language, style, and model selection
 - Optional commit squashing with automatic summary generation
+- Token usage logging for API calls
+- Generation time measurement (`-t`)
+- Shell completion for bash, zsh, and fish (`-i`)
 
 ---
 
@@ -181,6 +185,8 @@ git cai -g
 - `load_tokens_from` – path to the file where API tokens are stored
 - `prompt_file` - path to the file where the prompt for the commit is stored
 - `squash_prompt_file` - path to the file where the prompt for the squash is stored
+- `token_logging` – log token usage after each LLM call (default: `true` for new installs)
+- `measure_time` – log generation time (default: `false`)
 
 ---
 
@@ -188,14 +194,18 @@ git cai -g
 
 In addition to `git cai`, the following options are available:
 
-- `-h` `--help` – show help and available commands
 - `-a`, `--all` – stage all tracked modified and deleted files
 - `-c`, `--crazy` – Trust the LLM and commit without checking
 - `-d`, `--debug` – enable debug logging
 - `-g`, `--generate-config` – generate the default `cai_config.yml` in the current directory
+- `-h`, `--help` – show help and available commands
+- `-i`, `--install-completion` – install shell completion for bash, zsh, or fish
 - `-l`, `--list` – list available languages, styles, and supported editors
+- `-m`, `--model` – override the model for this invocation (requires `-P`)
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
+- `-P`, `--provider` – override the LLM provider for this invocation
 - `-s`, `--squash` – squash commits on the current branch and summarize them
+- `-t`, `--time` – measure and log commit message generation time
 - `-u`, `--update` – check for updates
 - `-v`, `--version` – show the installed version
 

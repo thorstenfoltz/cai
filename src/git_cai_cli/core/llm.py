@@ -17,30 +17,13 @@ from urllib.parse import urlparse
 import requests
 from git_cai_cli.core.config import CONFIG_DIR
 from git_cai_cli.core.languages import LANGUAGE_MAP
+from git_cai_cli.core.prompts_fallback import (
+    HARDCODED_COMMIT_PROMPT,
+    HARDCODED_SQUASH_PROMPT,
+)
 from openai import OpenAI
 
 log = logging.getLogger(__name__)
-
-# Hardcoded fallback prompts (last resort when no file is found)
-_HARDCODED_COMMIT_PROMPT = (
-    "You are an expert software engineer assistant. "
-    "Your task is to generate a concise, professional git commit message, "
-    "summarizing the provided git diff changes. "
-    "Keep the message clear and focused on what was changed and why. "
-    "Always include a headline, followed by a bullet-point list of changes. "
-    "If you detect sensitive information, mention it at the top, but still generate the message."
-)
-
-_HARDCODED_SQUASH_PROMPT = (
-    "You are an expert software engineer assistant. "
-    "Your task is to summarize multiple existing commit messages "
-    "into a single clean git commit message. "
-    "Do not list each commit individually. "
-    "Instead, infer the main purpose and overall change. "
-    "Format:\n"
-    "1. One short, clear headline.\n"
-    "2. A concise bullet list describing the main themes of the work."
-)
 
 
 def load_prompt_file(
@@ -149,6 +132,29 @@ class CommitMessageGenerator:
         """Release resources started by this generator (best-effort)."""
         self._stop_ollama_server_if_started_by_us()
 
+    def _log_token_usage(
+        self,
+        provider: str,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
+    ) -> None:
+        """Log token usage if token_logging is enabled in config."""
+        if not self.config.get("token_logging", False):
+            return
+        if prompt_tokens is None and completion_tokens is None:
+            log.debug(  # nosemgrep
+                "Token usage not available for provider '%s'.", provider  # nosemgrep
+            )  # nosemgrep
+            return
+        total = (prompt_tokens or 0) + (completion_tokens or 0)
+        log.info(  # nosemgrep
+            "Token usage [%s]: prompt=%s, completion=%s, total=%d",  # nosemgrep
+            provider,  # nosemgrep
+            prompt_tokens if prompt_tokens is not None else "n/a",  # nosemgrep
+            completion_tokens if completion_tokens is not None else "n/a",  # nosemgrep
+            total,  # nosemgrep
+        )
+
     def generate(self, git_diff: str) -> str:
         """
         Generate a commit message from a diff.
@@ -252,7 +258,7 @@ class CommitMessageGenerator:
             config_key="prompt_file",
             config=self.config,
             default_filename="commit_prompt.md",
-            hardcoded_fallback=_HARDCODED_COMMIT_PROMPT,
+            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
         )
 
         suffix = self._config_instructions()
@@ -273,7 +279,7 @@ class CommitMessageGenerator:
             config_key="squash_prompt_file",
             config=self.config,
             default_filename="squash_prompt.md",
-            hardcoded_fallback=_HARDCODED_SQUASH_PROMPT,
+            hardcoded_fallback=HARDCODED_SQUASH_PROMPT,
         )
 
         suffix = self._config_instructions()
@@ -371,7 +377,19 @@ class CommitMessageGenerator:
         response = requests.post(url, json=request, headers=headers, timeout=30)
         response.raise_for_status()
 
-        return response.json()["content"][0]["text"].strip()
+        data = response.json()
+
+        try:
+            usage = data.get("usage", {})
+            self._log_token_usage(
+                "anthropic",
+                usage.get("input_tokens"),
+                usage.get("output_tokens"),
+            )
+        except (KeyError, TypeError, AttributeError):
+            self._log_token_usage("anthropic", None, None)
+
+        return data["content"][0]["text"].strip()
 
     def generate_deepseek(
         self,
@@ -429,7 +447,19 @@ class CommitMessageGenerator:
         response = requests.post(url, json=request, headers=headers, timeout=30)
         response.raise_for_status()
 
-        return response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        data = response.json()
+
+        try:
+            usage = data.get("usageMetadata", {})
+            self._log_token_usage(
+                "gemini",
+                usage.get("promptTokenCount"),
+                usage.get("candidatesTokenCount"),
+            )
+        except (KeyError, TypeError, AttributeError):
+            self._log_token_usage("gemini", None, None)
+
+        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
     def generate_groq(
         self,
@@ -478,7 +508,19 @@ class CommitMessageGenerator:
         response = requests.post(url, json=request, headers=headers, timeout=30)
         response.raise_for_status()
 
-        return response.json()["choices"][0]["message"]["content"].strip()
+        data = response.json()
+
+        try:
+            usage = data.get("usage", {})
+            self._log_token_usage(
+                "groq",
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+            )
+        except (KeyError, TypeError, AttributeError):
+            self._log_token_usage("groq", None, None)
+
+        return data["choices"][0]["message"]["content"].strip()
 
     def generate_mistral(
         self,
@@ -517,7 +559,20 @@ class CommitMessageGenerator:
         }
 
         response = requests.post(url, json=request, headers=headers, timeout=30)
-        return response.json()["choices"][0]["message"]["content"].strip()
+
+        data = response.json()
+
+        try:
+            usage = data.get("usage", {})
+            self._log_token_usage(
+                "mistral",
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+            )
+        except (KeyError, TypeError, AttributeError):
+            self._log_token_usage("mistral", None, None)
+
+        return data["choices"][0]["message"]["content"].strip()
 
     def _ollama_base_url(self) -> str:
         host = os.environ.get("OLLAMA_HOST", "").strip()
@@ -613,7 +668,7 @@ class CommitMessageGenerator:
                     self._ollama_proc.kill()
                     log.info("Ollama server killed successfully (fallback).")
                 except (ProcessLookupError, OSError):
-                    pass  # nosec B110
+                    pass
 
     def _ensure_ollama_installed(self) -> None:
         if shutil.which("ollama") is None:
@@ -674,6 +729,16 @@ class CommitMessageGenerator:
 
         data = response.json()
 
+        # Extract token usage from Ollama response
+        try:
+            self._log_token_usage(
+                "ollama",
+                data.get("prompt_eval_count") if isinstance(data, dict) else None,
+                data.get("eval_count") if isinstance(data, dict) else None,
+            )
+        except (KeyError, TypeError, AttributeError):
+            self._log_token_usage("ollama", None, None)
+
         # /api/chat format
         if isinstance(data, dict) and isinstance(data.get("message"), dict):
             out = str(data["message"].get("content", "")).strip()
@@ -729,6 +794,17 @@ class CommitMessageGenerator:
             temperature=temperature,
             stream=False,
         )
+
+        try:
+            usage = completion.usage
+            self._log_token_usage(
+                provider_name,
+                getattr(usage, "prompt_tokens", None),
+                getattr(usage, "completion_tokens", None),
+            )
+        except (KeyError, TypeError, AttributeError):
+            self._log_token_usage(provider_name, None, None)
+
         return completion.choices[0].message.content.strip()
 
     def generate_xai(
@@ -767,7 +843,20 @@ class CommitMessageGenerator:
             "temperature": temperature,
         }
         response = requests.post(url, json=request, headers=headers, timeout=30)
-        return response.json()["choices"][0]["message"]["content"].strip()
+
+        data = response.json()
+
+        try:
+            usage = data.get("usage", {})
+            self._log_token_usage(
+                "xai",
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+            )
+        except (KeyError, TypeError, AttributeError):
+            self._log_token_usage("xai", None, None)
+
+        return data["choices"][0]["message"]["content"].strip()
 
     # ---------------------------
     # LANGUAGE HELPER

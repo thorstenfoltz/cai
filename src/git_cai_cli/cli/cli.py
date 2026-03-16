@@ -7,7 +7,7 @@ from git_cai_cli.cli.helptext import print_help_and_exit
 from git_cai_cli.cli.modes import resolve_mode, validate_options
 from git_cai_cli.main import run
 
-app = typer.Typer(add_completion=True, help=None, no_args_is_help=False)
+app = typer.Typer(add_completion=False, help=None, no_args_is_help=False)
 
 
 @app.callback(invoke_without_command=True)
@@ -17,6 +17,13 @@ def callback(
     ),
     help_flag: bool = typer.Option(
         False, "-h", "--help", help="Show help", is_eager=True
+    ),
+    install_completion: bool = typer.Option(
+        False,
+        "--install-completion",
+        "-i",
+        help="Install shell completion for git-cai",
+        is_eager=True,
     ),
     crazy: bool = typer.Option(
         False, "-c", "--crazy", help="Commit immediately without opening editor"
@@ -49,6 +56,15 @@ def callback(
         False, "--squash", "-s", help="Squash commits on this branch"
     ),
     update: bool = typer.Option(False, "--update", "-u", help="Check for updates"),
+    provider: str = typer.Option(
+        None, "--provider", "-P", help="Override LLM provider for this invocation"
+    ),
+    model: str = typer.Option(
+        None, "--model", "-m", help="Override model (requires --provider)"
+    ),
+    time_flag: bool = typer.Option(
+        False, "--time", "-t", help="Measure and log generation time"
+    ),
 ):
     """
     CLI entry point for git-cai-cli.
@@ -62,6 +78,12 @@ def callback(
         typer.echo(f"cai version: {__version__}")
         raise typer.Exit()
 
+    if install_completion:
+        from git_cai_cli.core.completion import install_completion as do_install
+
+        do_install()
+        raise typer.Exit()
+
     mode = resolve_mode(list_flag=list_flag, squash=squash, update=update)
 
     validate_options(
@@ -70,6 +92,9 @@ def callback(
         enable_debug=enable_debug,
         help_flag=help_flag,
         version_flag=version,
+        provider_override=provider,
+        model_override=model,
+        time_flag=time_flag,
     )
 
     if generate_config:
@@ -108,6 +133,9 @@ def callback(
         list_arg=list_arg,
         stage_tracked=stage_tracked,
         crazy=crazy,
+        provider_override=provider,
+        model_override=model,
+        time_flag=time_flag,
     )
 
 

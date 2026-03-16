@@ -120,3 +120,126 @@ def test_validate_options_valid_combination():
         help_flag=False,
         version_flag=False,
     )
+
+
+# -----------------------------------------------
+# Tests for --provider / --model option validation
+# -----------------------------------------------
+
+
+def test_provider_rejected_with_list_mode(capsys):
+    """--provider cannot be used with --list."""
+    with pytest.raises(typer.Exit) as exc:
+        modes.validate_options(
+            mode=Mode.LIST,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            provider_override="openai",
+        )
+    captured = capsys.readouterr()
+    assert (
+        "cannot be used with --list or --update" in captured.out
+        or "cannot be used with --list or --update" in captured.err
+    )
+    assert exc.value.exit_code == 1
+
+
+def test_provider_rejected_with_update_mode(capsys):
+    """--provider cannot be used with --update."""
+    with pytest.raises(typer.Exit) as exc:
+        modes.validate_options(
+            mode=Mode.UPDATE,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            provider_override="openai",
+        )
+    captured = capsys.readouterr()
+    assert (
+        "cannot be used with --list or --update" in captured.out
+        or "cannot be used with --list or --update" in captured.err
+    )
+    assert exc.value.exit_code == 1
+
+
+def test_provider_allowed_with_commit_mode():
+    """--provider is allowed with COMMIT mode."""
+    modes.validate_options(
+        mode=Mode.COMMIT,
+        stage_tracked=False,
+        enable_debug=False,
+        help_flag=False,
+        version_flag=False,
+        provider_override="openai",
+    )
+
+
+def test_provider_allowed_with_squash_mode():
+    """--provider is allowed with SQUASH mode."""
+    modes.validate_options(
+        mode=Mode.SQUASH,
+        stage_tracked=False,
+        enable_debug=False,
+        help_flag=False,
+        version_flag=False,
+        provider_override="openai",
+        model_override="gpt-4o",
+    )
+
+
+# ----------------------------------
+# Tests for --time option validation
+# ----------------------------------
+
+
+def test_time_flag_rejected_with_list_mode(capsys):
+    """--time cannot be used with --list."""
+    with pytest.raises(typer.Exit) as exc:
+        modes.validate_options(
+            mode=Mode.LIST,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            time_flag=True,
+        )
+    captured = capsys.readouterr()
+    assert (
+        "cannot be used with --list or --update" in captured.out
+        or "cannot be used with --list or --update" in captured.err
+    )
+    assert exc.value.exit_code == 1
+
+
+def test_time_flag_rejected_with_update_mode(capsys):
+    """--time cannot be used with --update."""
+    with pytest.raises(typer.Exit) as exc:
+        modes.validate_options(
+            mode=Mode.UPDATE,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            time_flag=True,
+        )
+    captured = capsys.readouterr()
+    assert (
+        "cannot be used with --list or --update" in captured.out
+        or "cannot be used with --list or --update" in captured.err
+    )
+    assert exc.value.exit_code == 1
+
+
+def test_time_flag_allowed_with_squash_mode():
+    """--time is allowed with SQUASH mode."""
+    modes.validate_options(
+        mode=Mode.SQUASH,
+        stage_tracked=False,
+        enable_debug=False,
+        help_flag=False,
+        version_flag=False,
+        time_flag=True,
+    )

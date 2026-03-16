@@ -8,9 +8,15 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
-from git_cai_cli.core.config import TOKENLESS_PROVIDERS, load_config, load_token
+from git_cai_cli.core.config import (
+    TOKENLESS_PROVIDERS,
+    apply_provider_overrides,
+    load_config,
+    load_token,
+)
 from git_cai_cli.core.gitutils import (
     _has_upstream,
     commit_with_edit_template,
@@ -20,6 +26,7 @@ from git_cai_cli.core.gitutils import (
     sha256_of_file,
 )
 from git_cai_cli.core.llm import CommitMessageGenerator
+from git_cai_cli.core.spinner import Spinner
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +81,11 @@ def _has_commits() -> bool:
     )
 
 
-def squash_branch() -> None:
+def squash_branch(
+    provider_override: str | None = None,
+    model_override: str | None = None,
+    time_flag: bool = False,
+) -> None:
     """
     Squash all commits in the current branch into a single commit with an LLM-generated message.
     """
@@ -91,6 +102,10 @@ def squash_branch() -> None:
     ).strip()
 
     config = load_config()
+
+    # Apply provider/model overrides
+    apply_provider_overrides(config, provider_override, model_override)
+
     provider = config["default"]
     token = load_token(config=config)
 
@@ -102,6 +117,8 @@ def squash_branch() -> None:
         )
         sys.exit(1)
     generator = CommitMessageGenerator(token, config, provider)
+
+    measure = time_flag or config.get("measure_time", False)
 
     try:
         # 1) Working tree handling
@@ -115,11 +132,18 @@ def squash_branch() -> None:
                 log.error("Staged changes detected, but diff is empty. Aborting.")
                 return
 
+            start = time.perf_counter() if measure else None
+
             try:
-                msg = generator.generate(diff)
+                with Spinner("Generating commit message for staged changes"):
+                    msg = generator.generate(diff)
             except ValueError as e:
                 log.error("%s", e)
                 sys.exit(1)
+
+            if start is not None:
+                elapsed = time.perf_counter() - start
+                log.info("Commit message generated in %.2fs", elapsed)
 
             result = commit_with_edit_template(msg)
             if result != 0:
@@ -157,11 +181,19 @@ def squash_branch() -> None:
             return
 
         log.info("Summarizing commit history using LLM...")
+
+        start = time.perf_counter() if measure else None
+
         try:
-            summary_message = generator.summarize_commit_history(commit_log)
+            with Spinner("Summarizing commit history"):
+                summary_message = generator.summarize_commit_history(commit_log)
         except ValueError as e:
             log.error("%s", e)
             sys.exit(1)
+
+        if start is not None:
+            elapsed = time.perf_counter() - start
+            log.info("Squash summary generated in %.2fs", elapsed)
 
         # 4) Let user edit the summary without making a commit yet
         log.info(

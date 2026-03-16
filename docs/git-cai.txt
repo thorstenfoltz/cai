@@ -11,8 +11,11 @@ SYNOPSIS
 --------
 [verse]
 `git cai` [-a | --all] [-c | --crazy] [-d | --debug] [-g | --generate-config]
+        [-i | --install-completion]
         [-l [editor|language|style] | --list [editor|language|style]]
-        [-p | --generate-prompts] [-s | --squash] [-u | --update] [-v | --version]
+        [-m MODEL | --model MODEL] [-p | --generate-prompts]
+        [-P PROVIDER | --provider PROVIDER]
+        [-s | --squash] [-t | --time] [-u | --update] [-v | --version]
 
 
 DESCRIPTION
@@ -73,15 +76,37 @@ Enable debug logging.
 -g, --generate-config::
 Generate default cai_config.yml in the current directory.
 
+-i, --install-completion::
+Install shell completion for `git cai`. Supports bash, zsh, and fish.
+After installation, restart your terminal or source your shell configuration.
+Completions include all flags and provider names for `--provider`.
+
 -l, --list::
 List information. Provide one of `editor`, `language`, or `style` as the next argument.
+
+-m, --model MODEL::
+Override the model for this invocation. Must be used together with `--provider`.
+The model name is passed directly to the provider's API.
+Example: `git cai -P openai -m gpt-4o`
 
 -p, --generate-prompts::
 Generate default commit_prompt.md and squash_prompt.md in the current directory.
 Use these as a starting point for custom prompts.
 
+-P, --provider PROVIDER::
+Override the LLM provider for this invocation. The model from the configuration
+for that provider is used unless `--model` is also specified.
+Available providers: `anthropic`, `deepseek`, `gemini`, `groq`,
+`mistral`, `ollama`, `openai`, `xai`.
+Example: `git cai -P anthropic`
+
 -s, --squash::
 Squash commits on the current branch and summarize them.
+
+-t, --time::
+Measure and log the time taken to generate the commit message.
+Can also be permanently enabled via `measure_time: true` in
+`cai_config.yml`.
 
 -u, --update::
 Check for updates.
@@ -191,6 +216,30 @@ Show supported styles/languages/editors:
 git cai -l style
 git cai -l language
 git cai -l editor
+----
+
+Override the provider for a single invocation:
+
+----
+git cai -P anthropic
+----
+
+Override both provider and model:
+
+----
+git cai -P openai -m gpt-4o
+----
+
+Measure generation time:
+
+----
+git cai -t
+----
+
+Install shell completion:
+
+----
+git cai -i
 ----
 
 SEE ALSO
