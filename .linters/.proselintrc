@@ -18,7 +18,7 @@
         , "lgbtq.offensive_terms": true
         , "lgbtq.terms": true
         , "lexical_illusions.misc": false
-        , "links.broken": true
+        , "links.broken": false
         , "malapropisms.misc": true
         , "misc.apologizing": true
         , "misc.back_formations": true

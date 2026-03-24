@@ -44,6 +44,7 @@ def get_last_commit_diff(
         capture_output=True,
         text=True,
         check=False,
+        cwd=repo_root,
     )
     if result.returncode != 0:
         log.error("Failed to get last commit diff: %s", result.stderr.strip())

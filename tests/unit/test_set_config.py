@@ -2,7 +2,6 @@
 Unit tests for the --set / --set-home config CLI feature.
 """
 
-
 import pytest
 import yaml
 from git_cai_cli.core.config import _parse_config_value, set_config_value

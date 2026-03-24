@@ -5,17 +5,17 @@ CLI entry point for git-cai-cli.
 import logging
 
 import typer
-
-log = logging.getLogger(__name__)
 from git_cai_cli.cli.helptext import print_help_and_exit
 from git_cai_cli.cli.modes import resolve_mode, validate_options
 from git_cai_cli.main import run
+
+log = logging.getLogger(__name__)
 
 app = typer.Typer(add_completion=False, help=None, no_args_is_help=False)
 
 
 @app.callback(invoke_without_command=True)
-def callback(
+def callback(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     version: bool = typer.Option(
         False, "-v", "--version", help="Show version", is_eager=True
     ),
