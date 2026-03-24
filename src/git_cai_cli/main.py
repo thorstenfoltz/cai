@@ -148,7 +148,11 @@ def run(
     generator = CommitMessageGenerator(token, config, provider)
     try:
         try:
-            spinner_text = "Regenerating commit message" if is_amend else "Generating commit message"
+            spinner_text = (
+                "Regenerating commit message"
+                if is_amend
+                else "Generating commit message"
+            )
             with Spinner(spinner_text):
                 commit_message = _validate_llm_call(
                     generator.generate,

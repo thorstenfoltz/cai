@@ -2,8 +2,6 @@
 Unit tests for the --amend / -A feature.
 """
 
-import subprocess
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,7 +9,6 @@ import typer
 from git_cai_cli.cli import modes
 from git_cai_cli.cli.modes import Mode
 from git_cai_cli.core.gitutils import commit_direct, get_last_commit_diff
-
 
 # ----------------------
 # resolve_mode with amend

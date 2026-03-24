@@ -11,11 +11,26 @@ from git_cai_cli.cli.modes import Mode
 @pytest.mark.parametrize(
     "flags,expected_mode",
     [
-        ({"amend": False, "list_flag": False, "squash": False, "update": False}, Mode.COMMIT),
-        ({"amend": True, "list_flag": False, "squash": False, "update": False}, Mode.AMEND),
-        ({"amend": False, "list_flag": True, "squash": False, "update": False}, Mode.LIST),
-        ({"amend": False, "list_flag": False, "squash": True, "update": False}, Mode.SQUASH),
-        ({"amend": False, "list_flag": False, "squash": False, "update": True}, Mode.UPDATE),
+        (
+            {"amend": False, "list_flag": False, "squash": False, "update": False},
+            Mode.COMMIT,
+        ),
+        (
+            {"amend": True, "list_flag": False, "squash": False, "update": False},
+            Mode.AMEND,
+        ),
+        (
+            {"amend": False, "list_flag": True, "squash": False, "update": False},
+            Mode.LIST,
+        ),
+        (
+            {"amend": False, "list_flag": False, "squash": True, "update": False},
+            Mode.SQUASH,
+        ),
+        (
+            {"amend": False, "list_flag": False, "squash": False, "update": True},
+            Mode.UPDATE,
+        ),
     ],
 )
 def test_resolve_mode_integration(flags, expected_mode):
