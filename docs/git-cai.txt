@@ -1,7 +1,7 @@
 git-cai(1)
 ==========
 Thorsten Foltz
-February 2026
+March 2026
 
 NAME
 ----
@@ -10,11 +10,14 @@ git-cai - AI-powered commit message generator
 SYNOPSIS
 --------
 [verse]
-`git cai` [-a | --all] [-c | --crazy] [-d | --debug] [-g | --generate-config]
+`git cai` [-A | --amend] [-a | --all] [-C | --conventional]
+        [-c | --crazy] [-d | --debug] [-g | --generate-config]
+        [-H KEY=VALUE | --set-home KEY=VALUE] [-h | --help]
         [-i | --install-completion]
         [-l [editor|language|style] | --list [editor|language|style]]
-        [-m MODEL | --model MODEL] [-p | --generate-prompts]
-        [-P PROVIDER | --provider PROVIDER]
+        [-m MODEL | --model MODEL]
+        [-P PROVIDER | --provider PROVIDER] [-p | --generate-prompts]
+        [-S KEY=VALUE | --set KEY=VALUE]
         [-s | --squash] [-t | --time] [-u | --update] [-v | --version]
 
 
@@ -60,59 +63,227 @@ Custom prompts (optional):
 
 OPTIONS
 -------
--h, --help::
-Show this help message.
+-A, --amend::
+Regenerate and amend the last commit message. git-cai reads the diff from
+the most recent commit, sends it to the configured LLM, and opens the editor
+so you can review or adjust the message before amending. This is useful when
+the original commit message was poorly worded or when you want the LLM to
+produce a better summary.
++
+Combine with `-c` to skip the editor and amend immediately.
++
+Cannot be combined with `--squash` or `--list`.
++
+----
+git cai -A
+git cai -A -c
+----
 
 -a, --all::
-Stage all modified and deleted files that are already tracked by Git
-before generating the commit message.
+Stage all modified and deleted files that are already tracked by Git before
+generating the commit message. This mirrors the behaviour of `git commit -a`.
+Untracked (new) files are not staged; add them manually with `git add` first.
++
+Cannot be combined with `--list`, `--update`, or `--squash`.
++
+----
+git cai -a
+----
+
+-C, --conventional::
+Generate the commit message in Conventional Commits format
+(`type(scope): description`). The LLM is instructed to use one of the
+following types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`,
+`build`, `ci`, `chore`, `revert`. Append `!` after the type or scope to
+signal a breaking change.
++
+This flag applies for the current invocation only. To enable it permanently,
+set `conventional: true` in `cai_config.yml` or run:
++
+----
+git cai -S conventional=true
+----
++
+----
+git cai -C
+git cai -C -c
+----
 
 -c, --crazy::
-Automatically commit changes using an LLM-generated message without user confirmation.
+Trust the LLM output and commit immediately without opening an editor.
+The generated message is used as-is. Useful in scripts or when you are
+confident in the LLM output.
++
+Can be combined with `-A` to amend without review, or with `-C` to commit
+a Conventional Commits message directly.
++
+----
+git cai -c
+git cai -A -c
+----
 
 -d, --debug::
-Enable debug logging.
+Enable debug logging. Produces verbose output to stderr, including
+configuration loading, provider selection, prompt assembly, and the raw
+LLM request/response. Helpful for troubleshooting configuration or
+provider issues.
++
+Cannot be combined with `--help` or `--version`.
++
+----
+git cai -d
+----
 
 -g, --generate-config::
-Generate default cai_config.yml in the current directory.
+Write the default `cai_config.yml` into the current directory. This is a
+convenient way to create a repository-specific configuration that overrides
+the home config. Edit the generated file to customise provider, model,
+language, style, or other settings for this repository.
++
+If a `cai_config.yml` already exists in the current directory, an error is
+shown to prevent accidental overwrites.
++
+----
+cd /path/to/repo
+git cai -g
+----
+
+-H, --set-home KEY=VALUE::
+Set a configuration value in the home (default) config file at
+`~/.config/cai/cai_config.yml`. Always targets the home config, even when a
+repository-level config exists. Use this to change your personal defaults
+that apply to all repositories without a repo-specific config.
++
+Supports the same key formats as `--set`, including dot notation for nested
+provider keys.
++
+----
+git cai -H language=de
+git cai -H default=anthropic
+git cai -H emoji=false
+git cai -H groq.model=llama-3.3-70b
+----
+
+-h, --help::
+Show a summary of available flags and usage information. When a manual page
+is installed, the full manual is opened instead.
 
 -i, --install-completion::
 Install shell completion for `git cai`. Supports bash, zsh, and fish.
-After installation, restart your terminal or source your shell configuration.
-Completions include all flags and provider names for `--provider`.
+Completions cover all flags and provider names for `--provider`.
++
+After installation, restart your terminal or source your shell configuration
+file for the completions to take effect.
++
+----
+git cai -i
+----
 
--l, --list::
-List information. Provide one of `editor`, `language`, or `style` as the next argument.
+-l, --list [editor|language|style]::
+List information about a specific category. Provide one of `editor`,
+`language`, or `style` as the next argument. Without an argument, an error
+is shown listing the valid choices.
++
+----
+git cai -l language
+git cai -l style
+git cai -l editor
+----
 
 -m, --model MODEL::
-Override the model for this invocation. Must be used together with `--provider`.
-The model name is passed directly to the provider's API.
-Example: `git cai -P openai -m gpt-4o`
-
--p, --generate-prompts::
-Generate default commit_prompt.md and squash_prompt.md in the current directory.
-Use these as a starting point for custom prompts.
+Override the model for this invocation. Must be used together with
+`--provider` (`-P`); specifying `--model` alone is an error. The model name
+is passed directly to the provider's API, so it must be a valid model
+identifier for that provider.
++
+----
+git cai -P openai -m gpt-4o
+git cai -P anthropic -m claude-haiku-4-5
+git cai -P ollama -m mistral
+----
 
 -P, --provider PROVIDER::
-Override the LLM provider for this invocation. The model from the configuration
-for that provider is used unless `--model` is also specified.
-Available providers: `anthropic`, `deepseek`, `gemini`, `groq`,
+Override the LLM provider for this invocation. The model and temperature
+from the configuration for that provider are used unless `--model` is also
+specified. Available providers: `anthropic`, `deepseek`, `gemini`, `groq`,
 `mistral`, `ollama`, `openai`, `xai`.
-Example: `git cai -P anthropic`
++
+----
+git cai -P anthropic
+git cai -P groq -m llama-3.3-70b
+----
+
+-p, --generate-prompts::
+Generate default `commit_prompt.md` and `squash_prompt.md` in the current
+directory. These files serve as starting points for custom prompts. After
+generating them, point `prompt_file` and/or `squash_prompt_file` in your
+`cai_config.yml` to the generated files.
++
+If the files already exist, an error is shown to prevent accidental
+overwrites.
++
+----
+git cai -p
+----
+
+-S, --set KEY=VALUE::
+Set a configuration value in the repository config (`cai_config.yml` in the
+repository root). Requires an existing repo config; if none is found, an
+error is shown with a hint to use `--set-home` (`-H`) to change the default
+config or `git cai -g` to create a repo config first.
++
+Supports dot notation for nested provider keys (e.g., `groq.model`).
+Values are auto-parsed: `true`/`false` become booleans, numeric strings
+become integers or floats, everything else stays a string.
++
+----
+git cai -S default=anthropic
+git cai -S emoji=false
+git cai -S groq.model=llama-3.3-70b
+git cai -S openai.temperature=0.7
+git cai -S conventional=true
+----
 
 -s, --squash::
-Squash commits on the current branch and summarize them.
+Squash all commits on the current branch into a single commit with an
+LLM-generated summary message. git-cai collects the individual commit
+messages, sends them to the LLM, and opens the editor for review. After
+confirmation, a soft reset is performed and the squashed commit is created.
++
+This rewrites history. A force push is required to update a remote branch.
+git-cai will prompt before executing the force push.
++
+----
+git cai -s
+----
 
 -t, --time::
-Measure and log the time taken to generate the commit message.
-Can also be permanently enabled via `measure_time: true` in
+Measure and log the wall-clock time taken to generate the commit message.
+The duration is printed to stderr after the LLM responds. Useful for
+comparing provider/model performance.
++
+Can also be enabled permanently via `measure_time: true` in
 `cai_config.yml`.
++
+----
+git cai -t
+----
 
 -u, --update::
-Check for updates.
+Check PyPI for a newer version of git-cai-cli. If an update is available,
+the new version number and the install command are printed.
++
+----
+git cai -u
+----
 
 -v, --version::
-Show the installed version.
+Print the installed version of git-cai-cli and exit. The version is derived
+from git tags via `setuptools-scm`.
++
+----
+git cai -v
+----
 
 LIST TYPES
 ----------
@@ -153,6 +324,22 @@ If present, it replaces the home config for that repository.
 Tokens can be loaded from everywhere defined within "load_tokens_from"
 in cai_config.yml
 
+Available configuration keys:
+
+- `default` -- default LLM provider name
+- `language` -- language for commit messages (e.g., `en`, `de`, `fr`)
+- `style` -- tone of the commit message (`professional`, `neutral`, `friendly`,
+  `funny`, `excited`, `sarcastic`, `apologetic`, `academic`)
+- `emoji` -- enable or disable emojis in commit messages (`true`/`false`)
+- `conventional` -- use Conventional Commits format (`true`/`false`)
+- `load_tokens_from` -- path to the tokens file
+- `prompt_file` -- path to the commit prompt Markdown file
+- `squash_prompt_file` -- path to the squash prompt Markdown file
+- `token_logging` -- log token usage after each LLM call (`true`/`false`)
+- `measure_time` -- log generation time (`true`/`false`)
+- `<provider>.model` -- model name for a specific provider
+- `<provider>.temperature` -- temperature for a specific provider
+
 FILES
 -----
 `~/.config/cai/cai_config.yml`::
@@ -164,6 +351,10 @@ Provider API keys (created as a template if missing).
 `~/.config/cai/commit_prompt.md` and `~/.config/cai/squash_prompt.md`::
 Default prompt files (created automatically if missing/empty). You can point
 `prompt_file` and `squash_prompt_file` to other locations.
+
+`<repo-root>/cai_config.yml` or `<repo-root>/cai_config.yaml`::
+Optional repository-specific configuration. When present, replaces the home
+config entirely for that repository.
 
 `<repo-root>/.caiignore`::
 Optional ignore file. Patterns are appended as exclusions when git-cai runs
@@ -198,6 +389,24 @@ Stage tracked changes (like `git commit -a`) and generate a message:
 git cai -a
 ----
 
+Regenerate and amend the last commit message:
+
+----
+git cai -A
+----
+
+Amend without opening the editor:
+
+----
+git cai -A -c
+----
+
+Use Conventional Commits format:
+
+----
+git cai -C
+----
+
 Commit immediately without opening the editor:
 
 ----
@@ -210,7 +419,7 @@ Squash all commits on the current branch into one (rewrites history):
 git cai -s
 ----
 
-Show supported styles/languages/editors:
+Show supported styles, languages, or editors:
 
 ----
 git cai -l style
@@ -230,6 +439,21 @@ Override both provider and model:
 git cai -P openai -m gpt-4o
 ----
 
+Change a value in the repo config:
+
+----
+git cai -S default=anthropic
+git cai -S groq.model=llama-3.3-70b
+git cai -S emoji=false
+----
+
+Change a value in the home (default) config:
+
+----
+git cai -H language=de
+git cai -H default=openai
+----
+
 Measure generation time:
 
 ----
@@ -240,6 +464,12 @@ Install shell completion:
 
 ----
 git cai -i
+----
+
+Check for updates:
+
+----
+git cai -u
 ----
 
 SEE ALSO

@@ -119,16 +119,16 @@ class CliManager:
             log.error("Error during update: %s", update_error)
             print("❌ An error occurred while updating. Check logs for details.")
 
-    def commit_crazy(self, message: str) -> int:
+    def commit_crazy(self, message: str, *, amend: bool = False) -> int:
         """
         Commit immediately using -m, without opening an editor, trusting the LLM output.
         """
+        cmd = ["git", "commit"]
+        if amend:
+            cmd.append("--amend")
+        cmd.extend(["-m", message])
         try:
-            subprocess.run(
-                ["git", "commit", "-m", message],
-                check=True,
-                text=True,
-            )
+            subprocess.run(cmd, check=True, text=True)
             return 0
         except subprocess.CalledProcessError as e:
             log.error("git commit failed with exit code %d", e.returncode)

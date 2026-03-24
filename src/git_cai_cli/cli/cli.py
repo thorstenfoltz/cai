@@ -2,7 +2,11 @@
 CLI entry point for git-cai-cli.
 """
 
+import logging
+
 import typer
+
+log = logging.getLogger(__name__)
 from git_cai_cli.cli.helptext import print_help_and_exit
 from git_cai_cli.cli.modes import resolve_mode, validate_options
 from git_cai_cli.main import run
@@ -24,6 +28,15 @@ def callback(
         "-i",
         help="Install shell completion for git-cai",
         is_eager=True,
+    ),
+    amend: bool = typer.Option(
+        False, "-A", "--amend", help="Regenerate and amend the last commit message"
+    ),
+    conventional: bool = typer.Option(
+        False,
+        "-C",
+        "--conventional",
+        help="Use Conventional Commits format (type(scope): description)",
     ),
     crazy: bool = typer.Option(
         False, "-c", "--crazy", help="Commit immediately without opening editor"
@@ -56,6 +69,18 @@ def callback(
         False, "--squash", "-s", help="Squash commits on this branch"
     ),
     update: bool = typer.Option(False, "--update", "-u", help="Check for updates"),
+    set_config: str = typer.Option(
+        None,
+        "-S",
+        "--set",
+        help="Set a config value in repo config (key=value). Requires existing repo config.",
+    ),
+    set_home: str = typer.Option(
+        None,
+        "-H",
+        "--set-home",
+        help="Set a config value in home config (key=value). Always targets ~/.config/cai/.",
+    ),
     provider: str = typer.Option(
         None, "--provider", "-P", help="Override LLM provider for this invocation"
     ),
@@ -84,7 +109,7 @@ def callback(
         do_install()
         raise typer.Exit()
 
-    mode = resolve_mode(list_flag=list_flag, squash=squash, update=update)
+    mode = resolve_mode(amend=amend, list_flag=list_flag, squash=squash, update=update)
 
     validate_options(
         mode=mode,
@@ -127,11 +152,36 @@ def callback(
 
         raise typer.Exit()
 
+    if set_config or set_home:
+        from git_cai_cli.core.config import set_config_value
+        from git_cai_cli.main import configure_logging
+
+        configure_logging(enable_debug)
+
+        raw = set_home if set_home else set_config
+        force_home = set_home is not None
+
+        if "=" not in raw:
+            log.error("Invalid format: expected key=value, got '%s'", raw)
+            raise typer.Exit(code=1)
+
+        key, value = raw.split("=", 1)
+
+        try:
+            target = set_config_value(key, value, force_home=force_home)
+            log.info("Configuration updated: %s = %s in %s", key, value, target)
+        except ValueError as e:
+            log.error("Failed to set config: %s", e)
+            raise typer.Exit(code=1)
+
+        raise typer.Exit()
+
     run(
         mode=mode,
         enable_debug=enable_debug,
         list_arg=list_arg,
         stage_tracked=stage_tracked,
+        conventional=conventional,
         crazy=crazy,
         provider_override=provider,
         model_override=model,

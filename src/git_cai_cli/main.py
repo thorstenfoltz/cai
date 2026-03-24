@@ -39,6 +39,7 @@ def run(
     enable_debug: bool,
     list_arg: str | None,
     stage_tracked: bool,
+    conventional: bool = False,
     crazy: bool,
     provider_override: str | None = None,
     model_override: str | None = None,
@@ -61,6 +62,7 @@ def run(
     from git_cai_cli.core.gitutils import (
         commit_with_edit_template,
         find_git_root,
+        get_last_commit_diff,
         git_diff_excluding,
     )
     from git_cai_cli.core.llm import CommitMessageGenerator
@@ -112,7 +114,9 @@ def run(
         manager.check_and_update()
         return
 
-    # Default mode: generate commit message
+    is_amend = mode is Mode.AMEND
+
+    # Default mode: generate commit message (COMMIT or AMEND)
     repo_root = find_git_root()
     if not repo_root:
         log.error("Not inside a Git repository.")
@@ -121,13 +125,22 @@ def run(
     config = load_config()
     apply_provider_overrides(config, provider_override, model_override)
 
+    if conventional:
+        config["conventional"] = True
+
     provider = config["default"]
     token = load_token(config=config)
 
-    diff = git_diff_excluding(repo_root)
-    if not diff.strip():
-        log.info("No changes to commit. Did you run 'git add'?")
-        raise typer.Exit()
+    if is_amend:
+        diff = get_last_commit_diff(repo_root)
+        if not diff.strip():
+            log.error("No previous commit found or commit has no diff.")
+            raise typer.Exit(code=1)
+    else:
+        diff = git_diff_excluding(repo_root)
+        if not diff.strip():
+            log.info("No changes to commit. Did you run 'git add'?")
+            raise typer.Exit()
 
     measure = time_flag or config.get("measure_time", False)
     start = time.perf_counter() if measure else None
@@ -135,7 +148,8 @@ def run(
     generator = CommitMessageGenerator(token, config, provider)
     try:
         try:
-            with Spinner("Generating commit message"):
+            spinner_text = "Regenerating commit message" if is_amend else "Generating commit message"
+            with Spinner(spinner_text):
                 commit_message = _validate_llm_call(
                     generator.generate,
                     diff,
@@ -153,7 +167,7 @@ def run(
         log.info("Commit message generated in %.2fs", elapsed)
 
     if crazy:
-        rc = manager.commit_crazy(commit_message)
+        rc = manager.commit_crazy(commit_message, amend=is_amend)
         raise typer.Exit(code=rc)
 
-    commit_with_edit_template(commit_message)
+    commit_with_edit_template(commit_message, amend=is_amend)

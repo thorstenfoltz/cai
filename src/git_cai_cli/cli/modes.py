@@ -12,24 +12,27 @@ class Mode(Enum):
     Enum representing the different operational modes of the CLI.
     """
 
+    AMEND = auto()
     COMMIT = auto()
     LIST = auto()
     SQUASH = auto()
     UPDATE = auto()
 
 
-def resolve_mode(*, list_flag: bool, squash: bool, update: bool) -> Mode:
+def resolve_mode(*, amend: bool, list_flag: bool, squash: bool, update: bool) -> Mode:
     """
     Resolves the operational mode based on the provided flags.
     """
-    flags = [list_flag, squash, update]
+    flags = [amend, list_flag, squash, update]
     if sum(flags) > 1:
         typer.echo(
-            "Error: --list, --squash, and --update cannot be used together.",
+            "Error: --amend, --list, --squash, and --update cannot be used together.",
             err=True,
         )
         raise typer.Exit(code=1)
 
+    if amend:
+        return Mode.AMEND
     if list_flag:
         return Mode.LIST
     if squash:
@@ -61,7 +64,7 @@ def validate_options(
         )
         raise typer.Exit(code=1)
 
-    if stage_tracked and mode is not Mode.COMMIT:
+    if stage_tracked and mode not in (Mode.COMMIT, Mode.AMEND):
         typer.echo(
             "Error: --all cannot be used with --list, --update, or --squash.",
             err=True,

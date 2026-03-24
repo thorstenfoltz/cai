@@ -11,10 +11,11 @@ from git_cai_cli.cli.modes import Mode
 @pytest.mark.parametrize(
     "flags,expected_mode",
     [
-        ({"list_flag": False, "squash": False, "update": False}, Mode.COMMIT),
-        ({"list_flag": True, "squash": False, "update": False}, Mode.LIST),
-        ({"list_flag": False, "squash": True, "update": False}, Mode.SQUASH),
-        ({"list_flag": False, "squash": False, "update": True}, Mode.UPDATE),
+        ({"amend": False, "list_flag": False, "squash": False, "update": False}, Mode.COMMIT),
+        ({"amend": True, "list_flag": False, "squash": False, "update": False}, Mode.AMEND),
+        ({"amend": False, "list_flag": True, "squash": False, "update": False}, Mode.LIST),
+        ({"amend": False, "list_flag": False, "squash": True, "update": False}, Mode.SQUASH),
+        ({"amend": False, "list_flag": False, "squash": False, "update": True}, Mode.UPDATE),
     ],
 )
 def test_resolve_mode_integration(flags, expected_mode):
@@ -30,7 +31,7 @@ def test_resolve_mode_conflict_raises(capsys):
     Test that resolve_mode raises typer.Exit if multiple flags are used together.
     """
     with pytest.raises(typer.Exit) as exc:
-        modes.resolve_mode(list_flag=True, squash=True, update=False)
+        modes.resolve_mode(amend=False, list_flag=True, squash=True, update=False)
     captured = capsys.readouterr()
     assert (
         "cannot be used together" in captured.out

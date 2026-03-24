@@ -18,20 +18,37 @@ from git_cai_cli.core.editors import EDITOR_BLOCK_FLAGS, TERMINAL_EDITORS
 log = logging.getLogger(__name__)
 
 
-def commit_direct(commit_message: str) -> int:
+def commit_direct(commit_message: str, *, amend: bool = False) -> int:
     """
     Commit directly using -m without opening an editor.
     """
+    cmd = ["git", "commit"]
+    if amend:
+        cmd.append("--amend")
+    cmd.extend(["-m", commit_message])
     try:
-        subprocess.run(
-            ["git", "commit", "-m", commit_message],
-            check=True,
-            text=True,
-        )
+        subprocess.run(cmd, check=True, text=True)
         return 0
     except subprocess.CalledProcessError as e:
         log.error("git commit failed with exit code %d", e.returncode)
         return e.returncode or 1
+
+
+def get_last_commit_diff(
+    repo_root: Path,
+    run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> str:
+    """Get the diff of the most recent commit."""
+    result = run_cmd(
+        ["git", "diff", "HEAD~1..HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        log.error("Failed to get last commit diff: %s", result.stderr.strip())
+        return ""
+    return result.stdout
 
 
 def _editor_executable(argv: list[str]) -> str:
@@ -145,7 +162,7 @@ def sha256_of_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def commit_with_edit_template(commit_message: str) -> int:
+def commit_with_edit_template(commit_message: str, *, amend: bool = False) -> int:
     """Open git commit editor with a pre-filled commit message template."""
 
     # 1. Resolve editor
@@ -193,7 +210,11 @@ def commit_with_edit_template(commit_message: str) -> int:
                 return 1
 
         # 5. Commit
-        subprocess.run(["git", "commit", "-F", str(tf_name)], check=True)
+        cmd = ["git", "commit"]
+        if amend:
+            cmd.append("--amend")
+        cmd.extend(["-F", str(tf_name)])
+        subprocess.run(cmd, check=True)
         return 0
 
     except subprocess.CalledProcessError as e:

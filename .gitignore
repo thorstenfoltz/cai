@@ -1,5 +1,6 @@
 # directories
 build/
+.claude/
 dist/
 src/git_cai_cli.egg-info/
 .ipynb_checkpoints/

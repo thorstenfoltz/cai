@@ -49,6 +49,9 @@ Currently supported providers:
 - Override provider and model per invocation (`-P`, `-m`)
 - Global configuration with per-repository overrides
 - Repository-specific language, style, and model selection
+- Amend the last commit message with a regenerated one (`-A`)
+- Conventional Commits format support (`-C`)
+- Change configuration from the command line (`-S`, `-H`)
 - Optional commit squashing with automatic summary generation
 - Token usage logging for API calls
 - Generation time measurement (`-t`)
@@ -185,6 +188,7 @@ git cai -g
 - `load_tokens_from` – path to the file where API tokens are stored
 - `prompt_file` - path to the file where the prompt for the commit is stored
 - `squash_prompt_file` - path to the file where the prompt for the squash is stored
+- `conventional` – use Conventional Commits format (default: `false`)
 - `token_logging` – log token usage after each LLM call (default: `true` for new installs)
 - `measure_time` – log generation time (default: `false`)
 
@@ -194,7 +198,9 @@ git cai -g
 
 In addition to `git cai`, the following options are available:
 
+- `-A`, `--amend` – regenerate and amend the last commit message
 - `-a`, `--all` – stage all tracked modified and deleted files
+- `-C`, `--conventional` – use Conventional Commits format (`type(scope): description`)
 - `-c`, `--crazy` – Trust the LLM and commit without checking
 - `-d`, `--debug` – enable debug logging
 - `-g`, `--generate-config` – generate the default `cai_config.yml` in the current directory
@@ -204,10 +210,61 @@ In addition to `git cai`, the following options are available:
 - `-m`, `--model` – override the model for this invocation (requires `-P`)
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
 - `-P`, `--provider` – override the LLM provider for this invocation
+- `-S`, `--set` – set a config value (`key=value`) in repo config (requires existing repo config)
+- `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-s`, `--squash` – squash commits on the current branch and summarize them
 - `-t`, `--time` – measure and log commit message generation time
 - `-u`, `--update` – check for updates
 - `-v`, `--version` – show the installed version
+
+### Amend
+
+To regenerate the last commit message and amend it:
+
+```sh
+git cai -A
+```
+
+This reads the diff from the most recent commit, sends it to the LLM, and opens the editor for review.
+Use with `-c` to amend immediately without the editor: `git cai -A -c`.
+
+### Conventional Commits
+
+To generate commit messages in [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+```sh
+git cai -C
+```
+
+This enforces the `type(scope): description` structure. Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Use `!` after the type/scope for breaking changes.
+
+To enable it permanently:
+
+```sh
+git cai -S conventional=true
+```
+
+### Changing configuration from the CLI
+
+Instead of editing YAML files manually, use `--set` or `--set-home` to update config values.
+
+`--set` (`-S`) targets the **repo config** (requires an existing `cai_config.yml` in the repo root):
+
+```sh
+git cai -S default=anthropic           # change the default provider
+git cai -S emoji=false                  # disable emojis
+git cai -S groq.model=llama-3.3-70b    # nested key (dot notation)
+git cai -S openai.temperature=0.7      # set temperature as float
+```
+
+If no repo config exists, an error is shown. Use `git cai -g` to create one first.
+
+`--set-home` (`-H`) always targets the **home (default) config** (`~/.config/cai/`):
+
+```sh
+git cai -H language=de
+git cai -H emoji=false
+```
 
 ---
 

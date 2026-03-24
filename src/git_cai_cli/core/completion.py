@@ -22,20 +22,24 @@ _ZSH_SCRIPT = """\
 _git-cai() {
   local -a options
   options=(
-    '(-h --help)'{-h,--help}'[Show help]'
-    '(-v --version)'{-v,--version}'[Show version]'
+    '(-A --amend)'{-A,--amend}'[Regenerate and amend last commit message]'
     '(-a --all)'{-a,--all}'[Stage all tracked files]'
+    '(-C --conventional)'{-C,--conventional}'[Use Conventional Commits format]'
     '(-c --crazy)'{-c,--crazy}'[Commit immediately without editor]'
     '(-d --debug)'{-d,--debug}'[Enable debug logging]'
     '(-g --generate-config)'{-g,--generate-config}'[Generate default config]'
+    '(-H --set-home)'{-H,--set-home}'[Set config value in home config]:key=value:'
+    '(-h --help)'{-h,--help}'[Show help]'
     '(-i --install-completion)'{-i,--install-completion}'[Install shell completion]'
     '(-l --list)'{-l,--list}'[List information]'
     '(-m --model)'{-m,--model}'[Override model (requires --provider)]:model:'
+    '(-P --provider)'{-P,--provider}'[Override LLM provider]:provider:(anthropic deepseek gemini groq mistral ollama openai xai)'
     '(-p --generate-prompts)'{-p,--generate-prompts}'[Generate default prompts]'
+    '(-S --set)'{-S,--set}'[Set config value in repo config]:key=value:'
     '(-s --squash)'{-s,--squash}'[Squash commits on this branch]'
     '(-t --time)'{-t,--time}'[Measure generation time]'
     '(-u --update)'{-u,--update}'[Check for updates]'
-    '(-P --provider)'{-P,--provider}'[Override LLM provider]:provider:(anthropic deepseek gemini groq mistral ollama openai xai)'
+    '(-v --version)'{-v,--version}'[Show version]'
   )
   _arguments -s -S $options
 }
@@ -49,10 +53,11 @@ _git_cai_completion() {
     local cur opts
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
-    opts="-h --help -v --version -a --all -c --crazy -d --debug \\
-          -g --generate-config -i --install-completion -l --list \\
-          -m --model -p --generate-prompts -s --squash -t --time \\
-          -u --update -P --provider"
+    opts="-A --amend -a --all -C --conventional -c --crazy -d --debug \\
+          -g --generate-config -H --set-home -h --help \\
+          -i --install-completion -l --list -m --model \\
+          -P --provider -p --generate-prompts -S --set \\
+          -s --squash -t --time -u --update -v --version"
 
     if [[ "${COMP_WORDS[COMP_CWORD-1]}" == "--provider" || \\
           "${COMP_WORDS[COMP_CWORD-1]}" == "-P" ]]; then
@@ -76,20 +81,24 @@ __git_cai() {
 # Fish completion script.
 _FISH_SCRIPT = """\
 # Completions for git-cai / git cai
-complete -c git-cai -s h -l help -d 'Show help'
-complete -c git-cai -s v -l version -d 'Show version'
+complete -c git-cai -s A -l amend -d 'Regenerate and amend last commit message'
 complete -c git-cai -s a -l all -d 'Stage all tracked files'
+complete -c git-cai -s C -l conventional -d 'Use Conventional Commits format'
 complete -c git-cai -s c -l crazy -d 'Commit immediately without editor'
 complete -c git-cai -s d -l debug -d 'Enable debug logging'
 complete -c git-cai -s g -l generate-config -d 'Generate default config'
+complete -c git-cai -s H -l set-home -d 'Set config value in home config' -r
+complete -c git-cai -s h -l help -d 'Show help'
 complete -c git-cai -s i -l install-completion -d 'Install shell completion'
 complete -c git-cai -s l -l list -d 'List information'
 complete -c git-cai -s m -l model -d 'Override model' -r
+complete -c git-cai -s P -l provider -d 'Override LLM provider' -r -a 'anthropic deepseek gemini groq mistral ollama openai xai'
 complete -c git-cai -s p -l generate-prompts -d 'Generate default prompts'
+complete -c git-cai -s S -l set -d 'Set config value in repo config' -r
 complete -c git-cai -s s -l squash -d 'Squash commits on this branch'
 complete -c git-cai -s t -l time -d 'Measure generation time'
 complete -c git-cai -s u -l update -d 'Check for updates'
-complete -c git-cai -s P -l provider -d 'Override LLM provider' -r -a 'anthropic deepseek gemini groq mistral ollama openai xai'
+complete -c git-cai -s v -l version -d 'Show version'
 """
 
 
