@@ -98,7 +98,7 @@ def git_diff_excluding(
     cmd = ["git", "diff", "--cached", "--", "."]
     cmd.extend(f":!{pattern}" for pattern in exclude_files)
 
-    result = run_cmd(cmd, capture_output=True, text=True, check=True)
+    result = run_cmd(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         log.error("git diff failed: %s", result.stderr.strip())
         exit_func(1)

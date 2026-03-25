@@ -669,3 +669,304 @@ def test_token_usage_disabled_when_key_missing(caplog):
             gen.generate_groq("diff", system_prompt_override="sys")
 
     assert "Token usage" not in caplog.text
+
+
+# ---------------------------
+# Tests for generate_mistral
+# ---------------------------
+
+
+def test_generate_mistral():
+    """Test that generate_mistral returns the correct message text."""
+    config = {
+        "mistral": {
+            "model": "mistral-large-latest",
+            "temperature": 0.7,
+        }
+    }
+
+    gen = CommitMessageGenerator(
+        token="fake-token",
+        config=config,
+        default_model="mistral",
+    )
+
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "   mistral result   "}}]
+    }
+
+    with patch(f"{module_path}.requests.post", mock_post):
+        result = gen.generate_mistral("abc", system_prompt_override="sys")
+
+    assert result == "mistral result"
+    mock_post.assert_called_once()
+
+    args, kwargs = mock_post.call_args
+
+    assert args[0] == "https://api.mistral.ai/v1/chat/completions"
+    assert kwargs["timeout"] == 30
+
+    assert kwargs["headers"] == {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer fake-token",
+    }
+
+    assert kwargs["json"] == {
+        "model": "mistral-large-latest",
+        "temperature": 0.7,
+        "messages": [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "abc"},
+        ],
+    }
+
+
+def test_generate_mistral_raises_on_http_error():
+    """Test that generate_mistral raises on HTTP error via raise_for_status."""
+    import requests
+
+    config = {
+        "mistral": {
+            "model": "mistral-large-latest",
+            "temperature": 0.7,
+        }
+    }
+
+    gen = CommitMessageGenerator(
+        token="fake-token",
+        config=config,
+        default_model="mistral",
+    )
+
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.raise_for_status.side_effect = requests.HTTPError(
+        "401 Unauthorized"
+    )
+
+    with patch(f"{module_path}.requests.post", mock_post):
+        with pytest.raises(requests.HTTPError):
+            gen.generate_mistral("abc", system_prompt_override="sys")
+
+
+def test_token_usage_logged_mistral(caplog):
+    """Verify token usage is logged for Mistral when token_logging is enabled."""
+    config = {
+        "mistral": {"model": "mistral-large-latest", "temperature": 0},
+        "token_logging": True,
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="mistral")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}],
+        "usage": {"prompt_tokens": 110, "completion_tokens": 45},
+    }
+
+    with caplog.at_level(logging.INFO):
+        with patch(f"{module_path}.requests.post", mock_post):
+            gen.generate_mistral("diff", system_prompt_override="sys")
+
+    assert (
+        "Token usage [mistral]: prompt=110, completion=45, total=155" in caplog.text
+    )
+
+
+# ---------------------------
+# Tests for generate_deepseek
+# ---------------------------
+
+
+def test_generate_deepseek():
+    """Test that generate_deepseek delegates to generate_openai with correct params."""
+    config = {
+        "deepseek": {
+            "model": "deepseek-chat",
+            "temperature": 0.5,
+        },
+        "openai": {
+            "model": "gpt-5.1",
+            "temperature": 0,
+        },
+    }
+
+    gen = CommitMessageGenerator(
+        token="fake-token",
+        config=config,
+        default_model="deepseek",
+    )
+
+    with patch.object(gen, "generate_openai", return_value="deepseek result") as mock_openai:
+        result = gen.generate_deepseek("diff content", system_prompt_override="sys")
+
+    assert result == "deepseek result"
+    mock_openai.assert_called_once_with(
+        content="diff content",
+        system_prompt_override="sys",
+        base_url="https://api.deepseek.com",
+        model_override="deepseek-chat",
+        temperature_override=0.5,
+        provider_name="deepseek",
+    )
+
+
+# ------------------------------------------
+# Tests for None system_prompt_override guard
+# ------------------------------------------
+
+
+def test_generate_openai_none_system_prompt_omits_system_message():
+    """OpenAI should not include system message when system_prompt_override is None."""
+    config = {
+        "openai": {"model": "gpt-5.1", "temperature": 0},
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="openai")
+
+    mock_client = MagicMock()
+    mock_instance = MagicMock()
+    mock_instance.chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="msg"))]
+    )
+    mock_client.return_value = mock_instance
+
+    gen.generate_openai("diff", openai_cls=mock_client, system_prompt_override=None)
+
+    call_kwargs = mock_instance.chat.completions.create.call_args[1]
+    messages = call_kwargs["messages"]
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+
+
+def test_generate_mistral_none_system_prompt_omits_system_message():
+    """Mistral should not include system message when system_prompt_override is None."""
+    config = {
+        "mistral": {"model": "mistral-large-latest", "temperature": 0},
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="mistral")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}],
+    }
+
+    with patch(f"{module_path}.requests.post", mock_post):
+        gen.generate_mistral("diff", system_prompt_override=None)
+
+    call_kwargs = mock_post.call_args[1]
+    messages = call_kwargs["json"]["messages"]
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+
+
+def test_generate_xai_none_system_prompt_omits_system_message():
+    """xAI should not include system message when system_prompt_override is None."""
+    config = {
+        "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
+    }
+
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="xai")
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}],
+    }
+
+    with patch(f"{module_path}.requests.post", mock_post):
+        gen.generate_xai("diff", system_prompt_override=None)
+
+    call_kwargs = mock_post.call_args[1]
+    messages = call_kwargs["json"]["messages"]
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+
+
+# ------------------------------------------
+# Tests for raise_for_status in xAI
+# ------------------------------------------
+
+
+def test_generate_xai_raises_on_http_error():
+    """Test that generate_xai raises on HTTP error via raise_for_status."""
+    import requests
+
+    config = {
+        "xai": {
+            "model": "grok-4-1-fast-reasoning",
+            "temperature": 0.7,
+        }
+    }
+
+    gen = CommitMessageGenerator(
+        token="fake-token",
+        config=config,
+        default_model="xai",
+    )
+
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.raise_for_status.side_effect = requests.HTTPError(
+        "403 Forbidden"
+    )
+
+    with patch(f"{module_path}.requests.post", mock_post):
+        with pytest.raises(requests.HTTPError):
+            gen.generate_xai("abc", system_prompt_override="sys")
+
+
+# ---------------------------
+# Tests for context in generate()
+# ---------------------------
+
+
+def test_generate_appends_context_to_diff(generator):
+    """generate() should append context to the diff content."""
+    with patch.object(generator, "_dispatch_generate", return_value="msg") as mock:
+        generator.generate("diff output", context="Fixes JIRA-1234")
+
+    call_args = mock.call_args
+    content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
+    assert "diff output" in content
+    assert "Additional context:" in content
+    assert "Fixes JIRA-1234" in content
+
+
+def test_generate_without_context_passes_diff_only(generator):
+    """generate() without context should pass only the diff."""
+    with patch.object(generator, "_dispatch_generate", return_value="msg") as mock:
+        generator.generate("diff output")
+
+    call_args = mock.call_args
+    content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
+    assert content == "diff output"
+    assert "Additional context:" not in content
+
+
+def test_generate_with_none_context_passes_diff_only(generator):
+    """generate() with context=None should pass only the diff."""
+    with patch.object(generator, "_dispatch_generate", return_value="msg") as mock:
+        generator.generate("diff output", context=None)
+
+    call_args = mock.call_args
+    content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
+    assert content == "diff output"
+
+
+def test_generate_with_empty_context_passes_diff_only(generator):
+    """generate() with empty string context should pass only the diff."""
+    with patch.object(generator, "_dispatch_generate", return_value="msg") as mock:
+        generator.generate("diff output", context="")
+
+    call_args = mock.call_args
+    content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
+    assert content == "diff output"

@@ -54,6 +54,7 @@ Currently supported providers:
 - Change configuration from the command line (`-S`, `-H`)
 - Optional commit squashing with automatic summary generation
 - Token usage logging for API calls
+- Extra context for the LLM via `--context` / `-x` (e.g. ticket numbers, reasons)
 - Generation time measurement (`-t`)
 - Shell completion for bash, zsh, and fish (`-i`)
 
@@ -214,6 +215,7 @@ In addition to `git cai`, the following options are available:
 - `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-s`, `--squash` – squash commits on the current branch and summarize them
 - `-t`, `--time` – measure and log commit message generation time
+- `-x`, `--context` – provide extra context for the LLM (e.g. ticket number, reason for change)
 - `-u`, `--update` – check for updates
 - `-v`, `--version` – show the installed version
 

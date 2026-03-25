@@ -87,6 +87,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     model: str = typer.Option(
         None, "--model", "-m", help="Override model (requires --provider)"
     ),
+    context: str = typer.Option(
+        None,
+        "-x",
+        "--context",
+        help="Extra context for the LLM (e.g. ticket number, reason for change)",
+    ),
     time_flag: bool = typer.Option(
         False, "--time", "-t", help="Measure and log generation time"
     ),
@@ -120,6 +126,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         provider_override=provider,
         model_override=model,
         time_flag=time_flag,
+        context=context,
     )
 
     if generate_config:
@@ -186,6 +193,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         provider_override=provider,
         model_override=model,
         time_flag=time_flag,
+        context=context,
     )
 
 

@@ -155,13 +155,18 @@ class CommitMessageGenerator:
             total,  # nosemgrep
         )
 
-    def generate(self, git_diff: str) -> str:
+    def generate(self, git_diff: str, context: str | None = None) -> str:
         """
         Generate a commit message from a diff.
         """
         prompt = self._build_commit_prompt()
         log.debug("Commit system prompt preview: %r", prompt[:400])
-        return self._dispatch_generate(content=git_diff, system_prompt=prompt)
+
+        content = git_diff
+        if context:
+            content = f"{git_diff}\n\nAdditional context:\n{context}"
+
+        return self._dispatch_generate(content=content, system_prompt=prompt)
 
     def summarize_commit_history(self, commit_messages: str) -> str:
         """
@@ -560,24 +565,31 @@ class CommitMessageGenerator:
 
         log.info("Using mistral model '%s'.", model)
 
-        prompt = [
-            {
-                "role": "system",
-                "content": system_prompt_override,
-            },
+        messages = []
+
+        if system_prompt_override:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": system_prompt_override,
+                }
+            )
+
+        messages.append(
             {
                 "role": "user",
                 "content": content,
-            },
-        ]
+            }
+        )
 
         request = {
             "model": model,
-            "messages": prompt,
+            "messages": messages,
             "temperature": temperature,
         }
 
         response = requests.post(url, json=request, headers=headers, timeout=30)
+        response.raise_for_status()
 
         data = response.json()
 
@@ -802,10 +814,12 @@ class CommitMessageGenerator:
 
         log.info("Using %s model '%s'.", provider_name, model)
 
-        messages = [
-            {"role": "system", "content": system_prompt_override},
-            {"role": "user", "content": content},
-        ]
+        messages = []
+
+        if system_prompt_override:
+            messages.append({"role": "system", "content": system_prompt_override})
+
+        messages.append({"role": "user", "content": content})
 
         completion = client.chat.completions.create(
             model=model,
@@ -845,23 +859,30 @@ class CommitMessageGenerator:
 
         log.info("Using xai model '%s'.", model)
 
-        prompt = [
-            {
-                "role": "system",
-                "content": system_prompt_override,
-            },
+        messages = []
+
+        if system_prompt_override:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": system_prompt_override,
+                }
+            )
+
+        messages.append(
             {
                 "role": "user",
                 "content": content,
-            },
-        ]
+            }
+        )
 
         request = {
             "model": model,
-            "messages": prompt,
+            "messages": messages,
             "temperature": temperature,
         }
         response = requests.post(url, json=request, headers=headers, timeout=30)
+        response.raise_for_status()
 
         data = response.json()
 

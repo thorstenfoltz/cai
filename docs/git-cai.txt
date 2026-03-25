@@ -19,6 +19,7 @@ SYNOPSIS
         [-P PROVIDER | --provider PROVIDER] [-p | --generate-prompts]
         [-S KEY=VALUE | --set KEY=VALUE]
         [-s | --squash] [-t | --time] [-u | --update] [-v | --version]
+        [-x CONTEXT | --context CONTEXT]
 
 
 DESCRIPTION
@@ -285,6 +286,22 @@ from git tags via `setuptools-scm`.
 git cai -v
 ----
 
+-x, --context CONTEXT::
+Provide extra context for the LLM to consider when generating the commit
+message. The context string is appended to the diff before sending it to
+the provider. This is useful for including information that is not visible
+in the diff itself, such as a ticket number, the reason for a change, or
+a link to an issue.
++
+Can be combined with any commit-generating mode (`COMMIT` or `AMEND`).
+Cannot be used with `--list`, `--update`, or `--squash`.
++
+----
+git cai -x "Fixes JIRA-1234"
+git cai -x "Performance optimisation for the search endpoint"
+git cai -A -x "Reword after code review feedback"
+----
+
 LIST TYPES
 ----------
 The argument to `--list` must be one of the following:
@@ -452,6 +469,13 @@ Change a value in the home (default) config:
 ----
 git cai -H language=de
 git cai -H default=openai
+----
+
+Provide extra context for the commit message:
+
+----
+git cai -x "Fixes JIRA-1234"
+git cai -x "Refactored to reduce memory usage on large datasets"
 ----
 
 Measure generation time:

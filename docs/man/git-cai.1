@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-03-24
+.\"      Date: 2026-03-25
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-03-24" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-03-25" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -41,6 +41,7 @@ git-cai \- AI\-powered commit message generator
         [\-P PROVIDER | \-\-provider PROVIDER] [\-p | \-\-generate\-prompts]
         [\-S KEY=VALUE | \-\-set KEY=VALUE]
         [\-s | \-\-squash] [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
+        [\-x CONTEXT | \-\-context CONTEXT]
 .fi
 .br
 .SH "DESCRIPTION"
@@ -508,6 +509,28 @@ git cai \-v
 .fi
 .if n .RE
 .RE
+.sp
+\-x, \-\-context CONTEXT
+.RS 4
+Provide extra context for the LLM to consider when generating the commit
+message. The context string is appended to the diff before sending it to
+the provider. This is useful for including information that is not visible
+in the diff itself, such as a ticket number, the reason for a change, or
+a link to an issue.
+.sp
+Can be combined with any commit\-generating mode (\f(CRCOMMIT\fP or \f(CRAMEND\fP).
+Cannot be used with \f(CR\-\-list\fP, \f(CR\-\-update\fP, or \f(CR\-\-squash\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-x "Fixes JIRA\-1234"
+git cai \-x "Performance optimisation for the search endpoint"
+git cai \-A \-x "Reword after code review feedback"
+.fam
+.fi
+.if n .RE
+.RE
 .SH "LIST TYPES"
 .sp
 The argument to \f(CR\-\-list\fP must be one of the following:
@@ -908,6 +931,17 @@ Change a value in the home (default) config:
 .fam C
 git cai \-H language=de
 git cai \-H default=openai
+.fam
+.fi
+.if n .RE
+.sp
+Provide extra context for the commit message:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-x "Fixes JIRA\-1234"
+git cai \-x "Refactored to reduce memory usage on large datasets"
 .fam
 .fi
 .if n .RE

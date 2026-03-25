@@ -44,6 +44,7 @@ def run(
     provider_override: str | None = None,
     model_override: str | None = None,
     time_flag: bool = False,
+    context: str | None = None,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -157,6 +158,7 @@ def run(
                 commit_message = _validate_llm_call(
                     generator.generate,
                     diff,
+                    context=context,
                     token=token,
                     requires_token=provider not in TOKENLESS_PROVIDERS,
                 )
