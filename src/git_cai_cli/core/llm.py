@@ -233,15 +233,34 @@ class CommitMessageGenerator:
 
         return f"Write the commit message in the following tone style: {style}."
 
+    def _conventional_instruction(self) -> str:
+        """
+        Returns a Conventional Commits instruction string if enabled, else empty.
+        """
+        if not self.config.get("conventional", False):
+            return ""
+
+        log.info("Conventional Commits format enabled.")
+        return (
+            "Follow the Conventional Commits specification. "
+            "The commit message MUST be structured as: <type>(<optional scope>): <description>. "
+            "Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert. "
+            "The scope is optional and describes the section of the codebase affected. "
+            "Use a '!' after the type/scope for breaking changes (e.g., 'feat!: ...' or 'feat(api)!: ...'). "
+            "The description must be a concise summary in imperative mood. "
+            "Additional details can follow as bullet points in the body."
+        )
+
     def _config_instructions(self) -> str:
         """
-        Build the config-driven instruction suffix (language, style, emoji).
+        Build the config-driven instruction suffix (language, style, emoji, conventional).
         Only non-empty parts are included.
         """
         parts = [
             self._language_instruction(),
             self._style_instruction(),
             self._emoji_instruction(),
+            self._conventional_instruction(),
         ]
         return " ".join(p for p in parts if p)
 

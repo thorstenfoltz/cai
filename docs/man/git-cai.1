@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-03-16
+.\"      Date: 2026-03-24
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-03-16" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-03-24" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -32,11 +32,14 @@ git-cai \- AI\-powered commit message generator
 .SH "SYNOPSIS"
 .sp
 .nf
-\f(CRgit cai\fP [\-a | \-\-all] [\-c | \-\-crazy] [\-d | \-\-debug] [\-g | \-\-generate\-config]
+\f(CRgit cai\fP [\-A | \-\-amend] [\-a | \-\-all] [\-C | \-\-conventional]
+        [\-c | \-\-crazy] [\-d | \-\-debug] [\-g | \-\-generate\-config]
+        [\-H KEY=VALUE | \-\-set\-home KEY=VALUE] [\-h | \-\-help]
         [\-i | \-\-install\-completion]
         [\-l [editor|language|style] | \-\-list [editor|language|style]]
-        [\-m MODEL | \-\-model MODEL] [\-p | \-\-generate\-prompts]
-        [\-P PROVIDER | \-\-provider PROVIDER]
+        [\-m MODEL | \-\-model MODEL]
+        [\-P PROVIDER | \-\-provider PROVIDER] [\-p | \-\-generate\-prompts]
+        [\-S KEY=VALUE | \-\-set KEY=VALUE]
         [\-s | \-\-squash] [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
 .fi
 .br
@@ -176,86 +179,334 @@ Point \f(CRprompt_file\fP / \f(CRsquash_prompt_file\fP in \f(CRcai_config.yml\fP
 .RE
 .SH "OPTIONS"
 .sp
-\-h, \-\-help
+\-A, \-\-amend
 .RS 4
-Show this help message.
+Regenerate and amend the last commit message. git\-cai reads the diff from
+the most recent commit, sends it to the configured LLM, and opens the editor
+so you can review or adjust the message before amending. This is useful when
+the original commit message was poorly worded or when you want the LLM to
+produce a better summary.
+.sp
+Combine with \f(CR\-c\fP to skip the editor and amend immediately.
+.sp
+Cannot be combined with \f(CR\-\-squash\fP or \f(CR\-\-list\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-A
+git cai \-A \-c
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-a, \-\-all
 .RS 4
-Stage all modified and deleted files that are already tracked by Git
-before generating the commit message.
+Stage all modified and deleted files that are already tracked by Git before
+generating the commit message. This mirrors the behaviour of \f(CRgit commit \-a\fP.
+Untracked (new) files are not staged; add them manually with \f(CRgit add\fP first.
+.sp
+Cannot be combined with \f(CR\-\-list\fP, \f(CR\-\-update\fP, or \f(CR\-\-squash\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-a
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-C, \-\-conventional
+.RS 4
+Generate the commit message in Conventional Commits format
+(\f(CRtype(scope): description\fP). The LLM is instructed to use one of the
+following types: \f(CRfeat\fP, \f(CRfix\fP, \f(CRdocs\fP, \f(CRstyle\fP, \f(CRrefactor\fP, \f(CRperf\fP, \f(CRtest\fP,
+\f(CRbuild\fP, \f(CRci\fP, \f(CRchore\fP, \f(CRrevert\fP. Append \f(CR!\fP after the type or scope to
+signal a breaking change.
+.sp
+This flag applies for the current invocation only. To enable it permanently,
+set \f(CRconventional: true\fP in \f(CRcai_config.yml\fP or run:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-S conventional=true
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-C
+git cai \-C \-c
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-c, \-\-crazy
 .RS 4
-Automatically commit changes using an LLM\-generated message without user confirmation.
+Trust the LLM output and commit immediately without opening an editor.
+The generated message is used as\-is. Useful in scripts or when you are
+confident in the LLM output.
+.sp
+Can be combined with \f(CR\-A\fP to amend without review, or with \f(CR\-C\fP to commit
+a Conventional Commits message directly.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-c
+git cai \-A \-c
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-d, \-\-debug
 .RS 4
-Enable debug logging.
+Enable debug logging. Produces verbose output to stderr, including
+configuration loading, provider selection, prompt assembly, and the raw
+LLM request/response. Helpful for troubleshooting configuration or
+provider issues.
+.sp
+Cannot be combined with \f(CR\-\-help\fP or \f(CR\-\-version\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-d
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-g, \-\-generate\-config
 .RS 4
-Generate default cai_config.yml in the current directory.
+Write the default \f(CRcai_config.yml\fP into the current directory. This is a
+convenient way to create a repository\-specific configuration that overrides
+the home config. Edit the generated file to customise provider, model,
+language, style, or other settings for this repository.
+.sp
+If a \f(CRcai_config.yml\fP already exists in the current directory, an error is
+shown to prevent accidental overwrites.
+.sp
+.if n .RS 4
+.nf
+.fam C
+cd /path/to/repo
+git cai \-g
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-H, \-\-set\-home KEY=VALUE
+.RS 4
+Set a configuration value in the home (default) config file at
+\f(CR~/.config/cai/cai_config.yml\fP. Always targets the home config, even when a
+repository\-level config exists. Use this to change your personal defaults
+that apply to all repositories without a repo\-specific config.
+.sp
+Supports the same key formats as \f(CR\-\-set\fP, including dot notation for nested
+provider keys.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-H language=de
+git cai \-H default=anthropic
+git cai \-H emoji=false
+git cai \-H groq.model=llama\-3.3\-70b
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-h, \-\-help
+.RS 4
+Show a summary of available flags and usage information. When a manual page
+is installed, the full manual is opened instead.
 .RE
 .sp
 \-i, \-\-install\-completion
 .RS 4
 Install shell completion for \f(CRgit cai\fP. Supports bash, zsh, and fish.
-After installation, restart your terminal or source your shell configuration.
-Completions include all flags and provider names for \f(CR\-\-provider\fP.
+Completions cover all flags and provider names for \f(CR\-\-provider\fP.
+.sp
+After installation, restart your terminal or source your shell configuration
+file for the completions to take effect.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-i
+.fam
+.fi
+.if n .RE
 .RE
 .sp
-\-l, \-\-list
+\-l, \-\-list [editor|language|style]
 .RS 4
-List information. Provide one of \f(CReditor\fP, \f(CRlanguage\fP, or \f(CRstyle\fP as the next argument.
+List information about a specific category. Provide one of \f(CReditor\fP,
+\f(CRlanguage\fP, or \f(CRstyle\fP as the next argument. Without an argument, an error
+is shown listing the valid choices.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l language
+git cai \-l style
+git cai \-l editor
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-m, \-\-model MODEL
 .RS 4
-Override the model for this invocation. Must be used together with \f(CR\-\-provider\fP.
-The model name is passed directly to the provider\(cqs API.
-Example: \f(CRgit cai \-P openai \-m gpt\-4o\fP
-.RE
+Override the model for this invocation. Must be used together with
+\f(CR\-\-provider\fP (\f(CR\-P\fP); specifying \f(CR\-\-model\fP alone is an error. The model name
+is passed directly to the provider\(cqs API, so it must be a valid model
+identifier for that provider.
 .sp
-\-p, \-\-generate\-prompts
-.RS 4
-Generate default commit_prompt.md and squash_prompt.md in the current directory.
-Use these as a starting point for custom prompts.
+.if n .RS 4
+.nf
+.fam C
+git cai \-P openai \-m gpt\-4o
+git cai \-P anthropic \-m claude\-haiku\-4\-5
+git cai \-P ollama \-m mistral
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-P, \-\-provider PROVIDER
 .RS 4
-Override the LLM provider for this invocation. The model from the configuration
-for that provider is used unless \f(CR\-\-model\fP is also specified.
-Available providers: \f(CRanthropic\fP, \f(CRdeepseek\fP, \f(CRgemini\fP, \f(CRgroq\fP,
+Override the LLM provider for this invocation. The model and temperature
+from the configuration for that provider are used unless \f(CR\-\-model\fP is also
+specified. Available providers: \f(CRanthropic\fP, \f(CRdeepseek\fP, \f(CRgemini\fP, \f(CRgroq\fP,
 \f(CRmistral\fP, \f(CRollama\fP, \f(CRopenai\fP, \f(CRxai\fP.
-Example: \f(CRgit cai \-P anthropic\fP
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-P anthropic
+git cai \-P groq \-m llama\-3.3\-70b
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-p, \-\-generate\-prompts
+.RS 4
+Generate default \f(CRcommit_prompt.md\fP and \f(CRsquash_prompt.md\fP in the current
+directory. These files serve as starting points for custom prompts. After
+generating them, point \f(CRprompt_file\fP and/or \f(CRsquash_prompt_file\fP in your
+\f(CRcai_config.yml\fP to the generated files.
+.sp
+If the files already exist, an error is shown to prevent accidental
+overwrites.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-p
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-S, \-\-set KEY=VALUE
+.RS 4
+Set a configuration value in the repository config (\f(CRcai_config.yml\fP in the
+repository root). Requires an existing repo config; if none is found, an
+error is shown with a hint to use \f(CR\-\-set\-home\fP (\f(CR\-H\fP) to change the default
+config or \f(CRgit cai \-g\fP to create a repo config first.
+.sp
+Supports dot notation for nested provider keys (e.g., \f(CRgroq.model\fP).
+Values are auto\-parsed: \f(CRtrue\fP/\f(CRfalse\fP become booleans, numeric strings
+become integers or floats, everything else stays a string.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-S default=anthropic
+git cai \-S emoji=false
+git cai \-S groq.model=llama\-3.3\-70b
+git cai \-S openai.temperature=0.7
+git cai \-S conventional=true
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-s, \-\-squash
 .RS 4
-Squash commits on the current branch and summarize them.
+Squash all commits on the current branch into a single commit with an
+LLM\-generated summary message. git\-cai collects the individual commit
+messages, sends them to the LLM, and opens the editor for review. After
+confirmation, a soft reset is performed and the squashed commit is created.
+.sp
+This rewrites history. A force push is required to update a remote branch.
+git\-cai will prompt before executing the force push.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-s
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-t, \-\-time
 .RS 4
-Measure and log the time taken to generate the commit message.
-Can also be permanently enabled via \f(CRmeasure_time: true\fP in
+Measure and log the wall\-clock time taken to generate the commit message.
+The duration is printed to stderr after the LLM responds. Useful for
+comparing provider/model performance.
+.sp
+Can also be enabled permanently via \f(CRmeasure_time: true\fP in
 \f(CRcai_config.yml\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-t
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-u, \-\-update
 .RS 4
-Check for updates.
+Check PyPI for a newer version of git\-cai\-cli. If an update is available,
+the new version number and the install command are printed.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-u
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 \-v, \-\-version
 .RS 4
-Show the installed version.
+Print the installed version of git\-cai\-cli and exit. The version is derived
+from git tags via \f(CRsetuptools\-scm\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-v
+.fam
+.fi
+.if n .RE
 .RE
 .SH "LIST TYPES"
 .sp
@@ -337,6 +588,141 @@ If present, it replaces the home config for that repository.
 .sp
 Tokens can be loaded from everywhere defined within "load_tokens_from"
 in cai_config.yml
+.sp
+Available configuration keys:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRdefault\fP \(em default LLM provider name
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRlanguage\fP \(em language for commit messages (e.g., \f(CRen\fP, \f(CRde\fP, \f(CRfr\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRstyle\fP \(em tone of the commit message (\f(CRprofessional\fP, \f(CRneutral\fP, \f(CRfriendly\fP,
+\f(CRfunny\fP, \f(CRexcited\fP, \f(CRsarcastic\fP, \f(CRapologetic\fP, \f(CRacademic\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRemoji\fP \(em enable or disable emojis in commit messages (\f(CRtrue\fP/\f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRconventional\fP \(em use Conventional Commits format (\f(CRtrue\fP/\f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRload_tokens_from\fP \(em path to the tokens file
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRprompt_file\fP \(em path to the commit prompt Markdown file
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRsquash_prompt_file\fP \(em path to the squash prompt Markdown file
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRtoken_logging\fP \(em log token usage after each LLM call (\f(CRtrue\fP/\f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRmeasure_time\fP \(em log generation time (\f(CRtrue\fP/\f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CR<provider>.model\fP \(em model name for a specific provider
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CR<provider>.temperature\fP \(em temperature for a specific provider
+.RE
 .SH "FILES"
 .sp
 \f(CR~/.config/cai/cai_config.yml\fP
@@ -353,6 +739,12 @@ Provider API keys (created as a template if missing).
 .RS 4
 Default prompt files (created automatically if missing/empty). You can point
 \f(CRprompt_file\fP and \f(CRsquash_prompt_file\fP to other locations.
+.RE
+.sp
+\f(CR<repo\-root>/cai_config.yml\fP or \f(CR<repo\-root>/cai_config.yaml\fP
+.RS 4
+Optional repository\-specific configuration. When present, replaces the home
+config entirely for that repository.
 .RE
 .sp
 \f(CR<repo\-root>/.caiignore\fP
@@ -415,6 +807,36 @@ git cai \-a
 .fi
 .if n .RE
 .sp
+Regenerate and amend the last commit message:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-A
+.fam
+.fi
+.if n .RE
+.sp
+Amend without opening the editor:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-A \-c
+.fam
+.fi
+.if n .RE
+.sp
+Use Conventional Commits format:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-C
+.fam
+.fi
+.if n .RE
+.sp
 Commit immediately without opening the editor:
 .sp
 .if n .RS 4
@@ -435,7 +857,7 @@ git cai \-s
 .fi
 .if n .RE
 .sp
-Show supported styles/languages/editors:
+Show supported styles, languages, or editors:
 .sp
 .if n .RS 4
 .nf
@@ -467,6 +889,29 @@ git cai \-P openai \-m gpt\-4o
 .fi
 .if n .RE
 .sp
+Change a value in the repo config:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-S default=anthropic
+git cai \-S groq.model=llama\-3.3\-70b
+git cai \-S emoji=false
+.fam
+.fi
+.if n .RE
+.sp
+Change a value in the home (default) config:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-H language=de
+git cai \-H default=openai
+.fam
+.fi
+.if n .RE
+.sp
 Measure generation time:
 .sp
 .if n .RS 4
@@ -483,6 +928,16 @@ Install shell completion:
 .nf
 .fam C
 git cai \-i
+.fam
+.fi
+.if n .RE
+.sp
+Check for updates:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-u
 .fam
 .fi
 .if n .RE

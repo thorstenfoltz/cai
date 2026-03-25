@@ -21,6 +21,7 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
     log.debug("Validating configuration keys")
 
     allowed_global_keys = {
+        "conventional",
         "language",
         "default",
         "style",

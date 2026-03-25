@@ -50,6 +50,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "load_tokens_from": TOKENS_FILE,
     "prompt_file": "",
     "squash_prompt_file": "",
+    "conventional": False,
     "token_logging": True,  # nosec B105 - local-only provider that doesn't use API tokens
     "measure_time": False,
 }
@@ -376,6 +377,7 @@ def ordered_default_config(
         "language",
         "style",
         "emoji",
+        "conventional",
         "load_tokens_from",
         "prompt_file",
         "squash_prompt_file",
@@ -408,6 +410,95 @@ KNOWN_PROVIDERS = frozenset(
         "ollama",
     }
 )
+
+
+def _parse_config_value(raw: str) -> Any:
+    """
+    Parse a raw string value into the appropriate Python type.
+    Handles booleans, integers, floats, and strings.
+    """
+    if raw.lower() in ("true", "yes"):
+        return True
+    if raw.lower() in ("false", "no"):
+        return False
+    try:
+        return int(raw)
+    except ValueError:
+        pass
+    try:
+        return float(raw)
+    except ValueError:
+        pass
+    return raw
+
+
+def set_config_value(key: str, raw_value: str, *, force_home: bool = False) -> Path:
+    """
+    Set a configuration value in the appropriate config file.
+
+    Supports dot notation for nested keys (e.g., 'groq.model').
+
+    Args:
+        key: Config key or dotted key (e.g., 'language' or 'groq.model').
+        raw_value: Raw string value to set (auto-parsed to bool/int/float/str).
+        force_home: If True, always target home config. Otherwise, target
+                    repo config if it exists, else home config.
+
+    Returns:
+        Path to the config file that was updated.
+
+    Raises:
+        ValueError: If the key or value is invalid.
+    """
+    if not key or not key.strip():
+        raise ValueError("Config key must not be empty.")
+
+    parsed_value = _parse_config_value(raw_value)
+
+    # Determine target config file
+    if force_home:
+        target = FALLBACK_CONFIG_FILE
+        log.info("Targeting home config: %s", target)
+    else:
+        repo_config = _find_repo_config()
+        if repo_config:
+            target = repo_config
+            log.info("Targeting repo config: %s", target)
+        else:
+            raise ValueError(
+                "No repository config found. "
+                "Use 'git cai --set-home key=value' to change the default config, "
+                "or 'git cai -g' to create a repo config first."
+            )
+
+    # Load existing config or start fresh
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() and target.stat().st_size > 0:
+        try:
+            with target.open("r", encoding="utf-8") as f:
+                config = cast(dict[str, Any], yaml.safe_load(f) or {})
+        except yaml.YAMLError as e:
+            raise ValueError(f"Failed to parse config file {target}: {e}") from e
+    else:
+        config = {}
+
+    # Apply the value (support dot notation for nested keys)
+    parts = key.strip().split(".", 1)
+    if len(parts) == 2:
+        section, subkey = parts
+        if section not in config or not isinstance(config[section], dict):
+            config[section] = {}
+        config[section][subkey] = parsed_value
+        log.info("Set %s.%s = %r in %s", section, subkey, parsed_value, target)
+    else:
+        config[parts[0]] = parsed_value
+        log.info("Set %s = %r in %s", parts[0], parsed_value, target)
+
+    # Write back
+    with target.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(_serialize_config(config), f, sort_keys=False)
+
+    return target
 
 
 def apply_provider_overrides(
