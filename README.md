@@ -205,6 +205,7 @@ In addition to `git cai`, the following options are available:
 - `-c`, `--crazy` – Trust the LLM and commit without checking
 - `-d`, `--debug` – enable debug logging
 - `-g`, `--generate-config` – generate the default `cai_config.yml` in the current directory
+- `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-h`, `--help` – show help and available commands
 - `-i`, `--install-completion` – install shell completion for bash, zsh, or fish
 - `-l`, `--list` – list available languages, styles, and supported editors
@@ -212,7 +213,6 @@ In addition to `git cai`, the following options are available:
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
 - `-P`, `--provider` – override the LLM provider for this invocation
 - `-S`, `--set` – set a config value (`key=value`) in repo config (requires existing repo config)
-- `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-s`, `--squash` – squash commits on the current branch and summarize them
 - `-t`, `--time` – measure and log commit message generation time
 - `-x`, `--context` – provide extra context for the LLM (e.g. ticket number, reason for change)

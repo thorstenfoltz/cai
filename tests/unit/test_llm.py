@@ -773,9 +773,7 @@ def test_token_usage_logged_mistral(caplog):
         with patch(f"{module_path}.requests.post", mock_post):
             gen.generate_mistral("diff", system_prompt_override="sys")
 
-    assert (
-        "Token usage [mistral]: prompt=110, completion=45, total=155" in caplog.text
-    )
+    assert "Token usage [mistral]: prompt=110, completion=45, total=155" in caplog.text
 
 
 # ---------------------------
@@ -802,7 +800,9 @@ def test_generate_deepseek():
         default_model="deepseek",
     )
 
-    with patch.object(gen, "generate_openai", return_value="deepseek result") as mock_openai:
+    with patch.object(
+        gen, "generate_openai", return_value="deepseek result"
+    ) as mock_openai:
         result = gen.generate_deepseek("diff content", system_prompt_override="sys")
 
     assert result == "deepseek result"
