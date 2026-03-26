@@ -312,10 +312,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "openai", specifier = "==2.30.0" },
-    { name = "pyyaml", specifier = "==6.0.3" },
-    { name = "requests", specifier = "==2.33.0" },
-    { name = "typer", specifier = "==0.23.1" },
+    { name = "openai", specifier = ">=2.30.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "requests", specifier = ">=2.33.0" },
+    { name = "typer", specifier = ">=0.23.1" },
 ]
 
 [package.metadata.requires-dev]
