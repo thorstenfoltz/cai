@@ -247,6 +247,38 @@ def test_new_config_keys_accepted_by_validator(caplog):
     assert caplog.text == ""
 
 
+def test_branch_context_accepted_by_validator(caplog):
+    """Verify branch_context is accepted as a valid global config key."""
+    caplog.set_level("WARNING")
+
+    reference = {
+        "openai": {},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "load_tokens_from": "/path/to/tokens.yml",
+        "prompt_file": "",
+        "squash_prompt_file": "",
+        "token_logging": True,
+        "measure_time": False,
+        "branch_context": False,
+    }
+
+    config = {
+        "openai": {"model": "gpt", "temperature": 0},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "branch_context": True,
+    }
+
+    _validate_config_keys(config, reference)
+
+    assert caplog.text == ""
+
+
 def test_missing_new_config_keys_non_fatal(caplog):
     """Verify missing token_logging/measure_time keys are non-fatal (backward compat)."""
     caplog.set_level("INFO")

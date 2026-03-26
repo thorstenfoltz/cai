@@ -256,6 +256,24 @@ class CommitMessageGenerator:
             "Additional details can follow as bullet points in the body."
         )
 
+    def _branch_instruction(self) -> str:
+        """
+        Returns a branch context instruction string if enabled and branch name is available.
+        """
+        if not self.config.get("branch_context", False):
+            return ""
+
+        branch_name = self.config.get("branch_name", "")
+        if not branch_name:
+            return ""
+
+        log.info("Branch context enabled: '%s'.", branch_name)
+        return (
+            f"The current Git branch is '{branch_name}'. "
+            "Use the branch name as additional context to better understand "
+            "the intent and scope of the changes."
+        )
+
     def _config_instructions(self) -> str:
         """
         Build the config-driven instruction suffix (language, style, emoji, conventional).
@@ -266,6 +284,7 @@ class CommitMessageGenerator:
             self._style_instruction(),
             self._emoji_instruction(),
             self._conventional_instruction(),
+            self._branch_instruction(),
         ]
         return " ".join(p for p in parts if p)
 

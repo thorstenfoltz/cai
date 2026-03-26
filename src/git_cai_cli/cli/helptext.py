@@ -17,6 +17,7 @@ Usage:
 Flags:
   -A, --amend              Regenerate and amend the last commit message
   -a, --all                Stage all modified and deleted files that are already tracked by Git
+  -b, --branch             Include current branch name as context for the LLM
   -C, --conventional       Use Conventional Commits format (type(scope): description)
   -c, --crazy              Commit immediately without opening editor (trust LLM output)
   -d, --debug              Enable debug logging

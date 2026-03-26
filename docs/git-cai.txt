@@ -11,7 +11,7 @@ SYNOPSIS
 --------
 [verse]
 `git cai` [-A | --amend] [-a | --all] [-C | --conventional]
-        [-c | --crazy] [-d | --debug] [-g | --generate-config]
+        [-b | --branch] [-c | --crazy] [-d | --debug] [-g | --generate-config]
         [-H KEY=VALUE | --set-home KEY=VALUE] [-h | --help]
         [-i | --install-completion]
         [-l [editor|language|style] | --list [editor|language|style]]
@@ -89,6 +89,24 @@ Cannot be combined with `--list`, `--update`, or `--squash`.
 +
 ----
 git cai -a
+----
+
+-b, --branch::
+Include the current Git branch name as context when generating the commit
+message. The LLM uses the branch name to better understand the intent and
+scope of the changes (e.g., a branch named `fix/login-timeout` hints at a
+bug fix related to login timeouts).
++
+This flag applies for the current invocation only. To enable it permanently,
+set `branch_context: true` in `cai_config.yml` or run:
++
+----
+git cai -S branch_context=true
+----
++
+----
+git cai -b
+git cai -b -c
 ----
 
 -C, --conventional::
@@ -348,6 +366,7 @@ Available configuration keys:
 - `style` -- tone of the commit message (`professional`, `neutral`, `friendly`,
   `funny`, `excited`, `sarcastic`, `apologetic`, `academic`)
 - `emoji` -- enable or disable emojis in commit messages (`true`/`false`)
+- `branch_context` -- include current branch name as LLM context (`true`/`false`)
 - `conventional` -- use Conventional Commits format (`true`/`false`)
 - `load_tokens_from` -- path to the tokens file
 - `prompt_file` -- path to the commit prompt Markdown file
@@ -469,6 +488,13 @@ Change a value in the home (default) config:
 ----
 git cai -H language=de
 git cai -H default=openai
+----
+
+Include branch name as context:
+
+----
+git cai -b
+git cai -b -C
 ----
 
 Provide extra context for the commit message:

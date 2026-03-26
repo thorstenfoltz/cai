@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 from git_cai_cli.core.gitutils import (
     commit_with_edit_template,
     find_git_root,
+    get_current_branch,
     get_git_editor,
     git_diff_excluding,
     sha256_of_file,
@@ -53,6 +54,42 @@ def test_find_git_root_failure_returns_none():
         raise subprocess.CalledProcessError(1, "cmd")
 
     assert find_git_root(run_cmd=fake_run) is None
+
+
+# ------------------------------------------------------------------------------
+# get_current_branch
+# ------------------------------------------------------------------------------
+
+
+def test_get_current_branch_returns_name():
+    """get_current_branch() should return the branch name."""
+    mock_proc = MagicMock()
+    mock_proc.stdout = "feature/auth\n"
+
+    def fake_run(*args, **kwargs):
+        return mock_proc
+
+    assert get_current_branch(run_cmd=fake_run) == "feature/auth"
+
+
+def test_get_current_branch_detached_head():
+    """get_current_branch() should return None when HEAD is detached."""
+    mock_proc = MagicMock()
+    mock_proc.stdout = "HEAD\n"
+
+    def fake_run(*args, **kwargs):
+        return mock_proc
+
+    assert get_current_branch(run_cmd=fake_run) is None
+
+
+def test_get_current_branch_not_in_repo():
+    """get_current_branch() should return None on CalledProcessError."""
+
+    def fake_run(*_, **__):
+        raise subprocess.CalledProcessError(1, "cmd")
+
+    assert get_current_branch(run_cmd=fake_run) is None
 
 
 # ------------------------------------------------------------------------------

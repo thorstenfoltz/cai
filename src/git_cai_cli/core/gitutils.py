@@ -106,6 +106,23 @@ def git_diff_excluding(
     return result.stdout
 
 
+def get_current_branch(
+    run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> str | None:
+    """Return the current Git branch name, or None if detached/not in a repo."""
+    try:
+        result = run_cmd(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        branch = result.stdout.strip()
+        return branch if branch and branch != "HEAD" else None
+    except subprocess.CalledProcessError:
+        return None
+
+
 def _has_upstream() -> bool:
     try:
         subprocess.check_output(

@@ -32,6 +32,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     amend: bool = typer.Option(
         False, "-A", "--amend", help="Regenerate and amend the last commit message"
     ),
+    branch_context: bool = typer.Option(
+        False,
+        "-b",
+        "--branch",
+        help="Include current branch name as context for the LLM",
+    ),
     conventional: bool = typer.Option(
         False,
         "-C",
@@ -189,6 +195,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         list_arg=list_arg,
         stage_tracked=stage_tracked,
         conventional=conventional,
+        branch_context=branch_context,
         crazy=crazy,
         provider_override=provider,
         model_override=model,

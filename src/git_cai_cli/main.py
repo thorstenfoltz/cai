@@ -40,6 +40,7 @@ def run(
     list_arg: str | None,
     stage_tracked: bool,
     conventional: bool = False,
+    branch_context: bool = False,
     crazy: bool,
     provider_override: str | None = None,
     model_override: str | None = None,
@@ -128,6 +129,16 @@ def run(
 
     if conventional:
         config["conventional"] = True
+
+    if branch_context:
+        config["branch_context"] = True
+
+    if config.get("branch_context", False):
+        from git_cai_cli.core.gitutils import get_current_branch
+
+        branch_name = get_current_branch()
+        if branch_name:
+            config["branch_name"] = branch_name
 
     provider = config["default"]
     token = load_token(config=config)
