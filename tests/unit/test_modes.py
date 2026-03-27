@@ -243,3 +243,102 @@ def test_time_flag_allowed_with_squash_mode():
         version_flag=False,
         time_flag=True,
     )
+
+
+# ------------------------------------
+# Tests for --context option validation
+# ------------------------------------
+
+
+def test_context_rejected_with_list_mode(capsys):
+    """--context cannot be used with --list."""
+    with pytest.raises(typer.Exit) as exc:
+        modes.validate_options(
+            mode=Mode.LIST,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            context="some context",
+        )
+    captured = capsys.readouterr()
+    assert (
+        "cannot be used with --list, --update, or --squash" in captured.out
+        or "cannot be used with --list, --update, or --squash" in captured.err
+    )
+    assert exc.value.exit_code == 1
+
+
+def test_context_rejected_with_update_mode(capsys):
+    """--context cannot be used with --update."""
+    with pytest.raises(typer.Exit) as exc:
+        modes.validate_options(
+            mode=Mode.UPDATE,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            context="some context",
+        )
+    captured = capsys.readouterr()
+    assert (
+        "cannot be used with --list, --update, or --squash" in captured.out
+        or "cannot be used with --list, --update, or --squash" in captured.err
+    )
+    assert exc.value.exit_code == 1
+
+
+def test_context_rejected_with_squash_mode(capsys):
+    """--context cannot be used with --squash."""
+    with pytest.raises(typer.Exit) as exc:
+        modes.validate_options(
+            mode=Mode.SQUASH,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            context="some context",
+        )
+    captured = capsys.readouterr()
+    assert (
+        "cannot be used with --list, --update, or --squash" in captured.out
+        or "cannot be used with --list, --update, or --squash" in captured.err
+    )
+    assert exc.value.exit_code == 1
+
+
+def test_context_allowed_with_commit_mode():
+    """--context is allowed with COMMIT mode."""
+    modes.validate_options(
+        mode=Mode.COMMIT,
+        stage_tracked=False,
+        enable_debug=False,
+        help_flag=False,
+        version_flag=False,
+        context="Fixes JIRA-1234",
+    )
+
+
+def test_context_allowed_with_amend_mode():
+    """--context is allowed with AMEND mode."""
+    modes.validate_options(
+        mode=Mode.AMEND,
+        stage_tracked=False,
+        enable_debug=False,
+        help_flag=False,
+        version_flag=False,
+        context="Reword after review",
+    )
+
+
+def test_context_none_allowed_with_any_mode():
+    """context=None should be accepted for all modes."""
+    for mode in Mode:
+        modes.validate_options(
+            mode=mode,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            context=None,
+        )

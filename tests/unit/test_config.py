@@ -195,11 +195,13 @@ def test_serialize_config_converts_path():
 
 
 def test_default_config_contains_new_keys():
-    """Verify DEFAULT_CONFIG includes token_logging and measure_time."""
+    """Verify DEFAULT_CONFIG includes token_logging, measure_time, and branch_context."""
     assert "token_logging" in DEFAULT_CONFIG
     assert "measure_time" in DEFAULT_CONFIG
     assert DEFAULT_CONFIG["token_logging"] is True
     assert DEFAULT_CONFIG["measure_time"] is False
+    assert "branch_context" in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG["branch_context"] is False
 
 
 def test_fresh_config_includes_new_keys(tmp_path, monkeypatch):

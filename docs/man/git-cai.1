@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-03-24
+.\"      Date: 2026-03-27
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-03-24" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-03-27" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -33,14 +33,16 @@ git-cai \- AI\-powered commit message generator
 .sp
 .nf
 \f(CRgit cai\fP [\-A | \-\-amend] [\-a | \-\-all] [\-C | \-\-conventional]
-        [\-c | \-\-crazy] [\-d | \-\-debug] [\-g | \-\-generate\-config]
+        [\-b | \-\-branch] [\-c | \-\-crazy] [\-d | \-\-debug] [\-g | \-\-generate\-config]
         [\-H KEY=VALUE | \-\-set\-home KEY=VALUE] [\-h | \-\-help]
         [\-i | \-\-install\-completion]
-        [\-l [editor|language|style] | \-\-list [editor|language|style]]
+        [\-l [config|editor|language|model|path|provider|style] |
+         \-\-list [config|editor|language|model|path|provider|style]]
         [\-m MODEL | \-\-model MODEL]
         [\-P PROVIDER | \-\-provider PROVIDER] [\-p | \-\-generate\-prompts]
         [\-S KEY=VALUE | \-\-set KEY=VALUE]
-        [\-s | \-\-squash] [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
+        [\-s [N|HASH] | \-\-squash [N|HASH]] [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
+        [\-x CONTEXT | \-\-context CONTEXT]
 .fi
 .br
 .SH "DESCRIPTION"
@@ -218,6 +220,34 @@ git cai \-a
 .if n .RE
 .RE
 .sp
+\-b, \-\-branch
+.RS 4
+Include the current Git branch name as context when generating the commit
+message. The LLM uses the branch name to better understand the intent and
+scope of the changes (e.g., a branch named \f(CRfix/login\-timeout\fP hints at a
+bug fix related to login timeouts).
+.sp
+This flag applies for the current invocation only. To enable it permanently,
+set \f(CRbranch_context: true\fP in \f(CRcai_config.yml\fP or run:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-S branch_context=true
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-b
+git cai \-b \-c
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-C, \-\-conventional
 .RS 4
 Generate the commit message in Conventional Commits format
@@ -349,18 +379,22 @@ git cai \-i
 .if n .RE
 .RE
 .sp
-\-l, \-\-list [editor|language|style]
+\-l, \-\-list [config|editor|language|model|path|provider|style]
 .RS 4
-List information about a specific category. Provide one of \f(CReditor\fP,
-\f(CRlanguage\fP, or \f(CRstyle\fP as the next argument. Without an argument, an error
-is shown listing the valid choices.
+List information about a specific category. Provide one of the supported
+list types as the next argument. Without an argument, a help text is shown
+listing all valid choices.
 .sp
 .if n .RS 4
 .nf
 .fam C
-git cai \-l language
-git cai \-l style
+git cai \-l config
 git cai \-l editor
+git cai \-l language
+git cai \-l model
+git cai \-l path
+git cai \-l provider
+git cai \-l style
 .fam
 .fi
 .if n .RE
@@ -444,12 +478,23 @@ git cai \-S conventional=true
 .if n .RE
 .RE
 .sp
-\-s, \-\-squash
+\-s, \-\-squash [N|HASH]
 .RS 4
-Squash all commits on the current branch into a single commit with an
+Squash commits on the current branch into a single commit with an
 LLM\-generated summary message. git\-cai collects the individual commit
 messages, sends them to the LLM, and opens the editor for review. After
 confirmation, a soft reset is performed and the squashed commit is created.
+.sp
+Without an argument, all commits since the branch diverged from the base
+branch are squashed (default behaviour).
+.sp
+With a number \f(CRN\fP, the last N commits are squashed. If N exceeds the number
+of commits on this branch (since it diverged), a warning is shown and
+confirmation is required. If N exceeds the total number of commits in the
+repository, an error is shown and the operation is aborted.
+.sp
+With a commit hash, all commits from HEAD down to and including the given
+commit are squashed. The commit must exist in the current branch history.
 .sp
 This rewrites history. A force push is required to update a remote branch.
 git\-cai will prompt before executing the force push.
@@ -458,6 +503,8 @@ git\-cai will prompt before executing the force push.
 .nf
 .fam C
 git cai \-s
+git cai \-s 3
+git cai \-s a1b2c3d
 .fam
 .fi
 .if n .RE
@@ -508,23 +555,253 @@ git cai \-v
 .fi
 .if n .RE
 .RE
+.sp
+\-x, \-\-context CONTEXT
+.RS 4
+Provide extra context for the LLM to consider when generating the commit
+message. The context string is appended to the diff before sending it to
+the provider. This is useful for including information that is not visible
+in the diff itself, such as a ticket number, the reason for a change, or
+a link to an issue.
+.sp
+Can be combined with any commit\-generating mode (\f(CRCOMMIT\fP or \f(CRAMEND\fP).
+Cannot be used with \f(CR\-\-list\fP, \f(CR\-\-update\fP, or \f(CR\-\-squash\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-x "Fixes JIRA\-1234"
+git cai \-x "Performance optimisation for the search endpoint"
+git cai \-A \-x "Reword after code review feedback"
+.fam
+.fi
+.if n .RE
+.RE
 .SH "LIST TYPES"
 .sp
 The argument to \f(CR\-\-list\fP must be one of the following:
 .sp
+config
+.RS 4
+Show the active (effective) configuration. This displays the fully resolved
+configuration that git\-cai is currently using, including all provider blocks,
+global settings, and any overrides from repository\-level config files.
+.sp
+This is useful for verifying which settings are in effect, especially when a
+repository config overrides the home config. Nested provider blocks (model,
+temperature) are displayed indented under their provider name.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l config
+.fam
+.fi
+.if n .RE
+.sp
+Example output:
+.sp
+.if n .RS 4
+.nf
+.fam C
+Active configuration:
+
+  default: groq
+  language: en
+  style: professional
+  emoji: true
+  groq:
+    model: moonshotai/kimi\-k2\-instruct
+    temperature: 0
+  ...
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 editor
 .RS 4
-List supported and tested editors as default git editor. Most likely more editors will work.
+List supported and tested editors as default git editor. Most likely more
+editors will work. git\-cai uses the same editor resolution as Git itself
+(\f(CRGIT_EDITOR\fP, \f(CRVISUAL\fP, \f(CREDITOR\fP environment variables).
 .RE
 .sp
 language
 .RS 4
-List supported languages.
+List all 121 supported languages for commit message generation. Languages
+are displayed sorted alphabetically by their human\-readable name, each
+followed by their language code. The language code is what you set in
+\f(CRcai_config.yml\fP under the \f(CRlanguage\fP key.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l language
+.fam
+.fi
+.if n .RE
+.sp
+Example output (excerpt):
+.sp
+.if n .RS 4
+.nf
+.fam C
+Available languages:
+  \- English → en
+  \- French → fr
+  \- German → de
+  \- Japanese → ja
+  \- Klingon → tlh
+  ...
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+model
+.RS 4
+Show the default model for each supported provider. This displays the model
+name that git\-cai uses out of the box if no custom model is configured.
+Models are listed alphabetically by provider name.
+.sp
+Note: these are the built\-in defaults. If you have overridden a model in
+your \f(CRcai_config.yml\fP, the override is not shown here. Use \f(CR\-\-list config\fP
+to see the effective configuration including overrides.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l model
+.fam
+.fi
+.if n .RE
+.sp
+Example output:
+.sp
+.if n .RS 4
+.nf
+.fam C
+Default models:
+
+  anthropic\&    → claude\-haiku\-4\-5
+  deepseek\&     → deepseek\-chat
+  gemini\&       → gemini\-2.5\-flash
+  groq\&         → moonshotai/kimi\-k2\-instruct
+  mistral\&      → codestral\-2508
+  ollama\&       → llama3.1
+  openai\&       → gpt\-5.2
+  xai\&          → grok\-4\-1\-fast\-reasoning
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+path
+.RS 4
+Show all resolved configuration file paths. This displays the locations
+of the config directory, home config file, tokens file, and whether a
+repository\-specific config file is present. The active config source
+(repository or home) is shown at the bottom.
+.sp
+This is particularly useful for debugging configuration issues or when
+you are unsure which config file git\-cai is reading.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l path
+.fam
+.fi
+.if n .RE
+.sp
+Example output (no repo config):
+.sp
+.if n .RS 4
+.nf
+.fam C
+Configuration file paths:
+
+  Config directory:\&      /home/user/.config/cai
+  Home config:\&           /home/user/.config/cai/cai_config.yml
+  Tokens file:\&           /home/user/.config/cai/tokens.yml
+  Repository config:\&     not found
+
+  Active config source:\&  home
+.fam
+.fi
+.if n .RE
+.sp
+Example output (with repo config):
+.sp
+.if n .RS 4
+.nf
+.fam C
+Configuration file paths:
+
+  Config directory:\&      /home/user/.config/cai
+  Home config:\&           /home/user/.config/cai/cai_config.yml
+  Tokens file:\&           /home/user/.config/cai/tokens.yml
+  Repository config:\&     /home/user/project/cai_config.yml\&  (active)
+
+  Active config source:\&  repository
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+provider
+.RS 4
+List all supported LLM providers. Each provider is shown with its default
+model and whether an API token is required. Providers that do not require a
+token (currently only \f(CRollama\fP) are marked accordingly.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l provider
+.fam
+.fi
+.if n .RE
+.sp
+Example output:
+.sp
+.if n .RS 4
+.nf
+.fam C
+Supported providers:
+
+  anthropic\&    model: claude\-haiku\-4\-5\&                    (token required)
+  deepseek\&     model: deepseek\-chat\&                      (token required)
+  gemini\&       model: gemini\-2.5\-flash\&                   (token required)
+  groq\&         model: moonshotai/kimi\-k2\-instruct\&        (token required)
+  mistral\&      model: codestral\-2508\&                     (token required)
+  ollama\&       model: llama3.1\&                           (no token required)
+  openai\&       model: gpt\-5.2\&                            (token required)
+  xai\&          model: grok\-4\-1\-fast\-reasoning\&            (token required)
+.fam
+.fi
+.if n .RE
 .RE
 .sp
 style
 .RS 4
-Show available commit message styles.
+Show available commit message styles with descriptions and examples. The
+style controls the tone of the generated commit message. Set the style in
+\f(CRcai_config.yml\fP or override it per invocation with \f(CR\-\-set style=<name>\fP.
+.sp
+Available styles: \f(CRacademic\fP, \f(CRapologetic\fP, \f(CRexcited\fP, \f(CRfriendly\fP, \f(CRfunny\fP,
+\f(CRneutral\fP, \f(CRnone\fP, \f(CRprofessional\fP (default), \f(CRsarcastic\fP.
+.sp
+The special style \f(CRnone\fP omits the style instruction from the prompt
+entirely, letting the model choose its own tone.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l style
+.fam
+.fi
+.if n .RE
 .RE
 .SH "CONFIGURATION"
 .sp
@@ -634,6 +911,17 @@ Available configuration keys:
 .  IP \(bu 2.3
 .\}
 \f(CRemoji\fP \(em enable or disable emojis in commit messages (\f(CRtrue\fP/\f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRbranch_context\fP \(em include current branch name as LLM context (\f(CRtrue\fP/\f(CRfalse\fP)
 .RE
 .sp
 .RS 4
@@ -857,6 +1145,26 @@ git cai \-s
 .fi
 .if n .RE
 .sp
+Squash the last 3 commits:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-s 3
+.fam
+.fi
+.if n .RE
+.sp
+Squash all commits down to and including a specific commit:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-s a1b2c3d
+.fam
+.fi
+.if n .RE
+.sp
 Show supported styles, languages, or editors:
 .sp
 .if n .RS 4
@@ -865,6 +1173,28 @@ Show supported styles, languages, or editors:
 git cai \-l style
 git cai \-l language
 git cai \-l editor
+.fam
+.fi
+.if n .RE
+.sp
+Show supported providers and their default models:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l provider
+git cai \-l model
+.fam
+.fi
+.if n .RE
+.sp
+Show the active configuration and file paths:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-l config
+git cai \-l path
 .fam
 .fi
 .if n .RE
@@ -908,6 +1238,28 @@ Change a value in the home (default) config:
 .fam C
 git cai \-H language=de
 git cai \-H default=openai
+.fam
+.fi
+.if n .RE
+.sp
+Include branch name as context:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-b
+git cai \-b \-C
+.fam
+.fi
+.if n .RE
+.sp
+Provide extra context for the commit message:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-x "Fixes JIRA\-1234"
+git cai \-x "Refactored to reduce memory usage on large datasets"
 .fam
 .fi
 .if n .RE

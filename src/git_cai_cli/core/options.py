@@ -12,7 +12,15 @@ from pathlib import Path
 import requests
 import yaml
 from git_cai_cli.core.config import (
+    CONFIG_DIR,
+    DEFAULT_CONFIG,
+    FALLBACK_CONFIG_FILE,
+    KNOWN_PROVIDERS,
+    TOKENLESS_PROVIDERS,
+    TOKENS_FILE,
+    _find_repo_config,
     _serialize_config,
+    load_config,
     ordered_default_config,
 )
 from git_cai_cli.core.languages import LANGUAGE_MAP
@@ -216,15 +224,91 @@ class CliManager:
         return """
 Available list options:
 
+config    - Show the active (effective) configuration
 editor    - List supported and tested editors
 language  - List supported languages
+model     - Show the default model for each provider
+path      - Show resolved configuration file paths
+provider  - List supported LLM providers
 style     - Show available commit message styles
 
 Usage:
+git cai -l config
 git cai -l editor
 git cai -l language
+git cai -l model
+git cai -l path
+git cai -l provider
 git cai -l style
 """
+
+    def list_providers(self) -> str:
+        """
+        Return a formatted list of supported LLM providers with their
+        default models and token requirements.
+        """
+        lines = ["\nSupported providers:\n"]
+        for provider in sorted(KNOWN_PROVIDERS):
+            block = DEFAULT_CONFIG.get(provider, {})
+            model = block.get("model", "n/a") if isinstance(block, dict) else "n/a"
+            token_info = (
+                "no token required"
+                if provider in TOKENLESS_PROVIDERS
+                else "token required"
+            )
+            lines.append(f"  {provider:<12} model: {model:<35} ({token_info})")
+        return "\n".join(lines)
+
+    def list_models(self) -> str:
+        """
+        Return a formatted list of default models per provider.
+        """
+        lines = ["\nDefault models:\n"]
+        for provider in sorted(KNOWN_PROVIDERS):
+            block = DEFAULT_CONFIG.get(provider, {})
+            model = block.get("model", "n/a") if isinstance(block, dict) else "n/a"
+            lines.append(f"  {provider:<12} → {model}")
+        return "\n".join(lines)
+
+    def list_config(self) -> str:
+        """
+        Return the active (effective) configuration as formatted text.
+        """
+        try:
+            config = load_config()
+        except (ValueError, OSError) as e:
+            return f"Error loading configuration: {e}"
+
+        lines = ["\nActive configuration:\n"]
+        for key, value in config.items():
+            if isinstance(value, dict):
+                lines.append(f"  {key}:")
+                for sub_key, sub_value in value.items():
+                    lines.append(f"    {sub_key}: {sub_value}")
+            else:
+                lines.append(f"  {key}: {value}")
+        return "\n".join(lines)
+
+    def list_paths(self) -> str:
+        """
+        Return resolved configuration file paths.
+        """
+        repo_config = _find_repo_config()
+
+        lines = ["\nConfiguration file paths:\n"]
+        lines.append(f"  Config directory:      {CONFIG_DIR}")
+        lines.append(f"  Home config:           {FALLBACK_CONFIG_FILE}")
+        lines.append(f"  Tokens file:           {TOKENS_FILE}")
+
+        if repo_config:
+            lines.append(f"  Repository config:     {repo_config}  (active)")
+        else:
+            lines.append("  Repository config:     not found")
+
+        lines.append(
+            f"\n  Active config source:  {'repository' if repo_config else 'home'}"
+        )
+        return "\n".join(lines)
 
     def print_available_languages(self) -> str:
         """
@@ -244,6 +328,7 @@ git cai -l style
         provider_override: str | None = None,
         model_override: str | None = None,
         time_flag: bool = False,
+        squash_arg: str | None = None,
     ) -> None:
         """
         Squash commits on the current branch and summarize them.
@@ -252,6 +337,7 @@ git cai -l style
             provider_override=provider_override,
             model_override=model_override,
             time_flag=time_flag,
+            squash_arg=squash_arg,
         )
 
     def stage_tracked_files(self) -> None:

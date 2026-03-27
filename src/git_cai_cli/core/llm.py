@@ -155,13 +155,18 @@ class CommitMessageGenerator:
             total,  # nosemgrep
         )
 
-    def generate(self, git_diff: str) -> str:
+    def generate(self, git_diff: str, context: str | None = None) -> str:
         """
         Generate a commit message from a diff.
         """
         prompt = self._build_commit_prompt()
         log.debug("Commit system prompt preview: %r", prompt[:400])
-        return self._dispatch_generate(content=git_diff, system_prompt=prompt)
+
+        content = git_diff
+        if context:
+            content = f"{git_diff}\n\nAdditional context:\n{context}"
+
+        return self._dispatch_generate(content=content, system_prompt=prompt)
 
     def summarize_commit_history(self, commit_messages: str) -> str:
         """
@@ -251,6 +256,24 @@ class CommitMessageGenerator:
             "Additional details can follow as bullet points in the body."
         )
 
+    def _branch_instruction(self) -> str:
+        """
+        Returns a branch context instruction string if enabled and branch name is available.
+        """
+        if not self.config.get("branch_context", False):
+            return ""
+
+        branch_name = self.config.get("branch_name", "")
+        if not branch_name:
+            return ""
+
+        log.info("Branch context enabled: '%s'.", branch_name)
+        return (
+            f"The current Git branch is '{branch_name}'. "
+            "Use the branch name as additional context to better understand "
+            "the intent and scope of the changes."
+        )
+
     def _config_instructions(self) -> str:
         """
         Build the config-driven instruction suffix (language, style, emoji, conventional).
@@ -261,6 +284,7 @@ class CommitMessageGenerator:
             self._style_instruction(),
             self._emoji_instruction(),
             self._conventional_instruction(),
+            self._branch_instruction(),
         ]
         return " ".join(p for p in parts if p)
 
@@ -560,24 +584,31 @@ class CommitMessageGenerator:
 
         log.info("Using mistral model '%s'.", model)
 
-        prompt = [
-            {
-                "role": "system",
-                "content": system_prompt_override,
-            },
+        messages = []
+
+        if system_prompt_override:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": system_prompt_override,
+                }
+            )
+
+        messages.append(
             {
                 "role": "user",
                 "content": content,
-            },
-        ]
+            }
+        )
 
         request = {
             "model": model,
-            "messages": prompt,
+            "messages": messages,
             "temperature": temperature,
         }
 
         response = requests.post(url, json=request, headers=headers, timeout=30)
+        response.raise_for_status()
 
         data = response.json()
 
@@ -802,10 +833,12 @@ class CommitMessageGenerator:
 
         log.info("Using %s model '%s'.", provider_name, model)
 
-        messages = [
-            {"role": "system", "content": system_prompt_override},
-            {"role": "user", "content": content},
-        ]
+        messages = []
+
+        if system_prompt_override:
+            messages.append({"role": "system", "content": system_prompt_override})
+
+        messages.append({"role": "user", "content": content})
 
         completion = client.chat.completions.create(
             model=model,
@@ -845,23 +878,30 @@ class CommitMessageGenerator:
 
         log.info("Using xai model '%s'.", model)
 
-        prompt = [
-            {
-                "role": "system",
-                "content": system_prompt_override,
-            },
+        messages = []
+
+        if system_prompt_override:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": system_prompt_override,
+                }
+            )
+
+        messages.append(
             {
                 "role": "user",
                 "content": content,
-            },
-        ]
+            }
+        )
 
         request = {
             "model": model,
-            "messages": prompt,
+            "messages": messages,
             "temperature": temperature,
         }
         response = requests.post(url, json=request, headers=headers, timeout=30)
+        response.raise_for_status()
 
         data = response.json()
 

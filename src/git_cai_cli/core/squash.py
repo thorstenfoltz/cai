@@ -66,6 +66,104 @@ def _get_branch_base() -> str:
         raise
 
 
+def _count_commits_on_branch(merge_base: str) -> int:
+    """Count how many commits exist between the merge base and HEAD."""
+    output = subprocess.check_output(
+        ["git", "rev-list", "--count", f"{merge_base}..HEAD"], text=True
+    ).strip()
+    return int(output)
+
+
+def _count_total_commits() -> int:
+    """Count the total number of commits in the repository."""
+    output = subprocess.check_output(
+        ["git", "rev-list", "--count", "HEAD"], text=True
+    ).strip()
+    return int(output)
+
+
+def _resolve_squash_target(squash_arg: str) -> str:
+    """
+    Resolve the squash target from a user-provided argument.
+
+    The argument can be:
+    - A number: squash the last N commits (returns the parent of the Nth commit)
+    - A commit hash: squash up to and including that commit (returns its parent)
+
+    Returns the commit hash to reset to.
+    """
+    # Try as a number first
+    try:
+        count = int(squash_arg)
+        if count < 1:
+            log.error("Commit count must be a positive number.")
+            sys.exit(1)
+
+        total_commits = _count_total_commits()
+        if count > total_commits:
+            log.error(
+                "Cannot squash %d commits — the repository only has %d commits in total.",
+                count,
+                total_commits,
+            )
+            sys.exit(1)
+
+        merge_base = _get_branch_base()
+        branch_commits = _count_commits_on_branch(merge_base)
+
+        if count > branch_commits:
+            log.warning(
+                "You requested to squash %d commits, but this branch only has %d commits "
+                "since it diverged from the base branch.",
+                count,
+                branch_commits,
+            )
+            choice = input("Continue anyway? [yes/no]: ").strip().lower()
+            if choice not in ("y", "yes"):
+                log.info("Squash cancelled.")
+                sys.exit(0)
+
+        # HEAD~N is the parent of the Nth-to-last commit
+        target = subprocess.check_output(
+            ["git", "rev-parse", f"HEAD~{count}"], text=True
+        ).strip()
+        return target
+
+    except ValueError:
+        pass
+
+    # Treat as a commit hash
+    try:
+        full_hash = subprocess.check_output(
+            ["git", "rev-parse", "--verify", squash_arg], text=True
+        ).strip()
+    except subprocess.CalledProcessError:
+        log.error("Invalid commit reference: %s", squash_arg)
+        sys.exit(1)
+
+    # Verify the commit is in the current branch history
+    rc = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", full_hash, "HEAD"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode
+    if rc != 0:
+        log.error("Commit %s is not in the current branch history.", squash_arg)
+        sys.exit(1)
+
+    # Return the commit itself as the reset target (squash up to and including it,
+    # so we reset to its parent)
+    try:
+        parent = subprocess.check_output(
+            ["git", "rev-parse", f"{full_hash}~1"], text=True
+        ).strip()
+        return parent
+    except subprocess.CalledProcessError:
+        log.error("Commit %s is the root commit — cannot squash past it.", squash_arg)
+        sys.exit(1)
+
+
 def _has_commits() -> bool:
     """
     Check if the current Git repository has any commits.
@@ -85,9 +183,15 @@ def squash_branch(
     provider_override: str | None = None,
     model_override: str | None = None,
     time_flag: bool = False,
+    squash_arg: str | None = None,
 ) -> None:
     """
-    Squash all commits in the current branch into a single commit with an LLM-generated message.
+    Squash commits in the current branch into a single commit with an LLM-generated message.
+
+    Args:
+        squash_arg: Optional. A number (squash last N commits) or a commit hash
+                    (squash up to and including that commit). If None, squash all
+                    commits since the branch diverged.
     """
     repo_root = find_git_root()
     if not repo_root:
@@ -158,11 +262,15 @@ def squash_branch(
                 return
             log.info("Working tree clean — proceeding to squash history.")
 
-        # 2) Determine branch base
+        # 2) Determine squash target
         if not _has_commits():
             log.info("Repository has no commits — nothing to squash.")
             return
-        merge_base = _get_branch_base()
+
+        if squash_arg:
+            merge_base = _resolve_squash_target(squash_arg)
+        else:
+            merge_base = _get_branch_base()
 
         # 3) Summarize commit history
         commit_log = subprocess.check_output(

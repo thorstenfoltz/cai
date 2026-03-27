@@ -32,6 +32,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     amend: bool = typer.Option(
         False, "-A", "--amend", help="Regenerate and amend the last commit message"
     ),
+    branch_context: bool = typer.Option(
+        False,
+        "-b",
+        "--branch",
+        help="Include current branch name as context for the LLM",
+    ),
     conventional: bool = typer.Option(
         False,
         "-C",
@@ -57,10 +63,14 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         help="Generate default commit/squash prompt files in the current directory",
     ),
     list_flag: bool = typer.Option(
-        False, "--list", "-l", help="List information", is_flag=True
+        False,
+        "--list",
+        "-l",
+        help="List information (e.g. languages, styles, providers, config)",
+        is_flag=True,
     ),
     list_arg: str = typer.Argument(
-        None, help="Optional argument for --list: 'language', 'style' or 'editor'"
+        None, help="Optional argument for --list or --squash (see docs)"
     ),
     stage_tracked: bool = typer.Option(
         False, "--all", "-a", help="Stage all tracked files"
@@ -86,6 +96,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     ),
     model: str = typer.Option(
         None, "--model", "-m", help="Override model (requires --provider)"
+    ),
+    context: str = typer.Option(
+        None,
+        "-x",
+        "--context",
+        help="Extra context for the LLM (e.g. ticket number, reason for change)",
     ),
     time_flag: bool = typer.Option(
         False, "--time", "-t", help="Measure and log generation time"
@@ -120,6 +136,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         provider_override=provider,
         model_override=model,
         time_flag=time_flag,
+        context=context,
     )
 
     if generate_config:
@@ -182,10 +199,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         list_arg=list_arg,
         stage_tracked=stage_tracked,
         conventional=conventional,
+        branch_context=branch_context,
         crazy=crazy,
         provider_override=provider,
         model_override=model,
         time_flag=time_flag,
+        context=context,
     )
 
 

@@ -3,12 +3,18 @@ Unit tests for git_cai_cli.core.squash.squash_branch function.
 """
 
 import builtins
+import subprocess
 import typing
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-from git_cai_cli.core.squash import squash_branch
+from git_cai_cli.core.squash import (
+    _count_commits_on_branch,
+    _count_total_commits,
+    _resolve_squash_target,
+    squash_branch,
+)
 
 
 @pytest.fixture
@@ -215,3 +221,161 @@ def test_force_push_prompt_and_execution(
         squash_branch()
 
     run_mock.assert_any_call(["git", "push", "--force-with-lease"], check=True)
+
+
+# --- Tests for new squash argument helpers ---
+
+
+def test_count_commits_on_branch() -> None:
+    with patch("subprocess.check_output", return_value="5\n"):
+        assert _count_commits_on_branch("BASE") == 5
+
+
+def test_count_total_commits() -> None:
+    with patch("subprocess.check_output", return_value="42\n"):
+        assert _count_total_commits() == 42
+
+
+def test_resolve_squash_target_with_number() -> None:
+    """Squash last N commits resolves to HEAD~N."""
+    with (
+        patch("git_cai_cli.core.squash._count_total_commits", return_value=10),
+        patch("git_cai_cli.core.squash._get_branch_base", return_value="BASE"),
+        patch("git_cai_cli.core.squash._count_commits_on_branch", return_value=8),
+        patch("subprocess.check_output", return_value="abc123\n"),
+    ):
+        result = _resolve_squash_target("3")
+    assert result == "abc123"
+
+
+def test_resolve_squash_target_number_exceeds_total(caplog) -> None:
+    """Error when count exceeds total commits in repo."""
+    with (
+        patch("git_cai_cli.core.squash._count_total_commits", return_value=5),
+        pytest.raises(SystemExit),
+    ):
+        _resolve_squash_target("10")
+
+
+def test_resolve_squash_target_number_exceeds_branch_warns() -> None:
+    """Warning when count exceeds branch commits, user declines."""
+    with (
+        patch("git_cai_cli.core.squash._count_total_commits", return_value=20),
+        patch("git_cai_cli.core.squash._get_branch_base", return_value="BASE"),
+        patch("git_cai_cli.core.squash._count_commits_on_branch", return_value=3),
+        patch.object(builtins, "input", return_value="no"),
+        pytest.raises(SystemExit),
+    ):
+        _resolve_squash_target("5")
+
+
+def test_resolve_squash_target_number_exceeds_branch_continues() -> None:
+    """Warning when count exceeds branch commits, user confirms."""
+    with (
+        patch("git_cai_cli.core.squash._count_total_commits", return_value=20),
+        patch("git_cai_cli.core.squash._get_branch_base", return_value="BASE"),
+        patch("git_cai_cli.core.squash._count_commits_on_branch", return_value=3),
+        patch.object(builtins, "input", return_value="yes"),
+        patch("subprocess.check_output", return_value="def456\n"),
+    ):
+        result = _resolve_squash_target("5")
+    assert result == "def456"
+
+
+def test_resolve_squash_target_with_valid_hash() -> None:
+    """Commit hash resolves to its parent."""
+    with (
+        patch(
+            "subprocess.check_output",
+            side_effect=["full_hash\n", "parent_hash\n"],
+        ),
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(returncode=0),
+        ),
+    ):
+        result = _resolve_squash_target("abc123")
+    assert result == "parent_hash"
+
+
+def test_resolve_squash_target_with_invalid_hash() -> None:
+    """Error on invalid commit reference."""
+    with (
+        patch(
+            "subprocess.check_output",
+            side_effect=subprocess.CalledProcessError(1, "git"),
+        ),
+        pytest.raises(SystemExit),
+    ):
+        _resolve_squash_target("nonexistent")
+
+
+def test_resolve_squash_target_hash_not_in_branch() -> None:
+    """Error when commit exists but is not in current branch."""
+    with (
+        patch("subprocess.check_output", return_value="full_hash\n"),
+        patch(
+            "subprocess.run",
+            return_value=MagicMock(returncode=1),
+        ),
+        pytest.raises(SystemExit),
+    ):
+        _resolve_squash_target("abc123")
+
+
+def test_resolve_squash_target_zero_count() -> None:
+    """Error on zero as commit count."""
+    with pytest.raises(SystemExit):
+        _resolve_squash_target("0")
+
+
+def test_resolve_squash_target_negative_count() -> None:
+    """Error on negative commit count."""
+    with pytest.raises(SystemExit):
+        _resolve_squash_target("-3")
+
+
+def test_squash_branch_with_squash_arg(mock_repo_root, mock_generator) -> None:
+    """Test that squash_branch uses _resolve_squash_target when squash_arg is provided."""
+    run_mock = MagicMock(return_value=MagicMock(returncode=0))
+
+    def git_side_effect(cmd, text=True, **kwargs) -> str:
+        if cmd[:3] == ["git", "diff", "--cached"]:
+            return ""
+        if cmd[:2] == ["git", "diff"]:
+            return ""
+        if cmd[:2] == ["git", "--no-pager"] and "log" in cmd:
+            return "commit 1\ncommit 2"
+        raise AssertionError(f"Unexpected git command: {cmd}")
+
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("subprocess.check_output", side_effect=git_side_effect),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+        patch(
+            "git_cai_cli.core.squash.CommitMessageGenerator",
+            return_value=mock_generator,
+        ),
+        patch("git_cai_cli.core.squash.get_git_editor", return_value="true"),
+        patch("git_cai_cli.core.squash.sha256_of_file", side_effect=["a", "b"]),
+        patch("subprocess.run", run_mock),
+        patch("git_cai_cli.core.squash._has_upstream", return_value=False),
+        patch("git_cai_cli.core.squash._has_commits", return_value=True),
+        patch(
+            "git_cai_cli.core.squash._resolve_squash_target",
+            return_value="TARGET_HASH",
+        ) as resolve_mock,
+    ):
+        squash_branch(squash_arg="3")
+
+    resolve_mock.assert_called_once_with("3")
+    run_mock.assert_has_calls(
+        [
+            call(["git", "reset", "--soft", "TARGET_HASH"], check=True),
+            call(["git", "commit", "-m", "squash summary"], check=True),
+        ],
+        any_order=False,
+    )

@@ -40,10 +40,12 @@ def run(
     list_arg: str | None,
     stage_tracked: bool,
     conventional: bool = False,
+    branch_context: bool = False,
     crazy: bool,
     provider_override: str | None = None,
     model_override: str | None = None,
     time_flag: bool = False,
+    context: str | None = None,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -82,12 +84,24 @@ def run(
             return
 
         option = list_arg.lower()
+        if option == "config":
+            typer.echo(manager.list_config())
+            return
         if option == "editor":
             for editor in manager.editor_list():
                 typer.echo(editor)
             return
         if option == "language":
             typer.echo(manager.print_available_languages())
+            return
+        if option == "model":
+            typer.echo(manager.list_models())
+            return
+        if option == "path":
+            typer.echo(manager.list_paths())
+            return
+        if option == "provider":
+            typer.echo(manager.list_providers())
             return
         if option == "style":
             for name, details in manager.styles().items():
@@ -97,7 +111,7 @@ def run(
 
         typer.echo(
             f"Error: unknown list option '{list_arg}'. "
-            "Valid values are 'language' or 'style'.",
+            "Valid values are 'config', 'editor', 'language', 'model', 'path', 'provider', or 'style'.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -107,6 +121,7 @@ def run(
             provider_override=provider_override,
             model_override=model_override,
             time_flag=time_flag,
+            squash_arg=list_arg,
         )
         return
 
@@ -127,6 +142,16 @@ def run(
 
     if conventional:
         config["conventional"] = True
+
+    if branch_context:
+        config["branch_context"] = True
+
+    if config.get("branch_context", False):
+        from git_cai_cli.core.gitutils import get_current_branch
+
+        branch_name = get_current_branch()
+        if branch_name:
+            config["branch_name"] = branch_name
 
     provider = config["default"]
     token = load_token(config=config)
@@ -157,6 +182,7 @@ def run(
                 commit_message = _validate_llm_call(
                     generator.generate,
                     diff,
+                    context=context,
                     token=token,
                     requires_token=provider not in TOKENLESS_PROVIDERS,
                 )

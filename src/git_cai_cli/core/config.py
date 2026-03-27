@@ -51,6 +51,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "prompt_file": "",
     "squash_prompt_file": "",
     "conventional": False,
+    "branch_context": False,
     "token_logging": True,  # nosec B105 - local-only provider that doesn't use API tokens
     "measure_time": False,
 }
@@ -378,6 +379,7 @@ def ordered_default_config(
         "style",
         "emoji",
         "conventional",
+        "branch_context",
         "load_tokens_from",
         "prompt_file",
         "squash_prompt_file",

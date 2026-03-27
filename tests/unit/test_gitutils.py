@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 from git_cai_cli.core.gitutils import (
     commit_with_edit_template,
     find_git_root,
+    get_current_branch,
     get_git_editor,
     git_diff_excluding,
     sha256_of_file,
@@ -53,6 +54,42 @@ def test_find_git_root_failure_returns_none():
         raise subprocess.CalledProcessError(1, "cmd")
 
     assert find_git_root(run_cmd=fake_run) is None
+
+
+# ------------------------------------------------------------------------------
+# get_current_branch
+# ------------------------------------------------------------------------------
+
+
+def test_get_current_branch_returns_name():
+    """get_current_branch() should return the branch name."""
+    mock_proc = MagicMock()
+    mock_proc.stdout = "feature/auth\n"
+
+    def fake_run(*args, **kwargs):
+        return mock_proc
+
+    assert get_current_branch(run_cmd=fake_run) == "feature/auth"
+
+
+def test_get_current_branch_detached_head():
+    """get_current_branch() should return None when HEAD is detached."""
+    mock_proc = MagicMock()
+    mock_proc.stdout = "HEAD\n"
+
+    def fake_run(*args, **kwargs):
+        return mock_proc
+
+    assert get_current_branch(run_cmd=fake_run) is None
+
+
+def test_get_current_branch_not_in_repo():
+    """get_current_branch() should return None on CalledProcessError."""
+
+    def fake_run(*_, **__):
+        raise subprocess.CalledProcessError(1, "cmd")
+
+    assert get_current_branch(run_cmd=fake_run) is None
 
 
 # ------------------------------------------------------------------------------
@@ -104,6 +141,61 @@ def test_git_diff_excluding_exits_on_failure(tmp_path):
 
     git_diff_excluding(repo_root, run_cmd=fake_run, exit_func=fake_exit)
     assert exit_called is True
+
+
+def test_git_diff_excluding_uses_check_false(tmp_path):
+    """
+    git_diff_excluding() should pass check=False so manual error handling works.
+    """
+    repo_root = tmp_path
+
+    captured_kwargs = {}
+
+    def fake_run(cmd, **kwargs):
+        captured_kwargs.update(kwargs)
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "diff"
+        return mock_proc
+
+    git_diff_excluding(repo_root, run_cmd=fake_run)
+    assert captured_kwargs.get("check") is False
+
+
+def test_git_diff_excluding_no_caiignore(tmp_path):
+    """
+    git_diff_excluding() should work without a .caiignore file.
+    """
+    repo_root = tmp_path
+
+    def fake_run(cmd, **kwargs):
+        # No :! patterns should be in the command
+        assert not any(arg.startswith(":!") for arg in cmd)
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "diff output"
+        return mock_proc
+
+    result = git_diff_excluding(repo_root, run_cmd=fake_run)
+    assert result == "diff output"
+
+
+def test_git_diff_excluding_empty_caiignore(tmp_path):
+    """
+    git_diff_excluding() should handle an empty .caiignore file.
+    """
+    repo_root = tmp_path
+    (repo_root / ".caiignore").write_text("# only comments\n\n")
+
+    def fake_run(cmd, **kwargs):
+        assert not any(arg.startswith(":!") for arg in cmd)
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "diff output"
+        return mock_proc
+
+    result = git_diff_excluding(repo_root, run_cmd=fake_run)
+    assert result == "diff output"
 
 
 # ------------------------------------------------------------------------------
