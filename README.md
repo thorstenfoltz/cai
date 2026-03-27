@@ -209,6 +209,7 @@ In addition to `git cai`, the following options are available:
 - `-c`, `--crazy` – Trust the LLM and commit without checking
 - `-d`, `--debug` – enable debug logging
 - `-g`, `--generate-config` – generate the default `cai_config.yml` in the current directory
+- `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-h`, `--help` – show help and available commands
 - `-i`, `--install-completion` – install shell completion for bash, zsh, or fish
 - `-l`, `--list` – list available information (`config`, `editor`, `language`, `model`, `path`, `provider`, `style`)
