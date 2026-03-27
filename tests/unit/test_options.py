@@ -237,6 +237,153 @@ def test_stage_tracked_files_git_failure() -> None:
             manager.stage_tracked_files()
 
 
+def test_list_output_contains_all_options() -> None:
+    """
+    Test that list() method includes all available list options.
+    """
+    manager = CliManager()
+    text = manager.list()
+    for option in (
+        "config",
+        "editor",
+        "language",
+        "model",
+        "path",
+        "provider",
+        "style",
+    ):
+        assert option in text
+
+
+def test_list_providers_contains_all_providers() -> None:
+    """
+    Test that list_providers() returns all known providers.
+    """
+    manager = CliManager()
+    output = manager.list_providers()
+    for provider in (
+        "anthropic",
+        "deepseek",
+        "gemini",
+        "groq",
+        "mistral",
+        "ollama",
+        "openai",
+        "xai",
+    ):
+        assert provider in output
+
+
+def test_list_providers_shows_token_requirement() -> None:
+    """
+    Test that list_providers() distinguishes token/tokenless providers.
+    """
+    manager = CliManager()
+    output = manager.list_providers()
+    assert "no token required" in output  # ollama
+    assert "token required" in output  # all others
+
+
+def test_list_providers_shows_default_models() -> None:
+    """
+    Test that list_providers() includes default model names.
+    """
+    manager = CliManager()
+    output = manager.list_providers()
+    assert "llama3.1" in output  # ollama default model
+
+
+def test_list_models_contains_all_providers() -> None:
+    """
+    Test that list_models() returns a model for each provider.
+    """
+    manager = CliManager()
+    output = manager.list_models()
+    for provider in (
+        "anthropic",
+        "deepseek",
+        "gemini",
+        "groq",
+        "mistral",
+        "ollama",
+        "openai",
+        "xai",
+    ):
+        assert provider in output
+
+
+def test_list_models_shows_arrow_format() -> None:
+    """
+    Test that list_models() uses the expected arrow format.
+    """
+    manager = CliManager()
+    output = manager.list_models()
+    assert "→" in output
+
+
+def test_list_config_returns_active_config() -> None:
+    """
+    Test that list_config() returns formatted configuration.
+    """
+    manager = CliManager()
+    with patch(
+        "git_cai_cli.core.options.load_config",
+        return_value={
+            "default": "groq",
+            "language": "en",
+            "style": "professional",
+            "groq": {"model": "test-model", "temperature": 0},
+        },
+    ):
+        output = manager.list_config()
+    assert "Active configuration" in output
+    assert "default: groq" in output
+    assert "language: en" in output
+    assert "model: test-model" in output
+
+
+def test_list_config_handles_error() -> None:
+    """
+    Test that list_config() handles config loading errors gracefully.
+    """
+    manager = CliManager()
+    with patch(
+        "git_cai_cli.core.options.load_config", side_effect=ValueError("bad config")
+    ):
+        output = manager.list_config()
+    assert "Error loading configuration" in output
+
+
+def test_list_paths_without_repo_config() -> None:
+    """
+    Test that list_paths() shows paths when no repo config exists.
+    """
+    manager = CliManager()
+    with patch("git_cai_cli.core.options._find_repo_config", return_value=None):
+        output = manager.list_paths()
+    assert "Configuration file paths" in output
+    assert "Home config:" in output
+    assert "Tokens file:" in output
+    assert "not found" in output
+    assert "Active config source:" in output
+    assert "home" in output
+
+
+def test_list_paths_with_repo_config(tmp_path) -> None:
+    """
+    Test that list_paths() shows repo config when it exists.
+    """
+    manager = CliManager()
+    fake_repo_config = tmp_path / "cai_config.yml"
+    with patch(
+        "git_cai_cli.core.options._find_repo_config", return_value=fake_repo_config
+    ):
+        output = manager.list_paths()
+    assert str(fake_repo_config) in output
+    assert "(active)" in output
+    assert "repository" in output
+
+
 def test_generate_prompts_here_creates_files(tmp_path, monkeypatch):
     manager = CliManager()
     monkeypatch.chdir(tmp_path)

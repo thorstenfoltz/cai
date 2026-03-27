@@ -52,8 +52,11 @@ Currently supported providers:
 - Amend the last commit message with a regenerated one (`-A`)
 - Conventional Commits format support (`-C`)
 - Change configuration from the command line (`-S`, `-H`)
-- Optional commit squashing with automatic summary generation
+- Optional commit squashing with automatic summary generation (all, last N, or up to a specific commit)
+- List providers, models, active config, and file paths (`-l`)
 - Token usage logging for API calls
+- Branch name as LLM context via `--branch` / `-b`
+- Extra context for the LLM via `--context` / `-x` (e.g. ticket numbers, reasons)
 - Generation time measurement (`-t`)
 - Shell completion for bash, zsh, and fish (`-i`)
 
@@ -188,6 +191,7 @@ git cai -g
 - `load_tokens_from` – path to the file where API tokens are stored
 - `prompt_file` - path to the file where the prompt for the commit is stored
 - `squash_prompt_file` - path to the file where the prompt for the squash is stored
+- `branch_context` – include current branch name as LLM context (default: `false`)
 - `conventional` – use Conventional Commits format (default: `false`)
 - `token_logging` – log token usage after each LLM call (default: `true` for new installs)
 - `measure_time` – log generation time (default: `false`)
@@ -200,20 +204,23 @@ In addition to `git cai`, the following options are available:
 
 - `-A`, `--amend` – regenerate and amend the last commit message
 - `-a`, `--all` – stage all tracked modified and deleted files
+- `-b`, `--branch` – include current branch name as context for the LLM
 - `-C`, `--conventional` – use Conventional Commits format (`type(scope): description`)
 - `-c`, `--crazy` – Trust the LLM and commit without checking
 - `-d`, `--debug` – enable debug logging
 - `-g`, `--generate-config` – generate the default `cai_config.yml` in the current directory
+- `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-h`, `--help` – show help and available commands
 - `-i`, `--install-completion` – install shell completion for bash, zsh, or fish
-- `-l`, `--list` – list available languages, styles, and supported editors
+- `-l`, `--list` – list available information (`config`, `editor`, `language`, `model`, `path`, `provider`, `style`)
 - `-m`, `--model` – override the model for this invocation (requires `-P`)
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
 - `-P`, `--provider` – override the LLM provider for this invocation
 - `-S`, `--set` – set a config value (`key=value`) in repo config (requires existing repo config)
 - `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
-- `-s`, `--squash` – squash commits on the current branch and summarize them
+- `-s`, `--squash` `[N|HASH]` – squash commits on the current branch and summarize them. Without argument: squash all since branch checkout. With a number: squash the last N commits. With a commit hash: squash up to and including that commit
 - `-t`, `--time` – measure and log commit message generation time
+- `-x`, `--context` – provide extra context for the LLM (e.g. ticket number, reason for change)
 - `-u`, `--update` – check for updates
 - `-v`, `--version` – show the installed version
 

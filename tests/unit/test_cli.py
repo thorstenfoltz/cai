@@ -178,3 +178,118 @@ def test_completion_exits_before_run(monkeypatch):
         runner.invoke(cli.app, ["-i"])
 
     assert run_called["called"] is False
+
+
+# ---------------------
+# Tests for --context / -x
+# ---------------------
+
+
+def test_context_flag_passed_to_run(monkeypatch):
+    """Verify --context value reaches run()."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--context", "Fixes JIRA-1234"])
+    assert result.exit_code == 0
+    assert captured["context"] == "Fixes JIRA-1234"
+
+
+def test_context_short_flag_passed_to_run(monkeypatch):
+    """Verify -x short flag works."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["-x", "Performance fix"])
+    assert result.exit_code == 0
+    assert captured["context"] == "Performance fix"
+
+
+def test_context_none_by_default(monkeypatch):
+    """Verify context is None when not provided."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, [])
+    assert result.exit_code == 0
+    assert captured["context"] is None
+
+
+# ---------------------
+# Tests for --branch / -b
+# ---------------------
+
+
+def test_branch_flag_passed_to_run(monkeypatch):
+    """Verify --branch value reaches run()."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--branch"])
+    assert result.exit_code == 0
+    assert captured["branch_context"] is True
+
+
+def test_branch_short_flag_passed_to_run(monkeypatch):
+    """Verify -b short flag works."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["-b"])
+    assert result.exit_code == 0
+    assert captured["branch_context"] is True
+
+
+def test_branch_false_by_default(monkeypatch):
+    """Verify branch_context is False when not provided."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, [])
+    assert result.exit_code == 0
+    assert captured["branch_context"] is False
+
+
+def test_context_passed_to_validate_options(monkeypatch):
+    """Verify --context is passed to validate_options."""
+    captured = {}
+
+    def _fake_validate(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", lambda **kwargs: None)
+    monkeypatch.setattr(cli, "validate_options", _fake_validate)
+
+    result = runner.invoke(cli.app, ["-x", "ticket info"])
+    assert result.exit_code == 0
+    assert captured["context"] == "ticket info"

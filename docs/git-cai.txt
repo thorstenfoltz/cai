@@ -11,14 +11,16 @@ SYNOPSIS
 --------
 [verse]
 `git cai` [-A | --amend] [-a | --all] [-C | --conventional]
-        [-c | --crazy] [-d | --debug] [-g | --generate-config]
+        [-b | --branch] [-c | --crazy] [-d | --debug] [-g | --generate-config]
         [-H KEY=VALUE | --set-home KEY=VALUE] [-h | --help]
         [-i | --install-completion]
-        [-l [editor|language|style] | --list [editor|language|style]]
+        [-l [config|editor|language|model|path|provider|style] |
+         --list [config|editor|language|model|path|provider|style]]
         [-m MODEL | --model MODEL]
         [-P PROVIDER | --provider PROVIDER] [-p | --generate-prompts]
         [-S KEY=VALUE | --set KEY=VALUE]
-        [-s | --squash] [-t | --time] [-u | --update] [-v | --version]
+        [-s [N|HASH] | --squash [N|HASH]] [-t | --time] [-u | --update] [-v | --version]
+        [-x CONTEXT | --context CONTEXT]
 
 
 DESCRIPTION
@@ -88,6 +90,24 @@ Cannot be combined with `--list`, `--update`, or `--squash`.
 +
 ----
 git cai -a
+----
+
+-b, --branch::
+Include the current Git branch name as context when generating the commit
+message. The LLM uses the branch name to better understand the intent and
+scope of the changes (e.g., a branch named `fix/login-timeout` hints at a
+bug fix related to login timeouts).
++
+This flag applies for the current invocation only. To enable it permanently,
+set `branch_context: true` in `cai_config.yml` or run:
++
+----
+git cai -S branch_context=true
+----
++
+----
+git cai -b
+git cai -b -c
 ----
 
 -C, --conventional::
@@ -179,15 +199,19 @@ file for the completions to take effect.
 git cai -i
 ----
 
--l, --list [editor|language|style]::
-List information about a specific category. Provide one of `editor`,
-`language`, or `style` as the next argument. Without an argument, an error
-is shown listing the valid choices.
+-l, --list [config|editor|language|model|path|provider|style]::
+List information about a specific category. Provide one of the supported
+list types as the next argument. Without an argument, a help text is shown
+listing all valid choices.
 +
 ----
-git cai -l language
-git cai -l style
+git cai -l config
 git cai -l editor
+git cai -l language
+git cai -l model
+git cai -l path
+git cai -l provider
+git cai -l style
 ----
 
 -m, --model MODEL::
@@ -244,17 +268,30 @@ git cai -S openai.temperature=0.7
 git cai -S conventional=true
 ----
 
--s, --squash::
-Squash all commits on the current branch into a single commit with an
+-s, --squash [N|HASH]::
+Squash commits on the current branch into a single commit with an
 LLM-generated summary message. git-cai collects the individual commit
 messages, sends them to the LLM, and opens the editor for review. After
 confirmation, a soft reset is performed and the squashed commit is created.
++
+Without an argument, all commits since the branch diverged from the base
+branch are squashed (default behaviour).
++
+With a number `N`, the last N commits are squashed. If N exceeds the number
+of commits on this branch (since it diverged), a warning is shown and
+confirmation is required. If N exceeds the total number of commits in the
+repository, an error is shown and the operation is aborted.
++
+With a commit hash, all commits from HEAD down to and including the given
+commit are squashed. The commit must exist in the current branch history.
 +
 This rewrites history. A force push is required to update a remote branch.
 git-cai will prompt before executing the force push.
 +
 ----
 git cai -s
+git cai -s 3
+git cai -s a1b2c3d
 ----
 
 -t, --time::
@@ -285,18 +322,186 @@ from git tags via `setuptools-scm`.
 git cai -v
 ----
 
+-x, --context CONTEXT::
+Provide extra context for the LLM to consider when generating the commit
+message. The context string is appended to the diff before sending it to
+the provider. This is useful for including information that is not visible
+in the diff itself, such as a ticket number, the reason for a change, or
+a link to an issue.
++
+Can be combined with any commit-generating mode (`COMMIT` or `AMEND`).
+Cannot be used with `--list`, `--update`, or `--squash`.
++
+----
+git cai -x "Fixes JIRA-1234"
+git cai -x "Performance optimisation for the search endpoint"
+git cai -A -x "Reword after code review feedback"
+----
+
 LIST TYPES
 ----------
 The argument to `--list` must be one of the following:
 
+config::
+Show the active (effective) configuration. This displays the fully resolved
+configuration that git-cai is currently using, including all provider blocks,
+global settings, and any overrides from repository-level config files.
++
+This is useful for verifying which settings are in effect, especially when a
+repository config overrides the home config. Nested provider blocks (model,
+temperature) are displayed indented under their provider name.
++
+----
+git cai -l config
+----
++
+Example output:
++
+----
+Active configuration:
+
+  default: groq
+  language: en
+  style: professional
+  emoji: true
+  groq:
+    model: moonshotai/kimi-k2-instruct
+    temperature: 0
+  ...
+----
+
 editor::
-List supported and tested editors as default git editor. Most likely more editors will work.
+List supported and tested editors as default git editor. Most likely more
+editors will work. git-cai uses the same editor resolution as Git itself
+(`GIT_EDITOR`, `VISUAL`, `EDITOR` environment variables).
 
 language::
-List supported languages.
+List all 121 supported languages for commit message generation. Languages
+are displayed sorted alphabetically by their human-readable name, each
+followed by their language code. The language code is what you set in
+`cai_config.yml` under the `language` key.
++
+----
+git cai -l language
+----
++
+Example output (excerpt):
++
+----
+Available languages:
+  - English → en
+  - French → fr
+  - German → de
+  - Japanese → ja
+  - Klingon → tlh
+  ...
+----
+
+model::
+Show the default model for each supported provider. This displays the model
+name that git-cai uses out of the box if no custom model is configured.
+Models are listed alphabetically by provider name.
++
+Note: these are the built-in defaults. If you have overridden a model in
+your `cai_config.yml`, the override is not shown here. Use `--list config`
+to see the effective configuration including overrides.
++
+----
+git cai -l model
+----
++
+Example output:
++
+----
+Default models:
+
+  anthropic    → claude-haiku-4-5
+  deepseek     → deepseek-chat
+  gemini       → gemini-2.5-flash
+  groq         → moonshotai/kimi-k2-instruct
+  mistral      → codestral-2508
+  ollama       → llama3.1
+  openai       → gpt-5.2
+  xai          → grok-4-1-fast-reasoning
+----
+
+path::
+Show all resolved configuration file paths. This displays the locations
+of the config directory, home config file, tokens file, and whether a
+repository-specific config file is present. The active config source
+(repository or home) is shown at the bottom.
++
+This is particularly useful for debugging configuration issues or when
+you are unsure which config file git-cai is reading.
++
+----
+git cai -l path
+----
++
+Example output (no repo config):
++
+----
+Configuration file paths:
+
+  Config directory:      /home/user/.config/cai
+  Home config:           /home/user/.config/cai/cai_config.yml
+  Tokens file:           /home/user/.config/cai/tokens.yml
+  Repository config:     not found
+
+  Active config source:  home
+----
++
+Example output (with repo config):
++
+----
+Configuration file paths:
+
+  Config directory:      /home/user/.config/cai
+  Home config:           /home/user/.config/cai/cai_config.yml
+  Tokens file:           /home/user/.config/cai/tokens.yml
+  Repository config:     /home/user/project/cai_config.yml  (active)
+
+  Active config source:  repository
+----
+
+provider::
+List all supported LLM providers. Each provider is shown with its default
+model and whether an API token is required. Providers that do not require a
+token (currently only `ollama`) are marked accordingly.
++
+----
+git cai -l provider
+----
++
+Example output:
++
+----
+Supported providers:
+
+  anthropic    model: claude-haiku-4-5                    (token required)
+  deepseek     model: deepseek-chat                      (token required)
+  gemini       model: gemini-2.5-flash                   (token required)
+  groq         model: moonshotai/kimi-k2-instruct        (token required)
+  mistral      model: codestral-2508                     (token required)
+  ollama       model: llama3.1                           (no token required)
+  openai       model: gpt-5.2                            (token required)
+  xai          model: grok-4-1-fast-reasoning            (token required)
+----
 
 style::
-Show available commit message styles.
+Show available commit message styles with descriptions and examples. The
+style controls the tone of the generated commit message. Set the style in
+`cai_config.yml` or override it per invocation with `--set style=<name>`.
++
+Available styles: `academic`, `apologetic`, `excited`, `friendly`, `funny`,
+`neutral`, `none`, `professional` (default), `sarcastic`.
++
+The special style `none` omits the style instruction from the prompt
+entirely, letting the model choose its own tone.
++
+----
+git cai -l style
+----
 
 CONFIGURATION
 -------------
@@ -331,6 +536,7 @@ Available configuration keys:
 - `style` -- tone of the commit message (`professional`, `neutral`, `friendly`,
   `funny`, `excited`, `sarcastic`, `apologetic`, `academic`)
 - `emoji` -- enable or disable emojis in commit messages (`true`/`false`)
+- `branch_context` -- include current branch name as LLM context (`true`/`false`)
 - `conventional` -- use Conventional Commits format (`true`/`false`)
 - `load_tokens_from` -- path to the tokens file
 - `prompt_file` -- path to the commit prompt Markdown file
@@ -419,12 +625,38 @@ Squash all commits on the current branch into one (rewrites history):
 git cai -s
 ----
 
+Squash the last 3 commits:
+
+----
+git cai -s 3
+----
+
+Squash all commits down to and including a specific commit:
+
+----
+git cai -s a1b2c3d
+----
+
 Show supported styles, languages, or editors:
 
 ----
 git cai -l style
 git cai -l language
 git cai -l editor
+----
+
+Show supported providers and their default models:
+
+----
+git cai -l provider
+git cai -l model
+----
+
+Show the active configuration and file paths:
+
+----
+git cai -l config
+git cai -l path
 ----
 
 Override the provider for a single invocation:
@@ -452,6 +684,20 @@ Change a value in the home (default) config:
 ----
 git cai -H language=de
 git cai -H default=openai
+----
+
+Include branch name as context:
+
+----
+git cai -b
+git cai -b -C
+----
+
+Provide extra context for the commit message:
+
+----
+git cai -x "Fixes JIRA-1234"
+git cai -x "Refactored to reduce memory usage on large datasets"
 ----
 
 Measure generation time:

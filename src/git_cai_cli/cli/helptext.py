@@ -17,6 +17,7 @@ Usage:
 Flags:
   -A, --amend              Regenerate and amend the last commit message
   -a, --all                Stage all modified and deleted files that are already tracked by Git
+  -b, --branch             Include current branch name as context for the LLM
   -C, --conventional       Use Conventional Commits format (type(scope): description)
   -c, --crazy              Commit immediately without opening editor (trust LLM output)
   -d, --debug              Enable debug logging
@@ -24,15 +25,19 @@ Flags:
   -H, --set-home KEY=VALUE Set a config value in home config (~/.config/cai/)
   -h, --help               Show this help message or opens manual
   -i, --install-completion Install shell completion for git-cai
-  -l, --list               List information about available languages, styles, and editors
+  -l, --list               List information (e.g. languages, styles, providers, config)
   -m, --model NAME         Override model for this invocation (requires --provider)
   -P, --provider NAME      Override LLM provider for this invocation
   -p, --generate-prompts   Generate default commit_prompt.md and squash_prompt.md
   -S, --set KEY=VALUE      Set a config value in repo config (requires existing repo config)
-  -s, --squash             Squash commits on this branch and summarize them
+  -s, --squash [N|HASH]    Squash commits on this branch and summarize them
+                           No argument: squash all commits since branch checkout
+                           Number: squash the last N commits
+                           Hash: squash up to and including that commit
   -t, --time               Measure and log commit message generation time
   -u, --update             Check for updates
   -v, --version            Show installed version
+  -x, --context TEXT       Provide extra context for the LLM (e.g. ticket number, reason)
 
 Configuration:
   Tokens are loaded from {HOME}/.config/cai/tokens.yml

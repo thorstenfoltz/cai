@@ -53,6 +53,7 @@ def validate_options(
     provider_override: str | None = None,
     model_override: str | None = None,
     time_flag: bool = False,
+    context: str | None = None,
 ) -> None:
     """
     Validates the combination of command-line options provided by the user.
@@ -81,6 +82,13 @@ def validate_options(
     if time_flag and mode in (Mode.LIST, Mode.UPDATE):
         typer.echo(
             "Error: --time cannot be used with --list or --update.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if context and mode not in (Mode.COMMIT, Mode.AMEND):
+        typer.echo(
+            "Error: --context cannot be used with --list, --update, or --squash.",
             err=True,
         )
         raise typer.Exit(code=1)
