@@ -11,7 +11,7 @@ HARDCODED_COMMIT_PROMPT = (
     "from the provided git diff.\n"
     "\n"
     "Rules:\n"
-    "- Write a single headline in imperative mood (e.g. \"Add\", \"Fix\", \"Refactor\"), max 50 characters.\n"
+    '- Write a single headline in imperative mood (e.g. "Add", "Fix", "Refactor"), max 50 characters.\n'
     "- Below the headline, leave one blank line, then add a bullet-point list of the most important changes.\n"
     "- Each bullet should explain *what* changed and *why*, not repeat filenames or obvious details.\n"
     "- Group related changes into one bullet instead of listing every file separately.\n"
