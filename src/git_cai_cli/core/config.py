@@ -268,7 +268,15 @@ def load_config(
 
     try:
         with fallback_config_file.open("r", encoding="utf-8") as f:
-            config = cast(dict[str, Any], yaml.safe_load(f) or default_config)
+            raw = yaml.safe_load(f)
+        if not isinstance(raw, dict):
+            log.warning(
+                "Home config %s is not a YAML mapping, using defaults",
+                fallback_config_file,
+            )
+            config = default_config
+        else:
+            config = raw or default_config
         log.debug("Home config loaded successfully")
     except yaml.YAMLError:
         log.error("Failed to parse home config %s", fallback_config_file)

@@ -251,7 +251,10 @@ def squash_branch(
 
             result = commit_with_edit_template(msg)
             if result != 0:
-                log.info("Commit aborted — squash cancelled.")
+                log.info(
+                    "Commit aborted — squash cancelled. "
+                    "Note: staged changes were already committed."
+                )
                 return
 
         else:
@@ -314,35 +317,35 @@ def squash_branch(
             tf.flush()
             tf_name = Path(tf.name)
 
-        original_hash = sha256_of_file(tf_name)
+        try:
+            original_hash = sha256_of_file(tf_name)
 
-        editor = get_git_editor()
-        parts = shlex.split(editor)
-        if not shutil.which(parts[0]):
-            # This editor command requires shell interpretation
-            rc = subprocess.run(
-                f'{editor} "{tf_name}"',
-                shell=True,
-                check=False,  # nosemgrep
-            ).returncode  # nosec # nosemgrep
-        else:
-            rc = subprocess.run(parts + [str(tf_name)], check=False).returncode
+            editor = get_git_editor()
+            parts = shlex.split(editor)
+            if not shutil.which(parts[0]):
+                # This editor command requires shell interpretation
+                rc = subprocess.run(
+                    f'{editor} "{tf_name}"',
+                    shell=True,
+                    check=False,  # nosemgrep
+                ).returncode  # nosec # nosemgrep
+            else:
+                rc = subprocess.run(parts + [str(tf_name)], check=False).returncode
 
-        if rc != 0:
-            log.info("Editor exited non-zero — squash cancelled.")
+            if rc != 0:
+                log.info("Editor exited non-zero — squash cancelled.")
+                return
+
+            new_hash = sha256_of_file(tf_name)
+
+            if new_hash == original_hash:
+                log.info("Squash cancelled (user did not save message).")
+                return
+
+            # User saved → read message into final_message
+            final_message = tf_name.read_text(encoding="utf-8").strip()
+        finally:
             tf_name.unlink(missing_ok=True)
-            return
-
-        new_hash = sha256_of_file(tf_name)
-
-        if new_hash == original_hash:
-            log.info("Squash cancelled (user did not save message).")
-            tf_name.unlink(missing_ok=True)
-            return
-
-        # User saved → read message into final_message
-        final_message = tf_name.read_text(encoding="utf-8").strip()
-        tf_name.unlink(missing_ok=True)
 
         # 5) Perform squash
         subprocess.run(["git", "reset", "--soft", merge_base], check=True)

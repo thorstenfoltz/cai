@@ -425,15 +425,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usage", {})
-            self._log_token_usage(
-                "anthropic",
-                usage.get("input_tokens"),
-                usage.get("output_tokens"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("anthropic", None, None)
+        usage = data.get("usage") or {}
+        self._log_token_usage(
+            "anthropic",
+            usage.get("input_tokens"),
+            usage.get("output_tokens"),
+        )
 
         return data["content"][0]["text"].strip()
 
@@ -495,15 +492,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usageMetadata", {})
-            self._log_token_usage(
-                "gemini",
-                usage.get("promptTokenCount"),
-                usage.get("candidatesTokenCount"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("gemini", None, None)
+        usage = data.get("usageMetadata") or {}
+        self._log_token_usage(
+            "gemini",
+            usage.get("promptTokenCount"),
+            usage.get("candidatesTokenCount"),
+        )
 
         return data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
@@ -556,15 +550,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usage", {})
-            self._log_token_usage(
-                "groq",
-                usage.get("prompt_tokens"),
-                usage.get("completion_tokens"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("groq", None, None)
+        usage = data.get("usage") or {}
+        self._log_token_usage(
+            "groq",
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+        )
 
         return data["choices"][0]["message"]["content"].strip()
 
@@ -615,15 +606,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usage", {})
-            self._log_token_usage(
-                "mistral",
-                usage.get("prompt_tokens"),
-                usage.get("completion_tokens"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("mistral", None, None)
+        usage = data.get("usage") or {}
+        self._log_token_usage(
+            "mistral",
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+        )
 
         return data["choices"][0]["message"]["content"].strip()
 
@@ -783,14 +771,11 @@ class CommitMessageGenerator:
         data = response.json()
 
         # Extract token usage from Ollama response
-        try:
-            self._log_token_usage(
-                "ollama",
-                data.get("prompt_eval_count") if isinstance(data, dict) else None,
-                data.get("eval_count") if isinstance(data, dict) else None,
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("ollama", None, None)
+        self._log_token_usage(
+            "ollama",
+            data.get("prompt_eval_count") if isinstance(data, dict) else None,
+            data.get("eval_count") if isinstance(data, dict) else None,
+        )
 
         # /api/chat format
         if isinstance(data, dict) and isinstance(data.get("message"), dict):
@@ -850,15 +835,12 @@ class CommitMessageGenerator:
             stream=False,
         )
 
-        try:
-            usage = completion.usage
-            self._log_token_usage(
-                provider_name,
-                getattr(usage, "prompt_tokens", None),
-                getattr(usage, "completion_tokens", None),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage(provider_name, None, None)
+        usage = completion.usage
+        self._log_token_usage(
+            provider_name,
+            getattr(usage, "prompt_tokens", None),
+            getattr(usage, "completion_tokens", None),
+        )
 
         return completion.choices[0].message.content.strip()
 
@@ -908,15 +890,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usage", {})
-            self._log_token_usage(
-                "xai",
-                usage.get("prompt_tokens"),
-                usage.get("completion_tokens"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("xai", None, None)
+        usage = data.get("usage") or {}
+        self._log_token_usage(
+            "xai",
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+        )
 
         return data["choices"][0]["message"]["content"].strip()
 
