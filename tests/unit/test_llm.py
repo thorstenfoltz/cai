@@ -60,7 +60,8 @@ def test_emoji_enabled(generator):
     Test that the _emoji_instruction method returns the correct string when emojis are enabled
     """
     assert (
-        "Use relevant emojis in the commit message where appropriate. Emojis should enhance the clarity and tone of the message."
+        "Use relevant emojis at the start of the headline and in bullet points "
+        "where they add clarity. Keep emojis purposeful — one per bullet at most."
         in generator._emoji_instruction()
     )
 
@@ -937,7 +938,7 @@ def test_generate_appends_context_to_diff(generator):
     call_args = mock.call_args
     content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
     assert "diff output" in content
-    assert "Additional context:" in content
+    assert "Additional context from the author" in content
     assert "Fixes JIRA-1234" in content
 
 

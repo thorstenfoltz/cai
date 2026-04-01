@@ -84,6 +84,10 @@ def test_aborts_on_unstaged_changes(mock_repo_root) -> None:
                 "file.py",  # unstaged
             ],
         ),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
     ):
         squash_branch()
 

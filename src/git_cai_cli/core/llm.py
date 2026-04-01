@@ -164,7 +164,10 @@ class CommitMessageGenerator:
 
         content = git_diff
         if context:
-            content = f"{git_diff}\n\nAdditional context:\n{context}"
+            content = (
+                f"{git_diff}\n\n"
+                f"--- Additional context from the author ---\n{context}"
+            )
 
         return self._dispatch_generate(content=content, system_prompt=prompt)
 
@@ -192,8 +195,8 @@ class CommitMessageGenerator:
 
         if emoji_value:
             emoji_instruction = (
-                "Use relevant emojis in the commit message where appropriate. "
-                "Emojis should enhance the clarity and tone of the message."
+                "Use relevant emojis at the start of the headline and in bullet points "
+                "where they add clarity. Keep emojis purposeful — one per bullet at most."
             )
             log.info("Emojis are enabled for commit messages.")
         else:
@@ -236,7 +239,7 @@ class CommitMessageGenerator:
             log.info("Style setting is 'none' — no style instruction added to prompt.")
             return ""
 
-        return f"Write the commit message in the following tone style: {style}."
+        return f"Write the commit message in the following tone style: {style}. Apply this tone to both the headline and the bullet points."
 
     def _conventional_instruction(self) -> str:
         """
@@ -248,12 +251,12 @@ class CommitMessageGenerator:
         log.info("Conventional Commits format enabled.")
         return (
             "Follow the Conventional Commits specification. "
-            "The commit message MUST be structured as: <type>(<optional scope>): <description>. "
+            "The headline MUST be structured as: <type>(<optional scope>): <description>. "
             "Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert. "
             "The scope is optional and describes the section of the codebase affected. "
             "Use a '!' after the type/scope for breaking changes (e.g., 'feat!: ...' or 'feat(api)!: ...'). "
-            "The description must be a concise summary in imperative mood. "
-            "Additional details can follow as bullet points in the body."
+            "The description must be a concise summary in imperative mood, lowercase, no trailing period. "
+            "Additional details follow as bullet points in the body after a blank line."
         )
 
     def _branch_instruction(self) -> str:
@@ -270,8 +273,8 @@ class CommitMessageGenerator:
         log.info("Branch context enabled: '%s'.", branch_name)
         return (
             f"The current Git branch is '{branch_name}'. "
-            "Use the branch name as additional context to better understand "
-            "the intent and scope of the changes."
+            "Use the branch name as additional context to infer the intent "
+            "and scope of the changes — but do not include the branch name in the message."
         )
 
     def _config_instructions(self) -> str:
@@ -422,15 +425,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usage", {})
-            self._log_token_usage(
-                "anthropic",
-                usage.get("input_tokens"),
-                usage.get("output_tokens"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("anthropic", None, None)
+        usage = data.get("usage") or {}
+        self._log_token_usage(
+            "anthropic",
+            usage.get("input_tokens"),
+            usage.get("output_tokens"),
+        )
 
         return data["content"][0]["text"].strip()
 
@@ -492,15 +492,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usageMetadata", {})
-            self._log_token_usage(
-                "gemini",
-                usage.get("promptTokenCount"),
-                usage.get("candidatesTokenCount"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("gemini", None, None)
+        usage = data.get("usageMetadata") or {}
+        self._log_token_usage(
+            "gemini",
+            usage.get("promptTokenCount"),
+            usage.get("candidatesTokenCount"),
+        )
 
         return data["candidates"][0]["content"]["parts"][0]["text"].strip()
 
@@ -553,15 +550,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usage", {})
-            self._log_token_usage(
-                "groq",
-                usage.get("prompt_tokens"),
-                usage.get("completion_tokens"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("groq", None, None)
+        usage = data.get("usage") or {}
+        self._log_token_usage(
+            "groq",
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+        )
 
         return data["choices"][0]["message"]["content"].strip()
 
@@ -612,15 +606,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usage", {})
-            self._log_token_usage(
-                "mistral",
-                usage.get("prompt_tokens"),
-                usage.get("completion_tokens"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("mistral", None, None)
+        usage = data.get("usage") or {}
+        self._log_token_usage(
+            "mistral",
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+        )
 
         return data["choices"][0]["message"]["content"].strip()
 
@@ -780,14 +771,11 @@ class CommitMessageGenerator:
         data = response.json()
 
         # Extract token usage from Ollama response
-        try:
-            self._log_token_usage(
-                "ollama",
-                data.get("prompt_eval_count") if isinstance(data, dict) else None,
-                data.get("eval_count") if isinstance(data, dict) else None,
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("ollama", None, None)
+        self._log_token_usage(
+            "ollama",
+            data.get("prompt_eval_count") if isinstance(data, dict) else None,
+            data.get("eval_count") if isinstance(data, dict) else None,
+        )
 
         # /api/chat format
         if isinstance(data, dict) and isinstance(data.get("message"), dict):
@@ -847,15 +835,12 @@ class CommitMessageGenerator:
             stream=False,
         )
 
-        try:
-            usage = completion.usage
-            self._log_token_usage(
-                provider_name,
-                getattr(usage, "prompt_tokens", None),
-                getattr(usage, "completion_tokens", None),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage(provider_name, None, None)
+        usage = completion.usage
+        self._log_token_usage(
+            provider_name,
+            getattr(usage, "prompt_tokens", None),
+            getattr(usage, "completion_tokens", None),
+        )
 
         return completion.choices[0].message.content.strip()
 
@@ -905,15 +890,12 @@ class CommitMessageGenerator:
 
         data = response.json()
 
-        try:
-            usage = data.get("usage", {})
-            self._log_token_usage(
-                "xai",
-                usage.get("prompt_tokens"),
-                usage.get("completion_tokens"),
-            )
-        except (KeyError, TypeError, AttributeError):
-            self._log_token_usage("xai", None, None)
+        usage = data.get("usage") or {}
+        self._log_token_usage(
+            "xai",
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+        )
 
         return data["choices"][0]["message"]["content"].strip()
 

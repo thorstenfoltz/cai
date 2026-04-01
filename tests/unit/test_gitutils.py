@@ -219,7 +219,7 @@ def test_get_git_editor_falls_back_to_env():
     get_git_editor() should fall back to environment variables if git var fails.
     """
     with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "cmd")):
-        with patch.dict(os.environ, {"EDITOR": "nano"}):
+        with patch.dict(os.environ, {"EDITOR": "nano"}, clear=True):
             assert get_git_editor() == "nano"
 
 
