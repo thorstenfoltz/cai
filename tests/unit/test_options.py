@@ -392,3 +392,90 @@ def test_generate_prompts_here_creates_files(tmp_path, monkeypatch):
 
     assert (tmp_path / "commit_prompt.md").is_file()
     assert (tmp_path / "squash_prompt.md").is_file()
+    assert (tmp_path / "full_files_prompt.md").is_file()
+
+
+# ---------------------------------------------------------------------------
+# handle_list dispatcher
+# ---------------------------------------------------------------------------
+
+
+def test_handle_list_none_prints_overview(capsys):
+    manager = CliManager()
+    manager.handle_list(None)
+    out = capsys.readouterr().out
+    assert "Available list options:" in out
+
+
+def test_handle_list_editor(capsys):
+    manager = CliManager()
+    manager.handle_list("editor")
+    out = capsys.readouterr().out
+    assert "Vim" in out
+
+
+def test_handle_list_language(capsys):
+    manager = CliManager()
+    manager.handle_list("language")
+    out = capsys.readouterr().out
+    assert "Available languages:" in out
+
+
+def test_handle_list_model(capsys):
+    manager = CliManager()
+    manager.handle_list("model")
+    out = capsys.readouterr().out
+    assert "Default models:" in out
+
+
+def test_handle_list_provider(capsys):
+    manager = CliManager()
+    manager.handle_list("provider")
+    out = capsys.readouterr().out
+    assert "Supported providers:" in out
+
+
+def test_handle_list_style(capsys):
+    manager = CliManager()
+    manager.handle_list("style")
+    out = capsys.readouterr().out
+    assert "Professional" in out
+    assert "Example:" in out
+
+
+def test_handle_list_path(capsys, monkeypatch):
+    monkeypatch.setattr("git_cai_cli.core.options._find_repo_config", lambda: None)
+    manager = CliManager()
+    manager.handle_list("path")
+    out = capsys.readouterr().out
+    assert "Configuration file paths:" in out
+
+
+def test_handle_list_config(capsys, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "git_cai_cli.core.options.load_config",
+        lambda: {"default": "openai", "language": "en"},
+    )
+    manager = CliManager()
+    manager.handle_list("config")
+    out = capsys.readouterr().out
+    assert "Active configuration:" in out
+    assert "default: openai" in out
+
+
+def test_handle_list_uppercase_is_accepted(capsys):
+    manager = CliManager()
+    manager.handle_list("EDITOR")
+    out = capsys.readouterr().out
+    assert "Vim" in out
+
+
+def test_handle_list_unknown_raises_and_writes_stderr(capsys):
+    import typer as typer_module
+
+    manager = CliManager()
+    with pytest.raises(typer_module.Exit) as exc:
+        manager.handle_list("nonsense")
+    assert exc.value.exit_code == 1
+    err = capsys.readouterr().err
+    assert "unknown list option 'nonsense'" in err

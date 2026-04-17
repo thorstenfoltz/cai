@@ -11,7 +11,9 @@ SYNOPSIS
 --------
 [verse]
 `git cai` [-A | --amend] [-a | --all] [-C | --conventional]
-        [-b | --branch] [-c | --crazy] [-d | --debug] [-g | --generate-config]
+        [-b | --branch] [-c | --crazy] [-d | --debug]
+        [-F | --full-files] [-f PATH | --files PATH]
+        [-g | --generate-config]
         [-H KEY=VALUE | --set-home KEY=VALUE] [-h | --help]
         [-i | --install-completion]
         [-l [config|editor|language|model|path|provider|style] |
@@ -19,7 +21,9 @@ SYNOPSIS
         [-m MODEL | --model MODEL]
         [-P PROVIDER | --provider PROVIDER] [-p | --generate-prompts]
         [-S KEY=VALUE | --set KEY=VALUE]
-        [-s [N|HASH] | --squash [N|HASH]] [-t | --time] [-u | --update] [-v | --version]
+        [-s [N|HASH] | --squash [N|HASH]]
+        [-T SECONDS | --timeout SECONDS]
+        [-t | --time] [-u | --update] [-v | --version]
         [-x CONTEXT | --context CONTEXT]
 
 
@@ -152,6 +156,51 @@ Cannot be combined with `--help` or `--version`.
 +
 ----
 git cai -d
+----
+
+-F, --full-files::
+Send the full working-tree contents of every staged file alongside the diff.
+By default, git-cai sends only the staged diff to the LLM. With `-F`, the
+diff is followed by a block of the form:
++
+----
+--- File: path/to/file.py ---
+<full contents>
+----
++
+for each staged text file. This produces higher-quality commit messages for
+large or context-dependent changes, at the cost of more input tokens. Binary
+files and files matching `.caiignore` are skipped.
++
+The flag applies for the current invocation only. To enable it permanently,
+set `full_files: true` in `cai_config.yml` or run:
++
+----
+git cai -S full_files=true
+----
++
+Can be combined with `-f` to scope the content dump to specific files.
++
+----
+git cai -F
+git cai -F -f src/foo.py
+----
+
+-f, --files PATH::
+Restrict the diff (and full-file content, if `-F` is on) to the given path.
+Repeat the flag to pass multiple paths. `.caiignore` patterns still apply on
+top of the whitelist.
++
+Useful when a working tree contains unrelated staged changes and the commit
+should focus on a subset of them, or when you want the LLM to concentrate
+on a specific file.
++
+Cannot be used with `--list`, `--update`, or `--squash`.
++
+----
+git cai -f src/foo.py
+git cai -f src/foo.py -f tests/test_foo.py
+git cai -F -f src/foo.py
 ----
 
 -g, --generate-config::
@@ -292,6 +341,32 @@ git-cai will prompt before executing the force push.
 git cai -s
 git cai -s 3
 git cai -s a1b2c3d
+----
+
+-T, --timeout SECONDS::
+Override the HTTP timeout for the LLM call in this invocation. The default
+is 30 seconds for remote providers and 300 seconds for Ollama (since local
+generation can be significantly slower). The override applies uniformly to
+whichever provider is selected for this run.
++
+To change the default permanently, set `timeout: <seconds>` in
+`cai_config.yml` or the home config:
++
+----
+git cai -H timeout=60
+git cai -S timeout=45
+----
++
+Ollama keeps its own timeout under `ollama.timeout` (default 300). Override
+it separately:
++
+----
+git cai -H ollama.timeout=600
+----
++
+----
+git cai -T 60
+git cai -T 120 -P anthropic
 ----
 
 -t, --time::
@@ -543,8 +618,15 @@ Available configuration keys:
 - `squash_prompt_file` -- path to the squash prompt Markdown file
 - `token_logging` -- log token usage after each LLM call (`true`/`false`)
 - `measure_time` -- log generation time (`true`/`false`)
+- `timeout` -- HTTP timeout in seconds for remote LLM calls (default `30`)
+- `full_files` -- send full working-tree contents of staged files alongside
+  the diff (`true`/`false`, default `false`)
 - `<provider>.model` -- model name for a specific provider
 - `<provider>.temperature` -- temperature for a specific provider
+- `anthropic.max_tokens` -- upper bound on Anthropic response tokens
+  (default `32768`)
+- `ollama.timeout` -- HTTP timeout in seconds for Ollama generation calls
+  (default `300`; overrides the global `timeout` for this provider only)
 
 FILES
 -----
@@ -704,6 +786,27 @@ Measure generation time:
 
 ----
 git cai -t
+----
+
+Send full file contents in addition to the diff:
+
+----
+git cai -F
+git cai -F -f src/foo.py
+----
+
+Limit generation to specific files:
+
+----
+git cai -f src/foo.py
+git cai -f src/foo.py -f tests/test_foo.py
+----
+
+Override the HTTP timeout for a single run:
+
+----
+git cai -T 60
+git cai -T 120 -P anthropic
 ----
 
 Install shell completion:

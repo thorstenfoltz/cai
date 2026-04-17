@@ -5,11 +5,11 @@ Core manager for CLI utilities.
 import logging
 import re
 import subprocess
-from importlib import resources
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import requests
+import typer
 import yaml
 from git_cai_cli.core.config import (
     CONFIG_DIR,
@@ -181,40 +181,75 @@ class CliManager:
         log.info("Default configuration written to %s", path)
 
     def generate_prompts_here(self) -> None:
-        """Generate default prompt files in the current working directory."""
-        commit_path = Path.cwd() / "commit_prompt.md"
-        squash_path = Path.cwd() / "squash_prompt.md"
+        """Generate default prompt files in the current working directory.
 
-        for p in (commit_path, squash_path):
-            if p.exists():
-                raise RuntimeError(f"{p.name} already exists in this directory.")
+        Prompt bodies come directly from the hardcoded fallback strings in
+        `prompts_fallback.py` — the single source of truth for prompt text.
+        """
+        from git_cai_cli.core.prompts_fallback import (
+            HARDCODED_COMMIT_PROMPT,
+            HARDCODED_FULL_FILES_PROMPT,
+            HARDCODED_SQUASH_PROMPT,
+        )
 
-        def _read_default(name: str) -> str:
-            try:
-                defaults_pkg = resources.files("git_cai_cli.defaults")
-                default_file = defaults_pkg / name
-                if default_file.is_file():  # type: ignore[union-attr]
-                    return default_file.read_text(encoding="utf-8")  # type: ignore[union-attr]
-            except (TypeError, FileNotFoundError, ModuleNotFoundError):
-                pass
+        cwd = Path.cwd()
+        targets = (
+            (cwd / "commit_prompt.md", HARDCODED_COMMIT_PROMPT, "commit"),
+            (cwd / "squash_prompt.md", HARDCODED_SQUASH_PROMPT, "squash"),
+            (cwd / "full_files_prompt.md", HARDCODED_FULL_FILES_PROMPT, "full-files"),
+        )
 
-            # last resort: hardcoded fallback strings
-            from git_cai_cli.core.prompts_fallback import (
-                HARDCODED_COMMIT_PROMPT,
-                HARDCODED_SQUASH_PROMPT,
-            )
+        for path, _body, _label in targets:
+            if path.exists():
+                raise RuntimeError(f"{path.name} already exists in this directory.")
 
-            return (
-                HARDCODED_COMMIT_PROMPT
-                if name == "commit_prompt.md"
-                else HARDCODED_SQUASH_PROMPT
-            )
+        for path, body, label in targets:
+            path.write_text(body, encoding="utf-8")
+            log.info("Default %s prompt written to %s", label, path)
 
-        commit_path.write_text(_read_default("commit_prompt.md"), encoding="utf-8")
-        squash_path.write_text(_read_default("squash_prompt.md"), encoding="utf-8")
+    def handle_list(self, list_arg: str | None) -> None:
+        """Dispatch the `--list` subcommand to the right listing method.
 
-        log.info("Default commit prompt written to %s", commit_path)
-        log.info("Default squash prompt written to %s", squash_path)
+        With no argument, prints the overview. With a known argument,
+        prints the corresponding information. Unknown arguments raise
+        `typer.Exit(1)` after printing an error to stderr.
+        """
+        if list_arg is None:
+            typer.echo(self.list())
+            return
+
+        option = list_arg.lower()
+        if option == "config":
+            typer.echo(self.list_config())
+            return
+        if option == "editor":
+            for editor in self.editor_list():
+                typer.echo(editor)
+            return
+        if option == "language":
+            typer.echo(self.print_available_languages())
+            return
+        if option == "model":
+            typer.echo(self.list_models())
+            return
+        if option == "path":
+            typer.echo(self.list_paths())
+            return
+        if option == "provider":
+            typer.echo(self.list_providers())
+            return
+        if option == "style":
+            for name, details in self.styles().items():
+                typer.echo(f"{name.capitalize()}: {details['description']}")
+                typer.echo(f"  Example: {details['example']}\n")
+            return
+
+        typer.echo(
+            f"Error: unknown list option '{list_arg}'. "
+            "Valid values are 'config', 'editor', 'language', 'model', 'path', 'provider', or 'style'.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
     def list(self) -> str:
         """

@@ -5,6 +5,7 @@ Unit tests for provider override logic in git_cai_cli.core.config.
 import pytest
 import typer
 from git_cai_cli.core.config import KNOWN_PROVIDERS, apply_provider_overrides
+from git_cai_cli.main import _relpaths_from_repo
 
 # ------------------------------------------
 # Tests for apply_provider_overrides
@@ -96,6 +97,27 @@ def test_provider_override_creates_block_for_missing_provider():
     assert config["default"] == "openai"
     assert config["openai"]["model"] == "gpt-4o"
     assert config["openai"]["temperature"] == 0
+
+
+def test_relpaths_from_repo_strips_absolute_prefix(tmp_path):
+    """Absolute paths inside the repo are rewritten to repo-relative form."""
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "foo.py").write_text("x", encoding="utf-8")
+
+    rels = _relpaths_from_repo(tmp_path, [str(tmp_path / "src" / "foo.py")])
+    assert rels == ["src/foo.py"]
+
+
+def test_relpaths_from_repo_leaves_relative_paths_untouched(tmp_path):
+    rels = _relpaths_from_repo(tmp_path, ["src/foo.py", "bar.txt"])
+    assert rels == ["src/foo.py", "bar.txt"]
+
+
+def test_relpaths_from_repo_keeps_paths_outside_repo(tmp_path):
+    """Absolute paths outside the repo are left as-is rather than erroring."""
+    outside = tmp_path.parent / "other" / "thing.py"
+    rels = _relpaths_from_repo(tmp_path, [str(outside)])
+    assert rels == [str(outside)]
 
 
 def test_known_providers_set_is_complete():

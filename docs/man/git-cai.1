@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-03-27
+.\"      Date: 2026-04-17
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-03-27" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-04-17" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -33,7 +33,9 @@ git-cai \- AI\-powered commit message generator
 .sp
 .nf
 \f(CRgit cai\fP [\-A | \-\-amend] [\-a | \-\-all] [\-C | \-\-conventional]
-        [\-b | \-\-branch] [\-c | \-\-crazy] [\-d | \-\-debug] [\-g | \-\-generate\-config]
+        [\-b | \-\-branch] [\-c | \-\-crazy] [\-d | \-\-debug]
+        [\-F | \-\-full\-files] [\-f PATH | \-\-files PATH]
+        [\-g | \-\-generate\-config]
         [\-H KEY=VALUE | \-\-set\-home KEY=VALUE] [\-h | \-\-help]
         [\-i | \-\-install\-completion]
         [\-l [config|editor|language|model|path|provider|style] |
@@ -41,7 +43,9 @@ git-cai \- AI\-powered commit message generator
         [\-m MODEL | \-\-model MODEL]
         [\-P PROVIDER | \-\-provider PROVIDER] [\-p | \-\-generate\-prompts]
         [\-S KEY=VALUE | \-\-set KEY=VALUE]
-        [\-s [N|HASH] | \-\-squash [N|HASH]] [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
+        [\-s [N|HASH] | \-\-squash [N|HASH]]
+        [\-T SECONDS | \-\-timeout SECONDS]
+        [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
         [\-x CONTEXT | \-\-context CONTEXT]
 .fi
 .br
@@ -314,6 +318,71 @@ git cai \-d
 .if n .RE
 .RE
 .sp
+\-F, \-\-full\-files
+.RS 4
+Send the full working\-tree contents of every staged file alongside the diff.
+By default, git\-cai sends only the staged diff to the LLM. With \f(CR\-F\fP, the
+diff is followed by a block of the form:
+.sp
+.if n .RS 4
+.nf
+.fam C
+\-\-\- File: path/to/file.py \-\-\-
+<full contents>
+.fam
+.fi
+.if n .RE
+.sp
+for each staged text file. This produces higher\-quality commit messages for
+large or context\-dependent changes, at the cost of more input tokens. Binary
+files and files matching \f(CR.caiignore\fP are skipped.
+.sp
+The flag applies for the current invocation only. To enable it permanently,
+set \f(CRfull_files: true\fP in \f(CRcai_config.yml\fP or run:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-S full_files=true
+.fam
+.fi
+.if n .RE
+.sp
+Can be combined with \f(CR\-f\fP to scope the content dump to specific files.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-F
+git cai \-F \-f src/foo.py
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-f, \-\-files PATH
+.RS 4
+Restrict the diff (and full\-file content, if \f(CR\-F\fP is on) to the given path.
+Repeat the flag to pass multiple paths. \f(CR.caiignore\fP patterns still apply on
+top of the whitelist.
+.sp
+Useful when a working tree contains unrelated staged changes and the commit
+should focus on a subset of them, or when you want the LLM to concentrate
+on a specific file.
+.sp
+Cannot be used with \f(CR\-\-list\fP, \f(CR\-\-update\fP, or \f(CR\-\-squash\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-f src/foo.py
+git cai \-f src/foo.py \-f tests/test_foo.py
+git cai \-F \-f src/foo.py
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-g, \-\-generate\-config
 .RS 4
 Write the default \f(CRcai_config.yml\fP into the current directory. This is a
@@ -505,6 +574,46 @@ git\-cai will prompt before executing the force push.
 git cai \-s
 git cai \-s 3
 git cai \-s a1b2c3d
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-T, \-\-timeout SECONDS
+.RS 4
+Override the HTTP timeout for the LLM call in this invocation. The default
+is 30 seconds for remote providers and 300 seconds for Ollama (since local
+generation can be significantly slower). The override applies uniformly to
+whichever provider is selected for this run.
+.sp
+To change the default permanently, set \f(CRtimeout: <seconds>\fP in
+\f(CRcai_config.yml\fP or the home config:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-H timeout=60
+git cai \-S timeout=45
+.fam
+.fi
+.if n .RE
+.sp
+Ollama keeps its own timeout under \f(CRollama.timeout\fP (default 300). Override
+it separately:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-H ollama.timeout=600
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-T 60
+git cai \-T 120 \-P anthropic
 .fam
 .fi
 .if n .RE
@@ -998,6 +1107,29 @@ Available configuration keys:
 .  sp -1
 .  IP \(bu 2.3
 .\}
+\f(CRtimeout\fP \(em HTTP timeout in seconds for remote LLM calls (default \f(CR30\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRfull_files\fP \(em send full working\-tree contents of staged files alongside
+the diff (\f(CRtrue\fP/\f(CRfalse\fP, default \f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
 \f(CR<provider>.model\fP \(em model name for a specific provider
 .RE
 .sp
@@ -1010,6 +1142,30 @@ Available configuration keys:
 .  IP \(bu 2.3
 .\}
 \f(CR<provider>.temperature\fP \(em temperature for a specific provider
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRanthropic.max_tokens\fP \(em upper bound on Anthropic response tokens
+(default \f(CR32768\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRollama.timeout\fP \(em HTTP timeout in seconds for Ollama generation calls
+(default \f(CR300\fP; overrides the global \f(CRtimeout\fP for this provider only)
 .RE
 .SH "FILES"
 .sp
@@ -1270,6 +1426,39 @@ Measure generation time:
 .nf
 .fam C
 git cai \-t
+.fam
+.fi
+.if n .RE
+.sp
+Send full file contents in addition to the diff:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-F
+git cai \-F \-f src/foo.py
+.fam
+.fi
+.if n .RE
+.sp
+Limit generation to specific files:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-f src/foo.py
+git cai \-f src/foo.py \-f tests/test_foo.py
+.fam
+.fi
+.if n .RE
+.sp
+Override the HTTP timeout for a single run:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-T 60
+git cai \-T 120 \-P anthropic
 .fam
 .fi
 .if n .RE

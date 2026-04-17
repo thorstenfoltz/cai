@@ -23,6 +23,24 @@ def configure_logging(debug: bool) -> None:
     )
 
 
+def _relpaths_from_repo(repo_root: Path, paths: list[str]) -> list[str]:
+    """Return paths expressed relative to the repository root.
+
+    Absolute paths inside the repo are rewritten to repo-relative form; paths
+    already relative (or living outside the repo) are returned unchanged.
+    """
+    rels: list[str] = []
+    for raw in paths:
+        p = Path(raw)
+        if p.is_absolute():
+            try:
+                p = p.resolve().relative_to(repo_root.resolve())
+            except ValueError:
+                pass
+        rels.append(str(p))
+    return rels
+
+
 def ensure_git_alias() -> None:
     """
     Ensures that the script is invoked as a Git alias (i.e., 'git cai')
@@ -46,6 +64,9 @@ def run(
     model_override: str | None = None,
     time_flag: bool = False,
     context: str | None = None,
+    timeout_override: int | None = None,
+    full_files_override: bool = False,
+    files_override: list[str] | None = None,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -57,11 +78,13 @@ def run(
     # Lazy imports
     from git_cai_cli.core.config import (
         TOKENLESS_PROVIDERS,
+        apply_cli_overrides,
         apply_provider_overrides,
         load_config,
         load_token,
     )
     from git_cai_cli.core.gitutils import (
+        collect_staged_file_contents,
         commit_with_edit_template,
         find_git_root,
         get_last_commit_diff,
@@ -79,42 +102,8 @@ def run(
         manager.stage_tracked_files()
 
     if mode is Mode.LIST:
-        if list_arg is None:
-            typer.echo(manager.list())
-            return
-
-        option = list_arg.lower()
-        if option == "config":
-            typer.echo(manager.list_config())
-            return
-        if option == "editor":
-            for editor in manager.editor_list():
-                typer.echo(editor)
-            return
-        if option == "language":
-            typer.echo(manager.print_available_languages())
-            return
-        if option == "model":
-            typer.echo(manager.list_models())
-            return
-        if option == "path":
-            typer.echo(manager.list_paths())
-            return
-        if option == "provider":
-            typer.echo(manager.list_providers())
-            return
-        if option == "style":
-            for name, details in manager.styles().items():
-                typer.echo(f"{name.capitalize()}: {details['description']}")
-                typer.echo(f"  Example: {details['example']}\n")
-            return
-
-        typer.echo(
-            f"Error: unknown list option '{list_arg}'. "
-            "Valid values are 'config', 'editor', 'language', 'model', 'path', 'provider', or 'style'.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
+        manager.handle_list(list_arg)
+        return
 
     if mode is Mode.SQUASH:
         manager.squash_branch(
@@ -139,12 +128,13 @@ def run(
 
     config = load_config()
     apply_provider_overrides(config, provider_override, model_override)
-
-    if conventional:
-        config["conventional"] = True
-
-    if branch_context:
-        config["branch_context"] = True
+    apply_cli_overrides(
+        config,
+        conventional=conventional,
+        branch_context=branch_context,
+        timeout_override=timeout_override,
+        full_files_override=full_files_override,
+    )
 
     if config.get("branch_context", False):
         from git_cai_cli.core.gitutils import get_current_branch
@@ -162,10 +152,24 @@ def run(
             log.error("No previous commit found or commit has no diff.")
             raise typer.Exit(code=1)
     else:
-        diff = git_diff_excluding(repo_root)
+        if files_override:
+            log.info(
+                "Restricting diff to files (-f/--files): %s",
+                ", ".join(_relpaths_from_repo(repo_root, files_override)),
+            )
+        diff = git_diff_excluding(repo_root, files=files_override)
         if not diff.strip():
             log.info("No changes to commit. Did you run 'git add'?")
             raise typer.Exit()
+
+        if config.get("full_files", False):
+            log.info(
+                "Full file contents enabled (-F/--full-files) — "
+                "attaching complete file bodies alongside the diff."
+            )
+            file_dump = collect_staged_file_contents(repo_root, files=files_override)
+            if file_dump:
+                diff = f"{diff}\n\n--- Full file contents ---\n{file_dump}"
 
     measure = time_flag or config.get("measure_time", False)
     start = time.perf_counter() if measure else None

@@ -66,3 +66,37 @@ def test_cli_integration(temp_git_repo, monkeypatch):
         assert git_head.returncode != 0  # no commits exist
     finally:
         os.chdir(old_cwd)
+
+
+def test_new_flags_reach_run(temp_git_repo, monkeypatch):
+    """-T / -F / -f together flow through to run() with correct values."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    old_cwd = os.getcwd()
+    os.chdir(temp_git_repo)
+    try:
+        result = runner.invoke(
+            cli.app,
+            ["-T", "75", "-F", "-f", "file.txt", "-f", "other.txt"],
+        )
+        assert result.exit_code == 0, result.output
+        assert captured["timeout_override"] == 75
+        assert captured["full_files_override"] is True
+        assert captured["files_override"] == ["file.txt", "other.txt"]
+    finally:
+        os.chdir(old_cwd)
+
+
+def test_help_text_lists_new_flags():
+    """--help must advertise the three new flags."""
+    result = runner.invoke(cli.app, ["--help"])
+    assert result.exit_code == 0
+    assert "--timeout" in result.output
+    assert "--full-files" in result.output
+    assert "--files" in result.output

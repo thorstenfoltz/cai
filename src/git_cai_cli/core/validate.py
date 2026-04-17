@@ -30,8 +30,11 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
         "load_tokens_from",
         "prompt_file",
         "squash_prompt_file",
+        "full_files_prompt_file",
         "token_logging",
         "measure_time",
+        "timeout",
+        "full_files",
     }
     allowed_provider_keys = set(reference.keys()) - allowed_global_keys
 
@@ -176,6 +179,9 @@ def _validate_llm_call(
             )
             raise ValueError(
                 "API token is invalid or not authorized. Please check your API key."
+                "If error 400, 401, or 403 is mentioned, it often indicates an authentication issue."
+                "Sometimes waiting a Mintute and trying again can resolve transient issues, especially with new API keys."
+                "If the problem persists, please verify your API key and its permissions."
             ) from None
 
         log.exception("Unexpected error during LLM execution.")

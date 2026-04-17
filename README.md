@@ -46,19 +46,18 @@ Currently supported providers:
 - Generates meaningful, context-aware commit messages using an LLM
 - Seamless integration with Git
 - Supports multiple LLM providers and models
-- Override provider and model per invocation (`-P`, `-m`)
 - Global configuration with per-repository overrides
 - Repository-specific language, style, and model selection
-- Amend the last commit message with a regenerated one (`-A`)
-- Conventional Commits format support (`-C`)
-- Change configuration from the command line (`-S`, `-H`)
+- Amend the last commit message with a regenerated one
+- Conventional Commits format support
+- Change configuration from the command line
 - Optional commit squashing with automatic summary generation (all, last N, or up to a specific commit)
-- List providers, models, active config, and file paths (`-l`)
+- List providers, models, active config, and file paths
 - Token usage logging for API calls
-- Branch name as LLM context via `--branch` / `-b`
-- Extra context for the LLM via `--context` / `-x` (e.g. ticket numbers, reasons)
-- Generation time measurement (`-t`)
-- Shell completion for bash, zsh, and fish (`-i`)
+- Branch name as LLM context
+- Extra context for the LLM
+- Generation time measurement
+- Shell completion for bash, zsh, and fish
 
 ---
 
@@ -95,7 +94,7 @@ Once installed, cai works like a standard Git command:
 git cai
 ```
 
-cai uses the output of `git diff` to generate a commit message.  
+cai uses the output of `git diff` to generate a commit message or, if optional, with the complete file content.
 The generated message is opened in your configured Git editor, allowing you to review or edit it before committing.
 
 In short: it behaves like `git commit`, but the commit message is pre-filled.
@@ -121,18 +120,21 @@ On first execution, cai automatically creates the base configuration in your hom
 - API tokens:  
   ~/.config/cai/tokens.yml
 
-It also creates two Markdown prompt files:
+It also creates three Markdown prompt files:
 
 - Default commit prompt:  
   ~/.config/cai/commit_prompt.md
 - Default squash prompt:  
   ~/.config/cai/squash_prompt.md
+- Default full-files prompt (used with `-F` / `--full-files`):  
+  ~/.config/cai/full_files_prompt.md
 
 Don't be scared the first run will show an error. It only misses a token.
 Add your provider API keys to `tokens.yml`. Once configured, cai will reuse them automatically.
+Optional for each repository a file containing tokens can be set.
 Set your preferred LLM in `cai_config.yml` (Groq by default).
 
-If you want to use Ollama, set `default: ollama` and configure the `ollama:` block (model/temperature). Ollama is automatically started when used.
+If you want to use Ollama, install it, set `default: ollama` and configure the `ollama:` block (model/temperature). Ollama is automatically started when used.
 
 ### Custom prompts (Markdown)
 
@@ -149,8 +151,12 @@ This creates:
 
 - `commit_prompt.md`
 - `squash_prompt.md`
+- `full_files_prompt.md`
+  so the LLM knows the full working-tree contents of each changed file are
+  attached and can reason about *why* each edit was made, not just what
+  the diff shows.
 
-Then set `prompt_file` and/or `squash_prompt_file` in your `cai_config.yml` (also repo) to point to those files.
+Then set `prompt_file`, `squash_prompt_file`, and/or `full_files_prompt_file` in your `cai_config.yml` (also repo) to point to those files.
 
 ### Repository-specific configuration
 
@@ -191,10 +197,13 @@ git cai -g
 - `load_tokens_from` – path to the file where API tokens are stored
 - `prompt_file` - path to the file where the prompt for the commit is stored
 - `squash_prompt_file` - path to the file where the prompt for the squash is stored
-- `branch_context` – include current branch name as LLM context (default: `false`)
-- `conventional` – use Conventional Commits format (default: `false`)
-- `token_logging` – log token usage after each LLM call (default: `true` for new installs)
-- `measure_time` – log generation time (default: `false`)
+- `full_files_prompt_file` - path to the prompt used when `-F` / `--full-files` attaches full file contents
+- `full_files` – attach always the full working-tree contents of affected files alongside the diff
+- `timeout` – HTTP timeout for LLM calls in seconds
+- `branch_context` – include current branch name as LLM context
+- `conventional` – use Conventional Commits format
+- `token_logging` – log token usage after each LLM call
+- `measure_time` – log generation time
 
 ---
 
@@ -208,6 +217,8 @@ In addition to `git cai`, the following options are available:
 - `-C`, `--conventional` – use Conventional Commits format (`type(scope): description`)
 - `-c`, `--crazy` – Trust the LLM and commit without checking
 - `-d`, `--debug` – enable debug logging
+- `-F`, `--full-files` – attach the full contents of affected files alongside the diff (uses `full_files_prompt.md`)
+- `-f`, `--files` `PATH` – limit the diff (and full-file content, if enabled) to PATH; repeat for multiple files
 - `-g`, `--generate-config` – generate the default `cai_config.yml` in the current directory
 - `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-h`, `--help` – show help and available commands
@@ -217,12 +228,14 @@ In addition to `git cai`, the following options are available:
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
 - `-P`, `--provider` – override the LLM provider for this invocation
 - `-S`, `--set` – set a config value (`key=value`) in repo config (requires existing repo config)
-- `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-s`, `--squash` `[N|HASH]` – squash commits on the current branch and summarize them. Without argument: squash all since branch checkout. With a number: squash the last N commits. With a commit hash: squash up to and including that commit
+- `-T`, `--timeout` `SECONDS` – HTTP timeout for this invocation (overrides config)
 - `-t`, `--time` – measure and log commit message generation time
 - `-x`, `--context` – provide extra context for the LLM (e.g. ticket number, reason for change)
 - `-u`, `--update` – check for updates
 - `-v`, `--version` – show the installed version
+
+## Examples
 
 ### Amend
 
@@ -251,6 +264,30 @@ To enable it permanently:
 git cai -S conventional=true
 ```
 
+### Attaching full file contents and restricting to specific files
+
+Sometimes the diff alone is too little context for the LLM to explain *why* a
+change was made. `-F` / `--full-files` attaches the complete working-tree
+contents of every staged file alongside the diff and switches to a dedicated
+prompt (`full_files_prompt.md`) that instructs the LLM to use that full
+context to infer intent rather than just describe the mechanical edit.
+
+```sh
+git cai -F                         # attach full contents of all staged files
+git cai -F -f src/foo.py -f src/bar.py   # only these files
+git cai -f docs/README.md          # restrict diff to one file (no full files)
+```
+
+Both flags log the affected files at INFO level as paths relative to the
+repository root, so you can see exactly what ends up in the prompt — binaries,
+deleted files, and paths matched by `.caiignore` are filtered out and skipped.
+
+Persist the default:
+
+```sh
+git cai -S full_files=true
+```
+
 ### Changing configuration from the CLI
 
 Instead of editing YAML files manually, use `--set` or `--set-home` to update config values.
@@ -259,7 +296,7 @@ Instead of editing YAML files manually, use `--set` or `--set-home` to update co
 
 ```sh
 git cai -S default=anthropic           # change the default provider
-git cai -S emoji=false                  # disable emojis
+git cai -S emoji=false                 # disable emojis
 git cai -S groq.model=llama-3.3-70b    # nested key (dot notation)
 git cai -S openai.temperature=0.7      # set temperature as float
 ```

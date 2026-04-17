@@ -11,6 +11,7 @@ from git_cai_cli.core.llm import (
 )
 from git_cai_cli.core.prompts_fallback import (
     HARDCODED_COMMIT_PROMPT,
+    HARDCODED_FULL_FILES_PROMPT,
     HARDCODED_SQUASH_PROMPT,
 )
 
@@ -130,40 +131,46 @@ class TestLoadPromptFileUserDefined:
 
 
 # ---------------------------------------------------------------------------
-# load_prompt_file: default bundled file
+# load_prompt_file: default file under ~/.config/cai/
 # ---------------------------------------------------------------------------
 
 
 class TestLoadPromptFileDefault:
-    """Tests for loading prompts from the default bundled file."""
+    """Tests for loading prompts from the ~/.config/cai/ fallback location."""
 
-    def test_loads_default_commit_prompt(self):
-        """Default commit_prompt.md is loaded when no user file is set."""
+    def test_loads_default_commit_prompt_from_config_dir(self, tmp_path):
+        """commit_prompt.md under CONFIG_DIR is used when no user file is set."""
         config = {"prompt_file": ""}
-
-        result = load_prompt_file(
-            config_key="prompt_file",
-            config=config,
-            default_filename="commit_prompt.md",
-            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
+        (tmp_path / "commit_prompt.md").write_text(
+            "Global commit prompt body.", encoding="utf-8"
         )
 
-        assert "expert software engineer" in result.lower()
-        assert "git commit message" in result.lower()
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", tmp_path):
+            result = load_prompt_file(
+                config_key="prompt_file",
+                config=config,
+                default_filename="commit_prompt.md",
+                hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
+            )
 
-    def test_loads_default_squash_prompt(self):
-        """Default squash_prompt.md is loaded when no user file is set."""
+        assert result == "Global commit prompt body."
+
+    def test_loads_default_squash_prompt_from_config_dir(self, tmp_path):
+        """squash_prompt.md under CONFIG_DIR is used when no user file is set."""
         config = {"squash_prompt_file": ""}
-
-        result = load_prompt_file(
-            config_key="squash_prompt_file",
-            config=config,
-            default_filename="squash_prompt.md",
-            hardcoded_fallback=HARDCODED_SQUASH_PROMPT,
+        (tmp_path / "squash_prompt.md").write_text(
+            "Global squash prompt body.", encoding="utf-8"
         )
 
-        assert "expert software engineer" in result.lower()
-        assert "summarize" in result.lower()
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", tmp_path):
+            result = load_prompt_file(
+                config_key="squash_prompt_file",
+                config=config,
+                default_filename="squash_prompt.md",
+                hardcoded_fallback=HARDCODED_SQUASH_PROMPT,
+            )
+
+        assert result == "Global squash prompt body."
 
 
 # ---------------------------------------------------------------------------
@@ -176,19 +183,13 @@ class TestLoadPromptFileHardcoded:
 
     def test_hardcoded_fallback_when_default_missing(self, tmp_path):
         """
-        Hardcoded fallback is used when both user file and default file are missing.
+        Hardcoded fallback is used when both user file and ~/.config/cai/ file are missing.
         """
         config = {"prompt_file": ""}
         empty_dir = tmp_path / "no_config"
         empty_dir.mkdir()
 
-        with (
-            patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir),
-            patch(
-                "git_cai_cli.core.llm.resources.files",
-                side_effect=ModuleNotFoundError("mock"),
-            ),
-        ):
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir):
             result = load_prompt_file(
                 config_key="prompt_file",
                 config=config,
@@ -200,19 +201,13 @@ class TestLoadPromptFileHardcoded:
 
     def test_hardcoded_squash_fallback_when_default_missing(self, tmp_path):
         """
-        Hardcoded squash fallback is used when both user file and default file are missing.
+        Hardcoded squash fallback is used when both user file and ~/.config/cai/ file are missing.
         """
         config = {"squash_prompt_file": ""}
         empty_dir = tmp_path / "no_config"
         empty_dir.mkdir()
 
-        with (
-            patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir),
-            patch(
-                "git_cai_cli.core.llm.resources.files",
-                side_effect=ModuleNotFoundError("mock"),
-            ),
-        ):
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir):
             result = load_prompt_file(
                 config_key="squash_prompt_file",
                 config=config,
@@ -263,23 +258,22 @@ class TestLoadPromptFileLogging:
 
         assert "not found" in caplog.text.lower()
 
-    def test_logs_default_file_loaded(self, caplog):
+    def test_logs_default_file_loaded(self, tmp_path, caplog):
         """Logs info about missing local file and shows full default path."""
         caplog.set_level("INFO")
         config = {"prompt_file": ""}
+        (tmp_path / "commit_prompt.md").write_text("body", encoding="utf-8")
 
-        load_prompt_file(
-            config_key="prompt_file",
-            config=config,
-            default_filename="commit_prompt.md",
-            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
-        )
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", tmp_path):
+            load_prompt_file(
+                config_key="prompt_file",
+                config=config,
+                default_filename="commit_prompt.md",
+                hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
+            )
 
         assert "no local prompt file" in caplog.text.lower()
-        assert (
-            "default file" in caplog.text.lower()
-            or "bundled package default" in caplog.text.lower()
-        )
+        assert "default file" in caplog.text.lower()
         # Full path must be logged, not just the filename
         assert "commit_prompt.md" in caplog.text
 
@@ -290,13 +284,7 @@ class TestLoadPromptFileLogging:
         empty_dir = tmp_path / "no_config"
         empty_dir.mkdir()
 
-        with (
-            patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir),
-            patch(
-                "git_cai_cli.core.llm.resources.files",
-                side_effect=ModuleNotFoundError("mock"),
-            ),
-        ):
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir):
             load_prompt_file(
                 config_key="prompt_file",
                 config=config,
@@ -537,6 +525,72 @@ class TestBuildCommitPromptWithUserFile:
 
 
 # ---------------------------------------------------------------------------
+# _build_commit_prompt when full_files is enabled
+# ---------------------------------------------------------------------------
+
+
+class TestBuildCommitPromptFullFiles:
+    """Tests for _build_commit_prompt switching to the full-files prompt."""
+
+    def test_full_files_uses_hardcoded_full_files_prompt(self, tmp_path, base_config):
+        """When full_files is True and nothing else is configured, the hardcoded full-files prompt is used."""
+        base_config["full_files"] = True
+        base_config["prompt_file"] = ""
+        base_config["full_files_prompt_file"] = ""
+        empty_dir = tmp_path / "no_config"
+        empty_dir.mkdir()
+
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir):
+            gen = CommitMessageGenerator("tok", base_config, "openai")
+            prompt = gen._build_commit_prompt()
+
+        assert "full contents of the affected files" in prompt.lower()
+        assert "--- full file contents ---" in prompt.lower()
+
+    def test_full_files_disabled_uses_regular_prompt(self, tmp_path, base_config):
+        """When full_files is False, the regular commit prompt is selected."""
+        base_config["full_files"] = False
+        base_config["prompt_file"] = ""
+        base_config["full_files_prompt_file"] = ""
+        empty_dir = tmp_path / "no_config"
+        empty_dir.mkdir()
+
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir):
+            gen = CommitMessageGenerator("tok", base_config, "openai")
+            prompt = gen._build_commit_prompt()
+
+        # Regular prompt does not mention attached full file contents
+        assert "full contents of the affected files" not in prompt.lower()
+
+    def test_full_files_uses_user_override_file(self, tmp_path, base_config):
+        """Custom full_files_prompt_file wins over the default chain."""
+        prompt_file = tmp_path / "my_full.md"
+        prompt_file.write_text("Custom full-files prompt.", encoding="utf-8")
+
+        base_config["full_files"] = True
+        base_config["full_files_prompt_file"] = str(prompt_file)
+
+        gen = CommitMessageGenerator("tok", base_config, "openai")
+        prompt = gen._build_commit_prompt()
+
+        assert prompt.startswith("Custom full-files prompt.")
+        assert "English" in prompt
+
+    def test_full_files_hardcoded_fallback(self, tmp_path, base_config):
+        """Hardcoded fallback is used when both user file and ~/.config/cai/ file are missing."""
+        base_config["full_files"] = True
+        base_config["full_files_prompt_file"] = ""
+        empty_dir = tmp_path / "no_config"
+        empty_dir.mkdir()
+
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir):
+            gen = CommitMessageGenerator("tok", base_config, "openai")
+            prompt = gen._build_commit_prompt()
+
+        assert prompt.startswith(HARDCODED_FULL_FILES_PROMPT)
+
+
+# ---------------------------------------------------------------------------
 # _build_squash_prompt with user file
 # ---------------------------------------------------------------------------
 
@@ -672,3 +726,61 @@ class TestConfigKeysPromptFile:
 
         # Should not raise KeyError about unknown keys
         _validate_config_keys(config, reference)
+
+
+# ---------------------------------------------------------------------------
+# cbea.ms seven-rules compliance
+# ---------------------------------------------------------------------------
+
+
+CBEA_COMMIT_MARKERS = [
+    "blank line",
+    "50 characters",
+    "Capitalize the subject",
+    "Do not end the subject line with a period",
+    "imperative mood",
+    "If applied",
+    "72 characters per line",
+    "what changed and why",
+]
+
+
+class TestCbeaComplianceCommitPrompt:
+    """The hardcoded commit prompt must encode all seven cbea.ms rules."""
+
+    def test_hardcoded_commit_prompt_contains_all_rules(self):
+        missing = [m for m in CBEA_COMMIT_MARKERS if m not in HARDCODED_COMMIT_PROMPT]
+        assert (
+            not missing
+        ), f"HARDCODED_COMMIT_PROMPT is missing cbea.ms markers: {missing}"
+
+    def test_hardcoded_commit_prompt_retains_secret_warning(self):
+        # Secret-detection guidance is commit-only and must be preserved
+        lower = HARDCODED_COMMIT_PROMPT.lower()
+        assert "sensitive" in lower or "secret" in lower or "token" in lower
+
+
+class TestCbeaComplianceFullFilesPrompt:
+    """The hardcoded full-files prompt must encode all seven cbea.ms rules."""
+
+    def test_hardcoded_full_files_prompt_contains_all_rules(self):
+        missing = [
+            m for m in CBEA_COMMIT_MARKERS if m not in HARDCODED_FULL_FILES_PROMPT
+        ]
+        assert (
+            not missing
+        ), f"HARDCODED_FULL_FILES_PROMPT is missing cbea.ms markers: {missing}"
+
+    def test_hardcoded_full_files_prompt_retains_secret_warning(self):
+        lower = HARDCODED_FULL_FILES_PROMPT.lower()
+        assert "sensitive" in lower or "secret" in lower or "token" in lower
+
+
+class TestCbeaComplianceSquashPrompt:
+    """The hardcoded squash prompt must encode the seven cbea.ms rules."""
+
+    def test_hardcoded_squash_prompt_contains_all_rules(self):
+        missing = [m for m in CBEA_COMMIT_MARKERS if m not in HARDCODED_SQUASH_PROMPT]
+        assert (
+            not missing
+        ), f"HARDCODED_SQUASH_PROMPT is missing cbea.ms markers: {missing}"

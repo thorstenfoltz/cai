@@ -1,4 +1,4 @@
-default: anthropic
+default: openai
 language: en
 style: professional
 emoji: true
@@ -7,11 +7,15 @@ branch_context: false
 load_tokens_from: /home/thorsten/.config/cai/tokens.yml
 prompt_file: ""
 squash_prompt_file: ""
+full_files_prompt_file: ""
 token_logging: true
 measure_time: true
+timeout: 30
+full_files: false
 anthropic:
-  model: claude-opus-4-6
+  model: claude-haiku-4-5
   temperature: 0
+  max_tokens: 32768
 deepseek:
   model: deepseek-chat
   temperature: 0
@@ -27,8 +31,9 @@ mistral:
 ollama:
   model: llama3.1
   temperature: 0
+  timeout: 300
 openai:
-  model: gpt-5.2
+  model: gpt-5.4
   temperature: 0
 xai:
   model: grok-4-1-fast-reasoning

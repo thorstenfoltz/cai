@@ -128,3 +128,47 @@ def test_validate_options_valid_combinations():
         help_flag=False,
         version_flag=False,
     )
+
+
+@pytest.mark.parametrize(
+    "bad_mode",
+    [Mode.LIST, Mode.UPDATE, Mode.SQUASH],
+)
+def test_validate_options_files_rejected_outside_commit_amend(bad_mode, capsys):
+    """--files must be rejected in LIST/UPDATE/SQUASH modes."""
+    with pytest.raises(typer.Exit) as exc:
+        modes.validate_options(
+            mode=bad_mode,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            files=["x.py"],
+        )
+    captured = capsys.readouterr()
+    assert "--files cannot be used with --list, --update, or --squash." in captured.err
+    assert exc.value.exit_code == 1
+
+
+def test_validate_options_files_allowed_in_commit_mode():
+    """--files is allowed in COMMIT mode."""
+    modes.validate_options(
+        mode=Mode.COMMIT,
+        stage_tracked=False,
+        enable_debug=False,
+        help_flag=False,
+        version_flag=False,
+        files=["src/foo.py", "src/bar.py"],
+    )
+
+
+def test_validate_options_files_allowed_in_amend_mode():
+    """--files is allowed in AMEND mode."""
+    modes.validate_options(
+        mode=Mode.AMEND,
+        stage_tracked=False,
+        enable_debug=False,
+        help_flag=False,
+        version_flag=False,
+        files=["src/foo.py"],
+    )

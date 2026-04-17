@@ -106,6 +106,24 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     time_flag: bool = typer.Option(
         False, "--time", "-t", help="Measure and log generation time"
     ),
+    timeout: int = typer.Option(
+        None,
+        "-T",
+        "--timeout",
+        help="HTTP timeout in seconds for this invocation (overrides config; default 30).",
+    ),
+    full_files: bool = typer.Option(
+        False,
+        "-F",
+        "--full-files",
+        help="Send the full contents of affected files alongside the diff.",
+    ),
+    files: list[str] = typer.Option(
+        None,
+        "-f",
+        "--files",
+        help="Limit the diff (and full-file content, if enabled) to these paths. Repeat for multiple files.",
+    ),
 ):
     """
     CLI entry point for git-cai-cli.
@@ -137,6 +155,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         model_override=model,
         time_flag=time_flag,
         context=context,
+        files=files,
     )
 
     if generate_config:
@@ -161,7 +180,8 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         try:
             manager.generate_prompts_here()
             typer.echo(
-                "commit_prompt.md and squash_prompt.md created in current directory."
+                "commit_prompt.md, squash_prompt.md, and full_files_prompt.md "
+                "created in current directory."
             )
         except RuntimeError as e:
             typer.echo(f"Error: {e}", err=True)
@@ -205,6 +225,9 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         model_override=model,
         time_flag=time_flag,
         context=context,
+        timeout_override=timeout,
+        full_files_override=full_files,
+        files_override=files,
     )
 
 
