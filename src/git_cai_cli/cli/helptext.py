@@ -21,6 +21,8 @@ Flags:
   -C, --conventional       Use Conventional Commits format (type(scope): description)
   -c, --crazy              Commit immediately without opening editor (trust LLM output)
   -d, --debug              Enable debug logging
+  -F, --full-files         Send the full contents of affected files alongside the diff
+  -f, --files PATH         Limit the diff (and full files) to PATH; repeat the flag for multiple files
   -g, --generate-config    Generate default cai_config.yml in the current directory
   -H, --set-home KEY=VALUE Set a config value in home config (~/.config/cai/)
   -h, --help               Show this help message or opens manual
@@ -34,6 +36,7 @@ Flags:
                            No argument: squash all commits since branch checkout
                            Number: squash the last N commits
                            Hash: squash up to and including that commit
+  -T, --timeout SECONDS    HTTP timeout in seconds (overrides config; default 30)
   -t, --time               Measure and log commit message generation time
   -u, --update             Check for updates
   -v, --version            Show installed version

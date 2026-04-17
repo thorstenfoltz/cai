@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Sequence
 
 from git_cai_cli.core.editors import EDITOR_BLOCK_FLAGS, TERMINAL_EDITORS
 
@@ -76,26 +76,39 @@ def find_git_root(
         return None
 
 
+def _load_caiignore_patterns(repo_root: Path) -> list[str]:
+    """Read `.caiignore` from the repo root and return its non-empty patterns."""
+    ignore_file = repo_root / ".caiignore"
+    if not ignore_file.exists():
+        return []
+
+    with open(ignore_file, "r", encoding="utf-8") as f:
+        patterns = [
+            line.strip()
+            for line in f
+            if line.strip() and not line.strip().startswith("#")
+        ]
+
+    if not patterns:
+        log.info("%s is empty. No files excluded.", ignore_file)
+
+    return patterns
+
+
 def git_diff_excluding(
     repo_root: Path,
     run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
     exit_func: Callable[[int], None] = sys.exit,
+    files: Sequence[str] | None = None,
 ) -> str:
-    """Run `git diff` excluding files listed in .caiignore."""
-    ignore_file = repo_root / ".caiignore"
+    """Run `git diff --cached` honoring `.caiignore` and an optional file whitelist."""
+    exclude_files = _load_caiignore_patterns(repo_root)
 
-    exclude_files: list[str] = []
-    if ignore_file.exists():
-        with open(ignore_file, "r", encoding="utf-8") as f:
-            exclude_files = [
-                line.strip()
-                for line in f
-                if line.strip() and not line.strip().startswith("#")
-            ]
-        if not exclude_files:
-            log.info("%s is empty. No files excluded.", ignore_file)
-
-    cmd = ["git", "diff", "--cached", "--", "."]
+    cmd = ["git", "diff", "--cached", "--"]
+    if files:
+        cmd.extend(files)
+    else:
+        cmd.append(".")
     cmd.extend(f":!{pattern}" for pattern in exclude_files)
 
     result = run_cmd(cmd, capture_output=True, text=True, check=False)
@@ -104,6 +117,95 @@ def git_diff_excluding(
         exit_func(1)
 
     return result.stdout
+
+
+def _matches_caiignore(path: str, patterns: Sequence[str]) -> bool:
+    """Return True if `path` matches any of the `.caiignore` patterns."""
+    import fnmatch
+
+    for pattern in patterns:
+        if fnmatch.fnmatch(path, pattern):
+            return True
+        if "/" not in pattern and fnmatch.fnmatch(os.path.basename(path), pattern):
+            return True
+    return False
+
+
+def _is_binary_file(path: Path) -> bool:
+    """Heuristic binary-file check: look for a NUL byte in the first 8KB."""
+    try:
+        with path.open("rb") as f:
+            return b"\x00" in f.read(8192)
+    except OSError:
+        return True
+
+
+def collect_staged_file_contents(
+    repo_root: Path,
+    run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+    files: Sequence[str] | None = None,
+) -> str:
+    """Collect the full working-tree contents of staged files.
+
+    Honors `.caiignore` exclusions and an optional `files` whitelist. Skips
+    files that have been deleted from the working tree and binary files.
+    Returns an empty string if nothing qualifies.
+    """
+    exclude_patterns = _load_caiignore_patterns(repo_root)
+
+    cmd = ["git", "diff", "--cached", "--name-only", "--"]
+    if files:
+        cmd.extend(files)
+    else:
+        cmd.append(".")
+
+    result = run_cmd(cmd, capture_output=True, text=True, check=False, cwd=repo_root)
+    if result.returncode != 0:
+        log.error("git diff --name-only failed: %s", result.stderr.strip())
+        return ""
+
+    staged_names = [n for n in result.stdout.splitlines() if n.strip()]
+    if not staged_names:
+        return ""
+
+    chunks: list[str] = []
+    included: list[str] = []
+    for name in staged_names:
+        if exclude_patterns and _matches_caiignore(name, exclude_patterns):
+            log.debug("Skipping %s (matches .caiignore)", name)
+            continue
+
+        abs_path = repo_root / name
+        if not abs_path.is_file():
+            log.debug("Skipping %s (not a file in the working tree)", name)
+            continue
+
+        if _is_binary_file(abs_path):
+            log.debug("Skipping %s (binary)", name)
+            continue
+
+        try:
+            body = abs_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            log.debug("Skipping %s (read error: %s)", name, exc)
+            continue
+
+        chunks.append(f"--- File: {name} ---\n{body}")
+        included.append(name)
+
+    if included:
+        log.info(
+            "Full file contents attached for %d file(s): %s",
+            len(included),
+            ", ".join(included),
+        )
+    else:
+        log.info(
+            "No staged files qualified for full-file content "
+            "(all skipped or excluded)."
+        )
+
+    return "\n\n".join(chunks)
 
 
 def get_current_branch(

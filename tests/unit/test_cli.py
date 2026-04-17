@@ -293,3 +293,169 @@ def test_context_passed_to_validate_options(monkeypatch):
     result = runner.invoke(cli.app, ["-x", "ticket info"])
     assert result.exit_code == 0
     assert captured["context"] == "ticket info"
+
+
+# ---------------------
+# Tests for --timeout / -T
+# ---------------------
+
+
+def test_timeout_flag_passed_to_run(monkeypatch):
+    """Verify --timeout value reaches run() as timeout_override."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--timeout", "60"])
+    assert result.exit_code == 0
+    assert captured["timeout_override"] == 60
+
+
+def test_short_timeout_flag_passed_to_run(monkeypatch):
+    """Verify -T short flag works."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["-T", "120"])
+    assert result.exit_code == 0
+    assert captured["timeout_override"] == 120
+
+
+def test_timeout_none_by_default(monkeypatch):
+    """Verify timeout_override is None when flag absent."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, [])
+    assert result.exit_code == 0
+    assert captured["timeout_override"] is None
+
+
+# ---------------------
+# Tests for --full-files / -F
+# ---------------------
+
+
+def test_full_files_flag_passed_to_run(monkeypatch):
+    """Verify --full-files reaches run() as full_files_override=True."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--full-files"])
+    assert result.exit_code == 0
+    assert captured["full_files_override"] is True
+
+
+def test_short_full_files_flag_passed_to_run(monkeypatch):
+    """Verify -F short flag works."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["-F"])
+    assert result.exit_code == 0
+    assert captured["full_files_override"] is True
+
+
+def test_full_files_false_by_default(monkeypatch):
+    """Verify full_files_override is False when flag absent."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, [])
+    assert result.exit_code == 0
+    assert captured["full_files_override"] is False
+
+
+# ---------------------
+# Tests for --files / -f
+# ---------------------
+
+
+def test_files_flag_accepts_multiple(monkeypatch):
+    """Verify --files can be repeated to pass multiple paths."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["-f", "a.py", "-f", "b.py"])
+    assert result.exit_code == 0
+    assert captured["files_override"] == ["a.py", "b.py"]
+
+
+def test_files_flag_single_value(monkeypatch):
+    """Verify --files works with a single path."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--files", "src/foo.py"])
+    assert result.exit_code == 0
+    assert captured["files_override"] == ["src/foo.py"]
+
+
+def test_files_none_by_default(monkeypatch):
+    """Verify files_override is empty list when flag absent (Typer default)."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, [])
+    assert result.exit_code == 0
+    # Typer normalizes list[str] options to [] when None is the default and no flag passed
+    assert captured["files_override"] in (None, [])
+
+
+def test_files_flag_passed_to_validate_options(monkeypatch):
+    """Verify files reaches validate_options for mode rejection."""
+    captured = {}
+
+    def _fake_validate(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", lambda **kwargs: None)
+    monkeypatch.setattr(cli, "validate_options", _fake_validate)
+
+    result = runner.invoke(cli.app, ["-f", "x.py"])
+    assert result.exit_code == 0
+    assert captured["files"] == ["x.py"]

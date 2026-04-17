@@ -54,6 +54,7 @@ def validate_options(
     model_override: str | None = None,
     time_flag: bool = False,
     context: str | None = None,
+    files: list[str] | None = None,
 ) -> None:
     """
     Validates the combination of command-line options provided by the user.
@@ -89,6 +90,13 @@ def validate_options(
     if context and mode not in (Mode.COMMIT, Mode.AMEND):
         typer.echo(
             "Error: --context cannot be used with --list, --update, or --squash.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if files and mode not in (Mode.COMMIT, Mode.AMEND):
+        typer.echo(
+            "Error: --files cannot be used with --list, --update, or --squash.",
             err=True,
         )
         raise typer.Exit(code=1)

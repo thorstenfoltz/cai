@@ -14,7 +14,6 @@ with any home or default configuration.
 import logging
 import os
 import stat
-from importlib import resources
 from pathlib import Path
 from typing import Any, Optional, cast
 
@@ -35,14 +34,18 @@ FALLBACK_CONFIG_FILE = CONFIG_DIR / "cai_config.yml"
 TOKENS_FILE = CONFIG_DIR / "tokens.yml"
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
+    "anthropic": {
+        "model": "claude-haiku-4-5",
+        "temperature": 0,
+        "max_tokens": 32768,
+    },
     "openai": {"model": "gpt-5.2", "temperature": 0},
     "deepseek": {"model": "deepseek-chat", "temperature": 0},
     "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
     "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
     "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
     "mistral": {"model": "codestral-2508", "temperature": 0},
-    "ollama": {"model": "llama3.1", "temperature": 0},
+    "ollama": {"model": "llama3.1", "temperature": 0, "timeout": 300},
     "language": "en",
     "default": "groq",
     "style": "professional",
@@ -50,10 +53,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "load_tokens_from": TOKENS_FILE,
     "prompt_file": "",
     "squash_prompt_file": "",
+    "full_files_prompt_file": "",
     "conventional": False,
     "branch_context": False,
     "token_logging": True,  # nosec B105 - local-only provider that doesn't use API tokens
     "measure_time": False,
+    "timeout": 30,
+    "full_files": False,
 }
 
 # Providers that do not require an API token in tokens.yml
@@ -140,54 +146,47 @@ def load_config(
             if isinstance(value, str) and value.strip().lower() in none_like:
                 config_dict[key] = "none"
 
-        for key in ("prompt_file", "squash_prompt_file"):
+        for key in ("prompt_file", "squash_prompt_file", "full_files_prompt_file"):
             if key not in config_dict:
                 continue
             value = config_dict.get(key)
             if value is None:
                 config_dict[key] = ""
 
-    def _ensure_prompt_files(prompt_dir: Path) -> tuple[Path, Path]:
-        """Ensure default prompt files exist in prompt_dir."""
+    def _ensure_prompt_files(prompt_dir: Path) -> tuple[Path, Path, Path]:
+        """Ensure default prompt files exist in prompt_dir.
+
+        Prompt bodies come from the hardcoded fallback strings in
+        `prompts_fallback.py` — there is no separate bundled prompt file.
+        """
+        from git_cai_cli.core.prompts_fallback import (
+            HARDCODED_COMMIT_PROMPT,
+            HARDCODED_FULL_FILES_PROMPT,
+            HARDCODED_SQUASH_PROMPT,
+        )
+
         prompt_dir.mkdir(parents=True, exist_ok=True)
 
         commit_path = prompt_dir / "commit_prompt.md"
         squash_path = prompt_dir / "squash_prompt.md"
+        full_files_path = prompt_dir / "full_files_prompt.md"
 
-        def _read_bundled(name: str) -> str:
-            try:
-                defaults_pkg = resources.files("git_cai_cli.defaults")
-                default_file = defaults_pkg / name
-                if default_file.is_file():  # type: ignore[union-attr]
-                    return default_file.read_text(encoding="utf-8")  # type: ignore[union-attr]
-            except (TypeError, FileNotFoundError, ModuleNotFoundError):
-                pass
+        targets = (
+            (commit_path, HARDCODED_COMMIT_PROMPT, "commit"),
+            (squash_path, HARDCODED_SQUASH_PROMPT, "squash"),
+            (full_files_path, HARDCODED_FULL_FILES_PROMPT, "full-files"),
+        )
 
-            # last resort: use hardcoded fallback strings
-            from git_cai_cli.core.prompts_fallback import (
-                HARDCODED_COMMIT_PROMPT,
-                HARDCODED_SQUASH_PROMPT,
-            )
+        for path, body, label in targets:
+            if not path.exists() or path.stat().st_size == 0:
+                path.write_text(body, encoding="utf-8")
+                log.info("Default %s prompt written to %s", label, path)
 
-            return (
-                HARDCODED_COMMIT_PROMPT
-                if name == "commit_prompt.md"
-                else HARDCODED_SQUASH_PROMPT
-            )
-
-        if not commit_path.exists() or commit_path.stat().st_size == 0:
-            commit_path.write_text(_read_bundled("commit_prompt.md"), encoding="utf-8")
-            log.info("Default commit prompt written to %s", commit_path)
-
-        if not squash_path.exists() or squash_path.stat().st_size == 0:
-            squash_path.write_text(_read_bundled("squash_prompt.md"), encoding="utf-8")
-            log.info("Default squash prompt written to %s", squash_path)
-
-        return commit_path, squash_path
+        return commit_path, squash_path, full_files_path
 
     def _normalize_prompt_paths(config_dict: dict[str, Any], base_dir: Path) -> None:
         """Normalize prompt file paths (expand ~/$VARS and resolve relative paths)."""
-        for key in ("prompt_file", "squash_prompt_file"):
+        for key in ("prompt_file", "squash_prompt_file", "full_files_prompt_file"):
             raw = config_dict.get(key)
             if not isinstance(raw, str):
                 continue
@@ -245,11 +244,14 @@ def load_config(
         fallback_config_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Create default prompt files in the config directory and reference them
-        commit_prompt_path, squash_prompt_path = _ensure_prompt_files(
-            fallback_config_file.parent
-        )
+        (
+            commit_prompt_path,
+            squash_prompt_path,
+            full_files_prompt_path,
+        ) = _ensure_prompt_files(fallback_config_file.parent)
         default_config["prompt_file"] = commit_prompt_path
         default_config["squash_prompt_file"] = squash_prompt_path
+        default_config["full_files_prompt_file"] = full_files_prompt_path
 
         ordered = ordered_default_config(default_config)
 
@@ -391,8 +393,11 @@ def ordered_default_config(
         "load_tokens_from",
         "prompt_file",
         "squash_prompt_file",
+        "full_files_prompt_file",
         "token_logging",
         "measure_time",
+        "timeout",
+        "full_files",
     ]
 
     ordered: dict[str, Any] = {}
@@ -509,6 +514,29 @@ def set_config_value(key: str, raw_value: str, *, force_home: bool = False) -> P
         yaml.safe_dump(_serialize_config(config), f, sort_keys=False)
 
     return target
+
+
+def apply_cli_overrides(
+    config: dict,
+    *,
+    conventional: bool = False,
+    branch_context: bool = False,
+    timeout_override: int | None = None,
+    full_files_override: bool = False,
+) -> None:
+    """Apply per-invocation CLI flag overrides to the config dict in-place.
+
+    Only writes keys when the flag was set. Absent flags leave the config
+    value untouched so the persisted default continues to win.
+    """
+    if conventional:
+        config["conventional"] = True
+    if branch_context:
+        config["branch_context"] = True
+    if timeout_override is not None:
+        config["timeout"] = timeout_override
+    if full_files_override:
+        config["full_files"] = True
 
 
 def apply_provider_overrides(

@@ -196,7 +196,7 @@ def test_generate_anthropic():
 
     assert kwargs["json"] == {
         "model": "claude-sonnet-4-5",
-        "max_tokens": 8192,
+        "max_tokens": 32768,
         "temperature": 0.7,
         "system": "sys",
         "messages": [
@@ -971,3 +971,162 @@ def test_generate_with_empty_context_passes_diff_only(generator):
     call_args = mock.call_args
     content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
     assert content == "diff output"
+
+
+# ---- timeout resolution ----
+
+
+def test_timeout_defaults_30_for_remote_providers(generator):
+    assert generator._timeout("anthropic") == 30
+    assert generator._timeout("groq") == 30
+
+
+def test_timeout_defaults_300_for_ollama():
+    gen = CommitMessageGenerator(token=None, config={}, default_model="ollama")
+    assert gen._timeout("ollama") == 300
+
+
+def test_timeout_global_override(generator):
+    generator.config["timeout"] = 90
+    assert generator._timeout("anthropic") == 90
+    assert generator._timeout("ollama") == 90
+
+
+def test_timeout_ollama_subconfig_wins_over_global():
+    gen = CommitMessageGenerator(
+        token=None,
+        config={
+            "timeout": 15,
+            "ollama": {"model": "x", "temperature": 0, "timeout": 600},
+        },
+        default_model="ollama",
+    )
+    assert gen._timeout("ollama") == 600
+    assert gen._timeout("groq") == 15
+
+
+def test_generate_anthropic_uses_configured_max_tokens():
+    config = {
+        "anthropic": {
+            "model": "claude-opus-4-6",
+            "temperature": 0,
+            "max_tokens": 12345,
+        }
+    }
+    gen = CommitMessageGenerator(token="fake", config=config, default_model="anthropic")
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {"content": [{"text": "ok"}]}
+
+    with patch(f"{CommitMessageGenerator.__module__}.requests.post", mock_post):
+        gen.generate_anthropic("abc", system_prompt_override="sys")
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["json"]["max_tokens"] == 12345
+
+
+def test_generate_anthropic_defaults_max_tokens_to_32768():
+    config = {"anthropic": {"model": "m", "temperature": 0}}
+    gen = CommitMessageGenerator(token="t", config=config, default_model="anthropic")
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {"content": [{"text": "ok"}]}
+
+    with patch(f"{CommitMessageGenerator.__module__}.requests.post", mock_post):
+        gen.generate_anthropic("abc", system_prompt_override="sys")
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["json"]["max_tokens"] == 32768
+
+
+@pytest.mark.parametrize(
+    "provider, model_key, response_json, url",
+    [
+        (
+            "anthropic",
+            {"model": "claude-haiku-4-5", "temperature": 0},
+            {"content": [{"text": "t"}]},
+            "https://api.anthropic.com/v1/messages",
+        ),
+        (
+            "gemini",
+            {"model": "gemini-2.5-flash", "temperature": 0},
+            {"candidates": [{"content": {"parts": [{"text": "t"}]}}]},
+            None,
+        ),
+        (
+            "groq",
+            {"model": "m", "temperature": 0},
+            {"choices": [{"message": {"content": "t"}}]},
+            "https://api.groq.com/openai/v1/chat/completions",
+        ),
+        (
+            "mistral",
+            {"model": "m", "temperature": 0},
+            {"choices": [{"message": {"content": "t"}}]},
+            "https://api.mistral.ai/v1/chat/completions",
+        ),
+        (
+            "xai",
+            {"model": "m", "temperature": 0},
+            {"choices": [{"message": {"content": "t"}}]},
+            "https://api.x.ai/v1/chat/completions",
+        ),
+    ],
+)
+def test_remote_providers_respect_configured_timeout(
+    provider, model_key, response_json, url
+):
+    config = {provider: model_key, "timeout": 77}
+    gen = CommitMessageGenerator(token="t", config=config, default_model=provider)
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = response_json
+
+    with patch(f"{CommitMessageGenerator.__module__}.requests.post", mock_post):
+        getattr(gen, f"generate_{provider}")("abc", system_prompt_override="sys")
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["timeout"] == 77
+    if url is not None:
+        assert mock_post.call_args[0][0] == url
+
+
+def test_generate_ollama_uses_ollama_timeout():
+    config = {
+        "ollama": {"model": "llama3.1", "temperature": 0, "timeout": 42},
+    }
+    gen = CommitMessageGenerator(token=None, config=config, default_model="ollama")
+
+    module_path = CommitMessageGenerator.__module__
+    mock_post = MagicMock()
+    mock_post.return_value.status_code = 200
+    mock_post.return_value.raise_for_status.return_value = None
+    mock_post.return_value.json.return_value = {"message": {"content": "x"}}
+
+    with (
+        patch.dict(f"{module_path}.os.environ", {}, clear=True),
+        patch(f"{module_path}.shutil.which", return_value="/usr/bin/ollama"),
+        patch(f"{module_path}.requests.get", return_value=MagicMock(status_code=200)),
+        patch(f"{module_path}.requests.post", mock_post),
+    ):
+        gen.generate_ollama("abc", system_prompt_override="sys")
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["timeout"] == 42
+
+
+def test_generate_openai_sdk_receives_timeout():
+    config = {"openai": {"model": "gpt-5.1", "temperature": 0}, "timeout": 55}
+    gen = CommitMessageGenerator(token="t", config=config, default_model="openai")
+
+    fake_completion = MagicMock()
+    fake_completion.choices = [MagicMock(message=MagicMock(content="ok"))]
+    fake_completion.usage = MagicMock(prompt_tokens=1, completion_tokens=1)
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = fake_completion
+    fake_openai_cls = MagicMock(return_value=fake_client)
+
+    gen.generate_openai("abc", openai_cls=fake_openai_cls, system_prompt_override="sys")
+
+    fake_openai_cls.assert_called_once()
+    _, kwargs = fake_openai_cls.call_args
+    assert kwargs["timeout"] == 55

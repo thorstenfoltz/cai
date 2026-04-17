@@ -9,7 +9,6 @@ import signal
 import subprocess
 import time
 from collections.abc import Callable
-from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, Optional, Type
 from urllib.parse import urlparse
@@ -19,6 +18,7 @@ from git_cai_cli.core.config import CONFIG_DIR
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.prompts_fallback import (
     HARDCODED_COMMIT_PROMPT,
+    HARDCODED_FULL_FILES_PROMPT,
     HARDCODED_SQUASH_PROMPT,
 )
 from openai import OpenAI
@@ -36,7 +36,7 @@ def load_prompt_file(
     Load a prompt with a three-tier fallback strategy:
 
     1. User-defined file path from config (config_key).
-    2. Default bundled file from the package defaults/ directory.
+    2. Default file in ~/.config/cai/<default_filename>.
     3. Hardcoded fallback string.
 
     Args:
@@ -75,7 +75,7 @@ def load_prompt_file(
             config_key,
         )
 
-    # 2a) Try global config directory (~/.config/cai/)
+    # 2) Try global config directory (~/.config/cai/)
     log.info("No local prompt file configured for '%s'.", config_key)
     global_path = CONFIG_DIR / default_filename
     if global_path.is_file():
@@ -86,25 +86,6 @@ def load_prompt_file(
         )
         log.debug("Default prompt loaded (%d characters).", len(content))
         return content
-
-    # 2b) Try bundled package file (last file-based fallback)
-    try:
-        defaults_pkg = resources.files("git_cai_cli.defaults")
-        default_file = defaults_pkg / default_filename
-        if default_file.is_file():  # type: ignore[union-attr]
-            content = default_file.read_text(encoding="utf-8").strip()  # type: ignore[union-attr]
-            log.info(
-                "Loading prompt from bundled package default: %s",
-                default_file,
-            )
-            log.debug("Bundled prompt loaded (%d characters).", len(content))
-            return content
-    except (TypeError, FileNotFoundError, ModuleNotFoundError) as exc:
-        log.debug(
-            "Could not load bundled prompt file '%s': %s",
-            default_filename,
-            exc,
-        )
 
     # 3) Hardcoded fallback
     log.warning(
@@ -131,6 +112,22 @@ class CommitMessageGenerator:
     def close(self) -> None:
         """Release resources started by this generator (best-effort)."""
         self._stop_ollama_server_if_started_by_us()
+
+    def _timeout(self, provider: str) -> int:
+        """Resolve the HTTP timeout (seconds) for a given provider.
+
+        Per-provider override (e.g. `ollama.timeout: 300`) wins over the global
+        `timeout` key. Falls back to 30s for remote providers and 300s for
+        Ollama when nothing is configured.
+        """
+        provider_block = self.config.get(provider)
+        if isinstance(provider_block, dict) and "timeout" in provider_block:
+            return int(provider_block["timeout"])
+
+        if "timeout" in self.config:
+            return int(self.config["timeout"])
+
+        return 300 if provider == "ollama" else 30
 
     def _log_token_usage(
         self,
@@ -299,13 +296,25 @@ class CommitMessageGenerator:
         """
         Build the full commit prompt by loading the base prompt from file
         (with fallback) and appending config-driven instructions.
+
+        When `full_files` is enabled in the config, the full-files prompt
+        is used instead of the regular commit prompt so the LLM knows it
+        receives complete file contents alongside the diff.
         """
-        base = load_prompt_file(
-            config_key="prompt_file",
-            config=self.config,
-            default_filename="commit_prompt.md",
-            hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
-        )
+        if self.config.get("full_files", False):
+            base = load_prompt_file(
+                config_key="full_files_prompt_file",
+                config=self.config,
+                default_filename="full_files_prompt.md",
+                hardcoded_fallback=HARDCODED_FULL_FILES_PROMPT,
+            )
+        else:
+            base = load_prompt_file(
+                config_key="prompt_file",
+                config=self.config,
+                default_filename="commit_prompt.md",
+                hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
+            )
 
         suffix = self._config_instructions()
         if suffix:
@@ -404,6 +413,7 @@ class CommitMessageGenerator:
 
         model = self.config["anthropic"]["model"]
         temperature = self.config["anthropic"]["temperature"]
+        max_tokens = int(self.config["anthropic"].get("max_tokens", 32768))
 
         log.info("Using anthropic model '%s'.", model)
 
@@ -412,7 +422,7 @@ class CommitMessageGenerator:
 
         request: dict[str, Any] = {
             "model": model,
-            "max_tokens": 8192,
+            "max_tokens": max_tokens,
             "temperature": temperature,
             "messages": messages,
         }
@@ -420,7 +430,9 @@ class CommitMessageGenerator:
         if system_prompt_override:
             request["system"] = system_prompt_override
 
-        response = requests.post(url, json=request, headers=headers, timeout=30)
+        response = requests.post(  # nosec B113
+            url, json=request, headers=headers, timeout=self._timeout("anthropic")
+        )
         response.raise_for_status()
 
         data = response.json()
@@ -487,7 +499,9 @@ class CommitMessageGenerator:
             },
         }
 
-        response = requests.post(url, json=request, headers=headers, timeout=30)
+        response = requests.post(  # nosec B113
+            url, json=request, headers=headers, timeout=self._timeout("gemini")
+        )
         response.raise_for_status()
 
         data = response.json()
@@ -545,7 +559,9 @@ class CommitMessageGenerator:
             "temperature": temperature,
         }
 
-        response = requests.post(url, json=request, headers=headers, timeout=30)
+        response = requests.post(  # nosec B113
+            url, json=request, headers=headers, timeout=self._timeout("groq")
+        )
         response.raise_for_status()
 
         data = response.json()
@@ -601,7 +617,9 @@ class CommitMessageGenerator:
             "temperature": temperature,
         }
 
-        response = requests.post(url, json=request, headers=headers, timeout=30)
+        response = requests.post(  # nosec B113
+            url, json=request, headers=headers, timeout=self._timeout("mistral")
+        )
         response.raise_for_status()
 
         data = response.json()
@@ -748,7 +766,9 @@ class CommitMessageGenerator:
         }
 
         try:
-            response = requests.post(url, json=request, timeout=300)
+            response = requests.post(  # nosec B113
+                url, json=request, timeout=self._timeout("ollama")
+            )
         except requests.RequestException as exc:
             raise ValueError(
                 "Failed to reach Ollama. Ensure it is running (try: `ollama serve`)."
@@ -803,9 +823,10 @@ class CommitMessageGenerator:
         """
         Shared OpenAI call for commit generation or commit history summarization.
         """
-        client_kwargs = {"api_key": self.token}
+        client_kwargs: dict[str, Any] = {"api_key": self.token}
         if base_url is not None:
             client_kwargs["base_url"] = base_url
+        client_kwargs["timeout"] = self._timeout(provider_name)
 
         client = openai_cls(**client_kwargs)
         model = (
@@ -885,7 +906,9 @@ class CommitMessageGenerator:
             "messages": messages,
             "temperature": temperature,
         }
-        response = requests.post(url, json=request, headers=headers, timeout=30)
+        response = requests.post(  # nosec B113
+            url, json=request, headers=headers, timeout=self._timeout("xai")
+        )
         response.raise_for_status()
 
         data = response.json()

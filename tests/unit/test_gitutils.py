@@ -18,6 +18,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from git_cai_cli.core.gitutils import (
+    collect_staged_file_contents,
     commit_with_edit_template,
     find_git_root,
     get_current_branch,
@@ -196,6 +197,210 @@ def test_git_diff_excluding_empty_caiignore(tmp_path):
 
     result = git_diff_excluding(repo_root, run_cmd=fake_run)
     assert result == "diff output"
+
+
+# ------------------------------------------------------------------------------
+# git_diff_excluding — files filter
+# ------------------------------------------------------------------------------
+
+
+def test_git_diff_excluding_with_files_filter(tmp_path):
+    """When `files` is provided, the diff command targets those paths."""
+    repo_root = tmp_path
+    (repo_root / ".caiignore").write_text("*.pyc\n")
+
+    captured_cmd = []
+
+    def fake_run(cmd, **kwargs):
+        captured_cmd.extend(cmd)
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "diff output"
+        return mock_proc
+
+    git_diff_excluding(repo_root, run_cmd=fake_run, files=["a.py", "b.py"])
+
+    # Command should contain the selected files after `--`
+    assert "a.py" in captured_cmd
+    assert "b.py" in captured_cmd
+    # Excludes still apply
+    assert ":!*.pyc" in captured_cmd
+    # The generic `.` pathspec must NOT be present when files are passed
+    assert "." not in captured_cmd
+
+
+def test_git_diff_excluding_without_files_uses_dot(tmp_path):
+    """When `files` is None, `.` is used as pathspec."""
+    repo_root = tmp_path
+
+    captured_cmd = []
+
+    def fake_run(cmd, **kwargs):
+        captured_cmd.extend(cmd)
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "diff output"
+        return mock_proc
+
+    git_diff_excluding(repo_root, run_cmd=fake_run)
+
+    # Make sure it contains `.` as the generic pathspec
+    assert "." in captured_cmd
+
+
+# ------------------------------------------------------------------------------
+# collect_staged_file_contents
+# ------------------------------------------------------------------------------
+
+
+def test_collect_staged_file_contents_happy_path(tmp_path):
+    """Returns each file's working-tree contents under a `--- File: ---` header."""
+    repo_root = tmp_path
+    (repo_root / "a.py").write_text("print('a')\n", encoding="utf-8")
+    (repo_root / "b.py").write_text("print('b')\n", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "a.py\nb.py\n"
+        return mock_proc
+
+    out = collect_staged_file_contents(repo_root, run_cmd=fake_run)
+
+    assert "--- File: a.py ---" in out
+    assert "--- File: b.py ---" in out
+    assert "print('a')" in out
+    assert "print('b')" in out
+
+
+def test_collect_staged_file_contents_skips_binary(tmp_path, caplog):
+    """Binary files (NUL byte) must be excluded and logged."""
+    caplog.set_level("DEBUG")
+    repo_root = tmp_path
+    (repo_root / "text.py").write_text("hello\n", encoding="utf-8")
+    (repo_root / "binary.bin").write_bytes(b"abc\x00def")
+
+    def fake_run(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "text.py\nbinary.bin\n"
+        return mock_proc
+
+    out = collect_staged_file_contents(repo_root, run_cmd=fake_run)
+
+    assert "--- File: text.py ---" in out
+    assert "--- File: binary.bin ---" not in out
+    assert "binary.bin" in caplog.text
+
+
+def test_collect_staged_file_contents_respects_caiignore(tmp_path):
+    """Files matching `.caiignore` patterns are skipped."""
+    repo_root = tmp_path
+    (repo_root / ".caiignore").write_text("*.log\n")
+    (repo_root / "keep.py").write_text("keep\n", encoding="utf-8")
+    (repo_root / "drop.log").write_text("drop\n", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "keep.py\ndrop.log\n"
+        return mock_proc
+
+    out = collect_staged_file_contents(repo_root, run_cmd=fake_run)
+
+    assert "--- File: keep.py ---" in out
+    assert "--- File: drop.log ---" not in out
+
+
+def test_collect_staged_file_contents_empty_when_no_staged_files(tmp_path):
+    """Returns empty string when no staged files."""
+    repo_root = tmp_path
+
+    def fake_run(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = ""
+        return mock_proc
+
+    assert collect_staged_file_contents(repo_root, run_cmd=fake_run) == ""
+
+
+def test_collect_staged_file_contents_handles_deleted_file(tmp_path):
+    """A staged file that no longer exists in the working tree is skipped."""
+    repo_root = tmp_path
+    (repo_root / "still_here.py").write_text("x\n", encoding="utf-8")
+    # `gone.py` is in the staged list but not present on disk
+
+    def fake_run(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "still_here.py\ngone.py\n"
+        return mock_proc
+
+    out = collect_staged_file_contents(repo_root, run_cmd=fake_run)
+
+    assert "--- File: still_here.py ---" in out
+    assert "--- File: gone.py ---" not in out
+
+
+def test_collect_staged_file_contents_logs_included_files(tmp_path, caplog):
+    """Emits an INFO log listing the files whose full contents were attached."""
+    caplog.set_level("INFO")
+    repo_root = tmp_path
+    (repo_root / "a.py").write_text("print('a')\n", encoding="utf-8")
+    (repo_root / "b.py").write_text("print('b')\n", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "a.py\nb.py\n"
+        return mock_proc
+
+    collect_staged_file_contents(repo_root, run_cmd=fake_run)
+
+    log_text = caplog.text.lower()
+    assert "full file contents attached" in log_text
+    assert "a.py" in caplog.text
+    assert "b.py" in caplog.text
+
+
+def test_collect_staged_file_contents_logs_when_nothing_qualifies(tmp_path, caplog):
+    """Logs an INFO message when all staged files are filtered out."""
+    caplog.set_level("INFO")
+    repo_root = tmp_path
+    (repo_root / ".caiignore").write_text("*.log\n")
+    (repo_root / "drop.log").write_text("drop\n", encoding="utf-8")
+
+    def fake_run(cmd, **kwargs):
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "drop.log\n"
+        return mock_proc
+
+    collect_staged_file_contents(repo_root, run_cmd=fake_run)
+
+    assert "no staged files qualified" in caplog.text.lower()
+
+
+def test_collect_staged_file_contents_files_arg_passed_to_command(tmp_path):
+    """When `files` is provided, those paths go into the name-only command."""
+    repo_root = tmp_path
+    (repo_root / "x.py").write_text("x\n", encoding="utf-8")
+
+    captured_cmd = []
+
+    def fake_run(cmd, **kwargs):
+        captured_cmd.extend(cmd)
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "x.py\n"
+        return mock_proc
+
+    collect_staged_file_contents(repo_root, run_cmd=fake_run, files=["x.py"])
+
+    assert "x.py" in captured_cmd
+    # When files is given, dot should not be appended
+    assert captured_cmd.count(".") == 0
 
 
 # ------------------------------------------------------------------------------

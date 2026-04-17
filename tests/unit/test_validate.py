@@ -315,3 +315,134 @@ def test_missing_new_config_keys_non_fatal(caplog):
     assert "Config does not define:" in caplog.text
     assert "measure_time" in caplog.text
     assert "token_logging" in caplog.text
+
+
+# -------------------------------------------
+# Tests for timeout / full_files (global) and
+# anthropic.max_tokens / ollama.timeout (provider extras)
+# -------------------------------------------
+
+
+def test_timeout_and_full_files_accepted_by_validator(caplog):
+    """timeout and full_files are accepted as valid global keys."""
+    caplog.set_level("WARNING")
+
+    reference = {
+        "openai": {},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "load_tokens_from": "/path",
+        "prompt_file": "",
+        "squash_prompt_file": "",
+        "timeout": 30,
+        "full_files": False,
+    }
+
+    config = {
+        "openai": {"model": "gpt", "temperature": 0},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "load_tokens_from": "/path",
+        "prompt_file": "",
+        "squash_prompt_file": "",
+        "timeout": 45,
+        "full_files": True,
+    }
+
+    _validate_config_keys(config, reference)
+    assert caplog.text == ""
+
+
+def test_anthropic_max_tokens_subkey_accepted(caplog):
+    """Extra provider subkeys like anthropic.max_tokens are tolerated."""
+    caplog.set_level("WARNING")
+
+    reference = {
+        "anthropic": {},
+        "language": "en",
+        "default": "anthropic",
+        "style": "professional",
+        "emoji": True,
+    }
+
+    config = {
+        "anthropic": {
+            "model": "claude",
+            "temperature": 0,
+            "max_tokens": 32768,
+        },
+        "language": "en",
+        "default": "anthropic",
+        "style": "professional",
+        "emoji": True,
+    }
+
+    _validate_config_keys(config, reference)
+    assert caplog.text == ""
+
+
+def test_ollama_timeout_subkey_accepted(caplog):
+    """Extra provider subkeys like ollama.timeout are tolerated."""
+    caplog.set_level("WARNING")
+
+    reference = {
+        "ollama": {},
+        "language": "en",
+        "default": "ollama",
+        "style": "professional",
+        "emoji": True,
+    }
+
+    config = {
+        "ollama": {
+            "model": "llama3.1",
+            "temperature": 0,
+            "timeout": 600,
+        },
+        "language": "en",
+        "default": "ollama",
+        "style": "professional",
+        "emoji": True,
+    }
+
+    _validate_config_keys(config, reference)
+    assert caplog.text == ""
+
+
+def test_old_config_missing_timeout_and_full_files_loads_cleanly(caplog):
+    """Old configs without timeout/full_files keys must not raise."""
+    caplog.set_level("INFO")
+
+    reference = {
+        "openai": {},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "load_tokens_from": "/path",
+        "prompt_file": "",
+        "squash_prompt_file": "",
+        "timeout": 30,
+        "full_files": False,
+    }
+
+    # Old-style config without the new keys
+    config = {
+        "openai": {"model": "gpt", "temperature": 0},
+        "language": "en",
+        "default": "openai",
+        "style": "professional",
+        "emoji": True,
+        "load_tokens_from": "/path",
+        "prompt_file": "",
+        "squash_prompt_file": "",
+    }
+
+    _validate_config_keys(config, reference)
+
+    assert "timeout" in caplog.text
+    assert "full_files" in caplog.text
