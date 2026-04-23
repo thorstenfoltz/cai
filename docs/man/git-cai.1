@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-04-17
+.\"      Date: 2026-04-23
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-04-17" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-04-23" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -668,13 +668,13 @@ git cai \-v
 \-x, \-\-context CONTEXT
 .RS 4
 Provide extra context for the LLM to consider when generating the commit
-message. The context string is appended to the diff before sending it to
-the provider. This is useful for including information that is not visible
-in the diff itself, such as a ticket number, the reason for a change, or
-a link to an issue.
+message. The context string is appended to the diff (or commit history in squash
+mode) before sending it to the provider. This is useful for including information
+that is not visible in the diff itself, such as a ticket number, the reason for
+a change, or a link to an issue.
 .sp
-Can be combined with any commit\-generating mode (\f(CRCOMMIT\fP or \f(CRAMEND\fP).
-Cannot be used with \f(CR\-\-list\fP, \f(CR\-\-update\fP, or \f(CR\-\-squash\fP.
+Can be combined with any commit\-generating mode (\f(CRCOMMIT\fP, \f(CRAMEND\fP, or \f(CRSQUASH\fP).
+Cannot be used with \f(CR\-\-list\fP or \f(CR\-\-update\fP.
 .sp
 .if n .RS 4
 .nf
@@ -682,6 +682,7 @@ Cannot be used with \f(CR\-\-list\fP, \f(CR\-\-update\fP, or \f(CR\-\-squash\fP.
 git cai \-x "Fixes JIRA\-1234"
 git cai \-x "Performance optimisation for the search endpoint"
 git cai \-A \-x "Reword after code review feedback"
+git cai \-\-squash \-x "Resolves JIRA\-99"
 .fam
 .fi
 .if n .RE

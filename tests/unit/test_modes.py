@@ -263,8 +263,8 @@ def test_context_rejected_with_list_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list, --update, or --squash" in captured.out
-        or "cannot be used with --list, --update, or --squash" in captured.err
+        "cannot be used with --list or --update" in captured.out
+        or "cannot be used with --list or --update" in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -282,29 +282,22 @@ def test_context_rejected_with_update_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list, --update, or --squash" in captured.out
-        or "cannot be used with --list, --update, or --squash" in captured.err
+        "cannot be used with --list or --update" in captured.out
+        or "cannot be used with --list or --update" in captured.err
     )
     assert exc.value.exit_code == 1
 
 
-def test_context_rejected_with_squash_mode(capsys):
-    """--context cannot be used with --squash."""
-    with pytest.raises(typer.Exit) as exc:
-        modes.validate_options(
-            mode=Mode.SQUASH,
-            stage_tracked=False,
-            enable_debug=False,
-            help_flag=False,
-            version_flag=False,
-            context="some context",
-        )
-    captured = capsys.readouterr()
-    assert (
-        "cannot be used with --list, --update, or --squash" in captured.out
-        or "cannot be used with --list, --update, or --squash" in captured.err
+def test_context_allowed_with_squash_mode():
+    """--context is allowed with SQUASH mode."""
+    modes.validate_options(
+        mode=Mode.SQUASH,
+        stage_tracked=False,
+        enable_debug=False,
+        help_flag=False,
+        version_flag=False,
+        context="Closes #42",
     )
-    assert exc.value.exit_code == 1
 
 
 def test_context_allowed_with_commit_mode():
