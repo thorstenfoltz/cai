@@ -399,18 +399,19 @@ git cai -v
 
 -x, --context CONTEXT::
 Provide extra context for the LLM to consider when generating the commit
-message. The context string is appended to the diff before sending it to
-the provider. This is useful for including information that is not visible
-in the diff itself, such as a ticket number, the reason for a change, or
-a link to an issue.
+message. The context string is appended to the diff (or commit history in squash
+mode) before sending it to the provider. This is useful for including information
+that is not visible in the diff itself, such as a ticket number, the reason for
+a change, or a link to an issue.
 +
-Can be combined with any commit-generating mode (`COMMIT` or `AMEND`).
-Cannot be used with `--list`, `--update`, or `--squash`.
+Can be combined with any commit-generating mode (`COMMIT`, `AMEND`, or `SQUASH`).
+Cannot be used with `--list` or `--update`.
 +
 ----
 git cai -x "Fixes JIRA-1234"
 git cai -x "Performance optimisation for the search endpoint"
 git cai -A -x "Reword after code review feedback"
+git cai --squash -x "Resolves JIRA-99"
 ----
 
 LIST TYPES

@@ -383,3 +383,31 @@ def test_squash_branch_with_squash_arg(mock_repo_root, mock_generator) -> None:
         ],
         any_order=False,
     )
+
+
+def test_squash_branch_passes_context_to_generator(
+    mock_generator, mock_repo_root, clean_git_state
+):
+    """squash_branch() with context passes it to summarize_commit_history()."""
+
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("subprocess.check_output", side_effect=clean_git_state),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+        patch(
+            "git_cai_cli.core.squash.CommitMessageGenerator",
+            return_value=mock_generator,
+        ),
+        patch("git_cai_cli.core.squash.get_git_editor", return_value="true"),
+        patch("git_cai_cli.core.squash.sha256_of_file", side_effect=["a", "b"]),
+        patch("subprocess.run", return_value=MagicMock(returncode=0)),
+        patch("git_cai_cli.core.squash._has_upstream", return_value=False),
+        patch("git_cai_cli.core.squash._has_commits", return_value=True),
+    ):
+        squash_branch(context="Closes #42")
+
+    call_args = mock_generator.summarize_commit_history.call_args
+    assert call_args[1].get("context") == "Closes #42"

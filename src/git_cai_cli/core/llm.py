@@ -168,13 +168,23 @@ class CommitMessageGenerator:
 
         return self._dispatch_generate(content=content, system_prompt=prompt)
 
-    def summarize_commit_history(self, commit_messages: str) -> str:
+    def summarize_commit_history(
+        self, commit_messages: str, context: str | None = None
+    ) -> str:
         """
         Summarize multiple commit messages into one high-level commit message.
         """
         prompt = self._build_squash_prompt()
         log.debug("Squash system prompt preview: %r", prompt[:400])
-        return self._dispatch_generate(content=commit_messages, system_prompt=prompt)
+
+        content = commit_messages
+        if context:
+            content = (
+                f"{commit_messages}\n\n"
+                f"--- Additional context from the author ---\n{context}"
+            )
+
+        return self._dispatch_generate(content=content, system_prompt=prompt)
 
     def _emoji_instruction(self) -> str:
         """

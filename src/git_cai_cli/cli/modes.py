@@ -87,9 +87,9 @@ def validate_options(
         )
         raise typer.Exit(code=1)
 
-    if context and mode not in (Mode.COMMIT, Mode.AMEND):
+    if context and mode not in (Mode.COMMIT, Mode.AMEND, Mode.SQUASH):
         typer.echo(
-            "Error: --context cannot be used with --list, --update, or --squash.",
+            "Error: --context cannot be used with --list or --update.",
             err=True,
         )
         raise typer.Exit(code=1)

@@ -184,6 +184,7 @@ def squash_branch(
     model_override: str | None = None,
     time_flag: bool = False,
     squash_arg: str | None = None,
+    context: str | None = None,
 ) -> None:
     """
     Squash commits in the current branch into a single commit with an LLM-generated message.
@@ -192,6 +193,7 @@ def squash_branch(
         squash_arg: Optional. A number (squash last N commits) or a commit hash
                     (squash up to and including that commit). If None, squash all
                     commits since the branch diverged.
+        context: Optional. Extra context for the LLM (e.g. ticket number, reason for change).
     """
     repo_root = find_git_root()
     if not repo_root:
@@ -297,7 +299,9 @@ def squash_branch(
 
         try:
             with Spinner("Summarizing commit history"):
-                summary_message = generator.summarize_commit_history(commit_log)
+                summary_message = generator.summarize_commit_history(
+                    commit_log, context=context
+                )
         except ValueError as e:
             log.error("%s", e)
             sys.exit(1)

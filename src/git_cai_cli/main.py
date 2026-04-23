@@ -111,6 +111,7 @@ def run(
             model_override=model_override,
             time_flag=time_flag,
             squash_arg=list_arg,
+            context=context,
         )
         return
 

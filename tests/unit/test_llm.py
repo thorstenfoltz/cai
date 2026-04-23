@@ -973,6 +973,48 @@ def test_generate_with_empty_context_passes_diff_only(generator):
     assert content == "diff output"
 
 
+def test_summarize_appends_context_to_commit_messages(generator):
+    """summarize_commit_history() with context appends it after the messages."""
+    with patch.object(generator, "_dispatch_generate", return_value="summary") as mock:
+        generator.summarize_commit_history("commit messages", context="Closes #42")
+
+    call_args = mock.call_args
+    content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
+    assert "commit messages" in content
+    assert "--- Additional context from the author ---" in content
+    assert "Closes #42" in content
+
+
+def test_summarize_without_context_passes_messages_only(generator):
+    """summarize_commit_history() without context passes only the messages."""
+    with patch.object(generator, "_dispatch_generate", return_value="summary") as mock:
+        generator.summarize_commit_history("commit messages")
+
+    call_args = mock.call_args
+    content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
+    assert content == "commit messages"
+
+
+def test_summarize_with_none_context_passes_messages_only(generator):
+    """summarize_commit_history() with None context should pass only the messages."""
+    with patch.object(generator, "_dispatch_generate", return_value="summary") as mock:
+        generator.summarize_commit_history("commit messages", context=None)
+
+    call_args = mock.call_args
+    content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
+    assert content == "commit messages"
+
+
+def test_summarize_with_empty_context_passes_messages_only(generator):
+    """summarize_commit_history() with empty string context should pass only the messages."""
+    with patch.object(generator, "_dispatch_generate", return_value="summary") as mock:
+        generator.summarize_commit_history("commit messages", context="")
+
+    call_args = mock.call_args
+    content = call_args[1]["content"] if "content" in call_args[1] else call_args[0][0]
+    assert content == "commit messages"
+
+
 # ---- timeout resolution ----
 
 

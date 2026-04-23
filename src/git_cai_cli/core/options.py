@@ -364,6 +364,7 @@ git cai -l style
         model_override: str | None = None,
         time_flag: bool = False,
         squash_arg: str | None = None,
+        context: str | None = None,
     ) -> None:
         """
         Squash commits on the current branch and summarize them.
@@ -373,6 +374,7 @@ git cai -l style
             model_override=model_override,
             time_flag=time_flag,
             squash_arg=squash_arg,
+            context=context,
         )
 
     def stage_tracked_files(self) -> None:
