@@ -19,6 +19,7 @@ from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.prompts_fallback import (
     HARDCODED_COMMIT_PROMPT,
     HARDCODED_FULL_FILES_PROMPT,
+    HARDCODED_PR_PROMPT,
     HARDCODED_SQUASH_PROMPT,
 )
 from openai import OpenAI
@@ -186,6 +187,36 @@ class CommitMessageGenerator:
 
         return self._dispatch_generate(content=content, system_prompt=prompt)
 
+    def generate_pr_description(
+        self,
+        commit_log: str,
+        changed_files: str,
+        context: str | None = None,
+    ) -> str:
+        """
+        Generate a Markdown Pull Request description from the commit log and
+        changed-files list of a feature branch.
+        """
+        prompt = self._build_pr_prompt()
+        log.debug("PR system prompt preview: %r", prompt[:400])
+
+        sections = [
+            "--- Commit log ---",
+            commit_log.strip() or "(no commits)",
+            "",
+            "--- Changed files ---",
+            changed_files.strip() or "(no files)",
+        ]
+        content = "\n".join(sections)
+
+        if context:
+            content = (
+                f"{content}\n\n"
+                f"--- Additional context from the author ---\n{context}"
+            )
+
+        return self._dispatch_generate(content=content, system_prompt=prompt)
+
     def _emoji_instruction(self) -> str:
         """
         Returns an emoji instruction string, or empty string if emoji is set to "none".
@@ -263,7 +294,9 @@ class CommitMessageGenerator:
             "The scope is optional and describes the section of the codebase affected. "
             "Use a '!' after the type/scope for breaking changes (e.g., 'feat!: ...' or 'feat(api)!: ...'). "
             "The description must be a concise summary in imperative mood, lowercase, no trailing period. "
-            "Additional details follow as bullet points in the body after a blank line."
+            "Additional details follow as bullet points in the body after a blank line. "
+            "If every changed file in the diff is a documentation file "
+            "(a `*.md` file or a file under `docs/`), the type MUST be `docs`."
         )
 
     def _branch_instruction(self) -> str:
@@ -354,6 +387,34 @@ class CommitMessageGenerator:
             prompt = base
 
         log.debug("Final squash prompt (%d characters).", len(prompt))
+        return prompt
+
+    def _build_pr_prompt(self) -> str:
+        """
+        Build the PR description prompt by loading the base prompt from file
+        (with fallback) and appending universal style instructions.
+
+        Only language/style/emoji are appended. `conventional` and
+        `branch_context` are commit-message specific (no `feat(scope):`
+        headline; branch intent is irrelevant to summarizing commits) and
+        are deliberately excluded.
+        """
+        base = load_prompt_file(
+            config_key="pr_prompt_file",
+            config=self.config,
+            default_filename="pr_prompt.md",
+            hardcoded_fallback=HARDCODED_PR_PROMPT,
+        )
+
+        parts = [
+            self._language_instruction(),
+            self._style_instruction(),
+            self._emoji_instruction(),
+        ]
+        suffix = " ".join(p for p in parts if p)
+        prompt = f"{base} {suffix}" if suffix else base
+
+        log.debug("Final PR prompt (%d characters).", len(prompt))
         return prompt
 
     # Keep old method names as aliases for backward compatibility in tests

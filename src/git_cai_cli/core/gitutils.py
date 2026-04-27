@@ -225,6 +225,49 @@ def get_current_branch(
         return None
 
 
+def detect_base_branch(
+    run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> str:
+    """Resolve the repository's base branch.
+
+    Order of attempts:
+    1. `origin/HEAD` (the remote's default branch).
+    2. local `main`.
+    3. local `master`.
+
+    Raises ValueError if none of these are present.
+    """
+    try:
+        result = run_cmd(
+            ["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        ref = result.stdout.strip()
+        if ref.startswith("origin/"):
+            return ref[len("origin/") :]  # type: ignore[misc]  # mypy E203
+        if ref:
+            return ref
+    except subprocess.CalledProcessError:
+        log.debug("origin/HEAD not set; trying local fallbacks.")
+
+    for candidate in ("main", "master"):
+        rc = run_cmd(
+            ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{candidate}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode
+        if rc == 0:
+            log.debug("Using local '%s' as base branch.", candidate)
+            return candidate
+
+    raise ValueError(
+        "Could not determine base branch. Set origin/HEAD or pass --base <branch>."
+    )
+
+
 def _has_upstream() -> bool:
     try:
         subprocess.check_output(

@@ -10,32 +10,64 @@ from git_cai_cli.cli.modes import Mode
 
 def test_resolve_mode_commit_by_default():
     """No flags should return COMMIT mode."""
-    mode = modes.resolve_mode(amend=False, list_flag=False, squash=False, update=False)
+    mode = modes.resolve_mode(
+        amend=False, list_flag=False, pr=False, squash=False, update=False
+    )
     assert mode == Mode.COMMIT
 
 
 def test_resolve_mode_list_flag():
     """--list flag should return LIST mode."""
-    mode = modes.resolve_mode(amend=False, list_flag=True, squash=False, update=False)
+    mode = modes.resolve_mode(
+        amend=False, list_flag=True, pr=False, squash=False, update=False
+    )
     assert mode == Mode.LIST
 
 
 def test_resolve_mode_squash_flag():
     """--squash flag should return SQUASH mode."""
-    mode = modes.resolve_mode(amend=False, list_flag=False, squash=True, update=False)
+    mode = modes.resolve_mode(
+        amend=False, list_flag=False, pr=False, squash=True, update=False
+    )
     assert mode == Mode.SQUASH
+
+
+def test_resolve_mode_pr_flag():
+    """--PR flag should return PR mode."""
+    mode = modes.resolve_mode(
+        amend=False, list_flag=False, pr=True, squash=False, update=False
+    )
+    assert mode == Mode.PR
 
 
 def test_resolve_mode_update_flag():
     """--update flag should return UPDATE mode."""
-    mode = modes.resolve_mode(amend=False, list_flag=False, squash=False, update=True)
+    mode = modes.resolve_mode(
+        amend=False, list_flag=False, pr=False, squash=False, update=True
+    )
     assert mode == Mode.UPDATE
 
 
 def test_resolve_mode_multiple_flags(capsys):
-    """Using more than one of --list, --squash, --update raises typer.Exit."""
+    """Using more than one of --list, --PR, --squash, --update raises typer.Exit."""
     with pytest.raises(typer.Exit) as exc:
-        modes.resolve_mode(amend=False, list_flag=True, squash=True, update=False)
+        modes.resolve_mode(
+            amend=False, list_flag=True, pr=False, squash=True, update=False
+        )
+    captured = capsys.readouterr()
+    assert (
+        "cannot be used together" in captured.out
+        or "cannot be used together" in captured.err
+    )
+    assert exc.value.exit_code == 1
+
+
+def test_resolve_mode_pr_with_squash_rejected(capsys):
+    """--PR cannot be used with --squash."""
+    with pytest.raises(typer.Exit) as exc:
+        modes.resolve_mode(
+            amend=False, list_flag=False, pr=True, squash=True, update=False
+        )
     captured = capsys.readouterr()
     assert (
         "cannot be used together" in captured.out
@@ -97,8 +129,8 @@ def test_validate_options_stage_tracked_with_non_commit(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list, --update, or --squash" in captured.out
-        or "cannot be used with --list, --update, or --squash" in captured.err
+        "cannot be used with --list, --update" in captured.out
+        or "cannot be used with --list, --update" in captured.err
     )
     assert exc.value.exit_code == 1
 

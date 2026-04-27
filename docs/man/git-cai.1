@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-04-23
+.\"      Date: 2026-04-27
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-04-23" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-04-27" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -42,6 +42,7 @@ git-cai \- AI\-powered commit message generator
          \-\-list [config|editor|language|model|path|provider|style]]
         [\-m MODEL | \-\-model MODEL]
         [\-P PROVIDER | \-\-provider PROVIDER] [\-p | \-\-generate\-prompts]
+        [\-r | \-\-PR] [\-\-base BRANCH]
         [\-S KEY=VALUE | \-\-set KEY=VALUE]
         [\-s [N|HASH] | \-\-squash [N|HASH]]
         [\-T SECONDS | \-\-timeout SECONDS]
@@ -523,6 +524,60 @@ git cai \-p
 .if n .RE
 .RE
 .sp
+\-r, \-\-PR
+.RS 4
+Generate a Pull Request description summarizing the commits between the
+current branch and its base branch. git\-cai collects the commit messages
+and the list of files changed since the branch diverged, sends them to
+the configured LLM, and produces a Markdown description with \f(CR## Summary\fP
+and \f(CR## Test plan\fP sections.
+.sp
+This mode never modifies git state: no commit, no reset, no force push.
+.sp
+By default the generated description is printed to stdout. To write it to
+a file in the repository root instead, set \f(CRpr_to_file: true\fP in
+\f(CRcai_config.yml\fP. The filename defaults to \f(CRPR_DESCRIPTION.md\fP and can be
+changed via \f(CRpr_file_name\fP. Configuration follows the same precedence as
+every other key (repository config wins; otherwise home config; otherwise
+built\-in defaults).
+.sp
+The base branch is auto\-detected in this order: \f(CRorigin/HEAD\fP, then local
+\f(CRmain\fP, then local \f(CRmaster\fP. Use \f(CR\-\-base\fP to override.
+.sp
+Cannot be combined with \f(CR\-\-amend\fP, \f(CR\-\-list\fP, \f(CR\-\-squash\fP, or \f(CR\-\-update\fP.
+Can be combined with \f(CR\-\-context\fP to inject extra context (e.g. a ticket
+number or reviewer ask).
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-r
+git cai \-\-PR
+git cai \-r \-\-base develop
+git cai \-r \-x "Closes JIRA\-1234"
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-\-base BRANCH
+.RS 4
+Explicit base branch for \f(CR\-\-PR\fP. Overrides the auto\-detection chain
+(\f(CRorigin/HEAD\fP \(-> \f(CRmain\fP \(-> \f(CRmaster\fP). Useful for repositories whose base
+branch is not \f(CRmain\fP/\f(CRmaster\fP or that lack \f(CRorigin/HEAD\fP.
+.sp
+Only meaningful in combination with \f(CR\-\-PR\fP (\f(CR\-r\fP).
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-r \-\-base develop
+git cai \-r \-\-base release/1.x
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-S, \-\-set KEY=VALUE
 .RS 4
 Set a configuration value in the repository config (\f(CRcai_config.yml\fP in the
@@ -668,12 +723,13 @@ git cai \-v
 \-x, \-\-context CONTEXT
 .RS 4
 Provide extra context for the LLM to consider when generating the commit
-message. The context string is appended to the diff (or commit history in squash
-mode) before sending it to the provider. This is useful for including information
-that is not visible in the diff itself, such as a ticket number, the reason for
-a change, or a link to an issue.
+message. The context string is appended to the diff (or commit history in
+squash mode, or the commit list in PR mode) before sending it to the
+provider. This is useful for including information that is not visible in
+the diff itself, such as a ticket number, the reason for a change, or a
+link to an issue.
 .sp
-Can be combined with any commit\-generating mode (\f(CRCOMMIT\fP, \f(CRAMEND\fP, or \f(CRSQUASH\fP).
+Can be combined with \f(CRCOMMIT\fP, \f(CRAMEND\fP, \f(CRSQUASH\fP, or \f(CRPR\fP modes.
 Cannot be used with \f(CR\-\-list\fP or \f(CR\-\-update\fP.
 .sp
 .if n .RS 4
@@ -683,6 +739,7 @@ git cai \-x "Fixes JIRA\-1234"
 git cai \-x "Performance optimisation for the search endpoint"
 git cai \-A \-x "Reword after code review feedback"
 git cai \-\-squash \-x "Resolves JIRA\-99"
+git cai \-r \-x "Closes JIRA\-1234"
 .fam
 .fi
 .if n .RE
@@ -1131,6 +1188,46 @@ the diff (\f(CRtrue\fP/\f(CRfalse\fP, default \f(CRfalse\fP)
 .  sp -1
 .  IP \(bu 2.3
 .\}
+\f(CRpr_to_file\fP \(em when running \f(CR\-\-PR\fP, write the generated PR description
+to a Markdown file in the repository root instead of printing it to
+stdout (\f(CRtrue\fP/\f(CRfalse\fP, default \f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRpr_file_name\fP \(em filename used when \f(CRpr_to_file\fP is \f(CRtrue\fP (default
+\f(CRPR_DESCRIPTION.md\fP). The file is written in the repository root and
+overwritten on each run.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRpr_prompt_file\fP \(em path to a custom Markdown prompt file used by
+\f(CR\-\-PR\fP. Follows the same fallback chain as \f(CRprompt_file\fP /
+\f(CRsquash_prompt_file\fP: configured path \(-> \f(CR~/.config/cai/pr_prompt.md\fP \(->
+built\-in fallback.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
 \f(CR<provider>.model\fP \(em model name for a specific provider
 .RE
 .sp
@@ -1318,6 +1415,51 @@ Squash all commits down to and including a specific commit:
 .nf
 .fam C
 git cai \-s a1b2c3d
+.fam
+.fi
+.if n .RE
+.sp
+Generate a Pull Request description from the current branch (prints to
+stdout):
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-r
+git cai \-\-PR
+.fam
+.fi
+.if n .RE
+.sp
+Generate a PR description against an explicit base branch:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-r \-\-base develop
+.fam
+.fi
+.if n .RE
+.sp
+Write the PR description to a file in the repository root (set once in
+\f(CRcai_config.yml\fP, then run normally):
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-S pr_to_file=true
+git cai \-S pr_file_name=PR.md
+git cai \-r
+.fam
+.fi
+.if n .RE
+.sp
+Generate a PR description with extra context:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-r \-x "Closes JIRA\-1234"
 .fam
 .fi
 .if n .RE

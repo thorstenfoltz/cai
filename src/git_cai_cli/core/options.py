@@ -189,6 +189,7 @@ class CliManager:
         from git_cai_cli.core.prompts_fallback import (
             HARDCODED_COMMIT_PROMPT,
             HARDCODED_FULL_FILES_PROMPT,
+            HARDCODED_PR_PROMPT,
             HARDCODED_SQUASH_PROMPT,
         )
 
@@ -197,6 +198,7 @@ class CliManager:
             (cwd / "commit_prompt.md", HARDCODED_COMMIT_PROMPT, "commit"),
             (cwd / "squash_prompt.md", HARDCODED_SQUASH_PROMPT, "squash"),
             (cwd / "full_files_prompt.md", HARDCODED_FULL_FILES_PROMPT, "full-files"),
+            (cwd / "pr_prompt.md", HARDCODED_PR_PROMPT, "pr"),
         )
 
         for path, _body, _label in targets:

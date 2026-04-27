@@ -35,6 +35,9 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
         "measure_time",
         "timeout",
         "full_files",
+        "pr_to_file",
+        "pr_file_name",
+        "pr_prompt_file",
     }
     allowed_provider_keys = set(reference.keys()) - allowed_global_keys
 

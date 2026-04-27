@@ -60,6 +60,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "measure_time": False,
     "timeout": 30,
     "full_files": False,
+    "pr_to_file": False,
+    "pr_file_name": "PR_DESCRIPTION.md",
+    "pr_prompt_file": "",
 }
 
 # Providers that do not require an API token in tokens.yml
@@ -146,14 +149,19 @@ def load_config(
             if isinstance(value, str) and value.strip().lower() in none_like:
                 config_dict[key] = "none"
 
-        for key in ("prompt_file", "squash_prompt_file", "full_files_prompt_file"):
+        for key in (
+            "prompt_file",
+            "squash_prompt_file",
+            "full_files_prompt_file",
+            "pr_prompt_file",
+        ):
             if key not in config_dict:
                 continue
             value = config_dict.get(key)
             if value is None:
                 config_dict[key] = ""
 
-    def _ensure_prompt_files(prompt_dir: Path) -> tuple[Path, Path, Path]:
+    def _ensure_prompt_files(prompt_dir: Path) -> tuple[Path, Path, Path, Path]:
         """Ensure default prompt files exist in prompt_dir.
 
         Prompt bodies come from the hardcoded fallback strings in
@@ -162,6 +170,7 @@ def load_config(
         from git_cai_cli.core.prompts_fallback import (
             HARDCODED_COMMIT_PROMPT,
             HARDCODED_FULL_FILES_PROMPT,
+            HARDCODED_PR_PROMPT,
             HARDCODED_SQUASH_PROMPT,
         )
 
@@ -170,11 +179,13 @@ def load_config(
         commit_path = prompt_dir / "commit_prompt.md"
         squash_path = prompt_dir / "squash_prompt.md"
         full_files_path = prompt_dir / "full_files_prompt.md"
+        pr_path = prompt_dir / "pr_prompt.md"
 
         targets = (
             (commit_path, HARDCODED_COMMIT_PROMPT, "commit"),
             (squash_path, HARDCODED_SQUASH_PROMPT, "squash"),
             (full_files_path, HARDCODED_FULL_FILES_PROMPT, "full-files"),
+            (pr_path, HARDCODED_PR_PROMPT, "pr"),
         )
 
         for path, body, label in targets:
@@ -182,11 +193,16 @@ def load_config(
                 path.write_text(body, encoding="utf-8")
                 log.info("Default %s prompt written to %s", label, path)
 
-        return commit_path, squash_path, full_files_path
+        return commit_path, squash_path, full_files_path, pr_path
 
     def _normalize_prompt_paths(config_dict: dict[str, Any], base_dir: Path) -> None:
         """Normalize prompt file paths (expand ~/$VARS and resolve relative paths)."""
-        for key in ("prompt_file", "squash_prompt_file", "full_files_prompt_file"):
+        for key in (
+            "prompt_file",
+            "squash_prompt_file",
+            "full_files_prompt_file",
+            "pr_prompt_file",
+        ):
             raw = config_dict.get(key)
             if not isinstance(raw, str):
                 continue
@@ -248,10 +264,12 @@ def load_config(
             commit_prompt_path,
             squash_prompt_path,
             full_files_prompt_path,
+            pr_prompt_path,
         ) = _ensure_prompt_files(fallback_config_file.parent)
         default_config["prompt_file"] = commit_prompt_path
         default_config["squash_prompt_file"] = squash_prompt_path
         default_config["full_files_prompt_file"] = full_files_prompt_path
+        default_config["pr_prompt_file"] = pr_prompt_path
 
         ordered = ordered_default_config(default_config)
 
@@ -398,6 +416,9 @@ def ordered_default_config(
         "measure_time",
         "timeout",
         "full_files",
+        "pr_to_file",
+        "pr_file_name",
+        "pr_prompt_file",
     ]
 
     ordered: dict[str, Any] = {}

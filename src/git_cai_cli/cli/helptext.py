@@ -30,7 +30,9 @@ Flags:
   -l, --list               List information (e.g. languages, styles, providers, config)
   -m, --model NAME         Override model for this invocation (requires --provider)
   -P, --provider NAME      Override LLM provider for this invocation
-  -p, --generate-prompts   Generate default commit_prompt.md and squash_prompt.md
+  -p, --generate-prompts   Generate default commit/squash/full_files/pr prompt files
+  -r, --PR                 Generate a Pull Request description from the commits on this branch
+      --base BRANCH        Base branch for --PR (overrides auto-detection)
   -S, --set KEY=VALUE      Set a config value in repo config (requires existing repo config)
   -s, --squash [N|HASH]    Squash commits on this branch and summarize them
                            No argument: squash all commits since branch checkout
