@@ -78,6 +78,17 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     squash: bool = typer.Option(
         False, "--squash", "-s", help="Squash commits on this branch"
     ),
+    pr: bool = typer.Option(
+        False,
+        "--PR",
+        "-r",
+        help="Generate a Pull Request description from the commits on this branch",
+    ),
+    base: str = typer.Option(
+        None,
+        "--base",
+        help="Explicit base branch for --PR (overrides auto-detection)",
+    ),
     update: bool = typer.Option(False, "--update", "-u", help="Check for updates"),
     set_config: str = typer.Option(
         None,
@@ -143,7 +154,13 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         do_install()
         raise typer.Exit()
 
-    mode = resolve_mode(amend=amend, list_flag=list_flag, squash=squash, update=update)
+    mode = resolve_mode(
+        amend=amend,
+        list_flag=list_flag,
+        pr=pr,
+        squash=squash,
+        update=update,
+    )
 
     validate_options(
         mode=mode,
@@ -180,8 +197,8 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         try:
             manager.generate_prompts_here()
             typer.echo(
-                "commit_prompt.md, squash_prompt.md, and full_files_prompt.md "
-                "created in current directory."
+                "commit_prompt.md, squash_prompt.md, full_files_prompt.md, "
+                "and pr_prompt.md created in current directory."
             )
         except RuntimeError as e:
             typer.echo(f"Error: {e}", err=True)
@@ -228,6 +245,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         timeout_override=timeout,
         full_files_override=full_files,
         files_override=files,
+        base_override=base,
     )
 
 

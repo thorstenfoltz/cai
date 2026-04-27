@@ -20,6 +20,7 @@ SYNOPSIS
          --list [config|editor|language|model|path|provider|style]]
         [-m MODEL | --model MODEL]
         [-P PROVIDER | --provider PROVIDER] [-p | --generate-prompts]
+        [-r | --PR] [--base BRANCH]
         [-S KEY=VALUE | --set KEY=VALUE]
         [-s [N|HASH] | --squash [N|HASH]]
         [-T SECONDS | --timeout SECONDS]
@@ -299,6 +300,48 @@ overwrites.
 git cai -p
 ----
 
+-r, --PR::
+Generate a Pull Request description summarizing the commits between the
+current branch and its base branch. git-cai collects the commit messages
+and the list of files changed since the branch diverged, sends them to
+the configured LLM, and produces a Markdown description with `## Summary`
+and `## Test plan` sections.
++
+This mode never modifies git state: no commit, no reset, no force push.
++
+By default the generated description is printed to stdout. To write it to
+a file in the repository root instead, set `pr_to_file: true` in
+`cai_config.yml`. The filename defaults to `PR_DESCRIPTION.md` and can be
+changed via `pr_file_name`. Configuration follows the same precedence as
+every other key (repository config wins; otherwise home config; otherwise
+built-in defaults).
++
+The base branch is auto-detected in this order: `origin/HEAD`, then local
+`main`, then local `master`. Use `--base` to override.
++
+Cannot be combined with `--amend`, `--list`, `--squash`, or `--update`.
+Can be combined with `--context` to inject extra context (e.g. a ticket
+number or reviewer ask).
++
+----
+git cai -r
+git cai --PR
+git cai -r --base develop
+git cai -r -x "Closes JIRA-1234"
+----
+
+--base BRANCH::
+Explicit base branch for `--PR`. Overrides the auto-detection chain
+(`origin/HEAD` -> `main` -> `master`). Useful for repositories whose base
+branch is not `main`/`master` or that lack `origin/HEAD`.
++
+Only meaningful in combination with `--PR` (`-r`).
++
+----
+git cai -r --base develop
+git cai -r --base release/1.x
+----
+
 -S, --set KEY=VALUE::
 Set a configuration value in the repository config (`cai_config.yml` in the
 repository root). Requires an existing repo config; if none is found, an
@@ -399,12 +442,13 @@ git cai -v
 
 -x, --context CONTEXT::
 Provide extra context for the LLM to consider when generating the commit
-message. The context string is appended to the diff (or commit history in squash
-mode) before sending it to the provider. This is useful for including information
-that is not visible in the diff itself, such as a ticket number, the reason for
-a change, or a link to an issue.
+message. The context string is appended to the diff (or commit history in
+squash mode, or the commit list in PR mode) before sending it to the
+provider. This is useful for including information that is not visible in
+the diff itself, such as a ticket number, the reason for a change, or a
+link to an issue.
 +
-Can be combined with any commit-generating mode (`COMMIT`, `AMEND`, or `SQUASH`).
+Can be combined with `COMMIT`, `AMEND`, `SQUASH`, or `PR` modes.
 Cannot be used with `--list` or `--update`.
 +
 ----
@@ -412,6 +456,7 @@ git cai -x "Fixes JIRA-1234"
 git cai -x "Performance optimisation for the search endpoint"
 git cai -A -x "Reword after code review feedback"
 git cai --squash -x "Resolves JIRA-99"
+git cai -r -x "Closes JIRA-1234"
 ----
 
 LIST TYPES
@@ -622,6 +667,16 @@ Available configuration keys:
 - `timeout` -- HTTP timeout in seconds for remote LLM calls (default `30`)
 - `full_files` -- send full working-tree contents of staged files alongside
   the diff (`true`/`false`, default `false`)
+- `pr_to_file` -- when running `--PR`, write the generated PR description
+  to a Markdown file in the repository root instead of printing it to
+  stdout (`true`/`false`, default `false`)
+- `pr_file_name` -- filename used when `pr_to_file` is `true` (default
+  `PR_DESCRIPTION.md`). The file is written in the repository root and
+  overwritten on each run.
+- `pr_prompt_file` -- path to a custom Markdown prompt file used by
+  `--PR`. Follows the same fallback chain as `prompt_file` /
+  `squash_prompt_file`: configured path -> `~/.config/cai/pr_prompt.md` ->
+  built-in fallback.
 - `<provider>.model` -- model name for a specific provider
 - `<provider>.temperature` -- temperature for a specific provider
 - `anthropic.max_tokens` -- upper bound on Anthropic response tokens
@@ -718,6 +773,35 @@ Squash all commits down to and including a specific commit:
 
 ----
 git cai -s a1b2c3d
+----
+
+Generate a Pull Request description from the current branch (prints to
+stdout):
+
+----
+git cai -r
+git cai --PR
+----
+
+Generate a PR description against an explicit base branch:
+
+----
+git cai -r --base develop
+----
+
+Write the PR description to a file in the repository root (set once in
+`cai_config.yml`, then run normally):
+
+----
+git cai -S pr_to_file=true
+git cai -S pr_file_name=PR.md
+git cai -r
+----
+
+Generate a PR description with extra context:
+
+----
+git cai -r -x "Closes JIRA-1234"
 ----
 
 Show supported styles, languages, or editors:

@@ -12,6 +12,9 @@ token_logging: true
 measure_time: true
 timeout: 30
 full_files: false
+pr_to_file: false
+pr_file_name: PR_DESCRIPTION.md
+pr_prompt_file: "/home/thorsten/.config/cai/pr_prompt.md"
 anthropic:
   model: claude-haiku-4-5
   temperature: 0

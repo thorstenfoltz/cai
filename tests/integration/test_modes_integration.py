@@ -12,23 +12,63 @@ from git_cai_cli.cli.modes import Mode
     "flags,expected_mode",
     [
         (
-            {"amend": False, "list_flag": False, "squash": False, "update": False},
+            {
+                "amend": False,
+                "list_flag": False,
+                "pr": False,
+                "squash": False,
+                "update": False,
+            },
             Mode.COMMIT,
         ),
         (
-            {"amend": True, "list_flag": False, "squash": False, "update": False},
+            {
+                "amend": True,
+                "list_flag": False,
+                "pr": False,
+                "squash": False,
+                "update": False,
+            },
             Mode.AMEND,
         ),
         (
-            {"amend": False, "list_flag": True, "squash": False, "update": False},
+            {
+                "amend": False,
+                "list_flag": True,
+                "pr": False,
+                "squash": False,
+                "update": False,
+            },
             Mode.LIST,
         ),
         (
-            {"amend": False, "list_flag": False, "squash": True, "update": False},
+            {
+                "amend": False,
+                "list_flag": False,
+                "pr": False,
+                "squash": True,
+                "update": False,
+            },
             Mode.SQUASH,
         ),
         (
-            {"amend": False, "list_flag": False, "squash": False, "update": True},
+            {
+                "amend": False,
+                "list_flag": False,
+                "pr": True,
+                "squash": False,
+                "update": False,
+            },
+            Mode.PR,
+        ),
+        (
+            {
+                "amend": False,
+                "list_flag": False,
+                "pr": False,
+                "squash": False,
+                "update": True,
+            },
             Mode.UPDATE,
         ),
     ],
@@ -46,7 +86,9 @@ def test_resolve_mode_conflict_raises(capsys):
     Test that resolve_mode raises typer.Exit if multiple flags are used together.
     """
     with pytest.raises(typer.Exit) as exc:
-        modes.resolve_mode(amend=False, list_flag=True, squash=True, update=False)
+        modes.resolve_mode(
+            amend=False, list_flag=True, pr=False, squash=True, update=False
+        )
     captured = capsys.readouterr()
     assert (
         "cannot be used together" in captured.out
@@ -64,7 +106,7 @@ def test_resolve_mode_conflict_raises(capsys):
             False,
             False,
             False,
-            "Error: --all cannot be used with --list, --update, or --squash.",
+            "Error: --all cannot be used with --list, --update, --PR, or --squash.",
         ),
         (
             Mode.COMMIT,
@@ -146,7 +188,10 @@ def test_validate_options_files_rejected_outside_commit_amend(bad_mode, capsys):
             files=["x.py"],
         )
     captured = capsys.readouterr()
-    assert "--files cannot be used with --list, --update, or --squash." in captured.err
+    assert (
+        "--files cannot be used with --list, --update, --PR, or --squash."
+        in captured.err
+    )
     assert exc.value.exit_code == 1
 
 

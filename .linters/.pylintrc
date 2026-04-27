@@ -41,7 +41,7 @@ include-naming-hint=yes                    # Suggest the expected format when na
 max-line-length=256                        # Maximum line length
 indent-string='    '                       # Use 4 spaces per indentation level
 indent-after-paren=4                       # Hanging indent size
-max-module-lines=1000                      # Max lines per module before warning
+max-module-lines=2000                      # Max lines per module before warning
 ignore-long-lines=^\s*(# )?<?https?://\S+>?$
                                            # Ignore long lines if they’re URLs or comments
 expected-line-ending-format=LF             # Require LF line endings

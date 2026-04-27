@@ -12,6 +12,7 @@ from git_cai_cli.core.llm import (
 from git_cai_cli.core.prompts_fallback import (
     HARDCODED_COMMIT_PROMPT,
     HARDCODED_FULL_FILES_PROMPT,
+    HARDCODED_PR_PROMPT,
     HARDCODED_SQUASH_PROMPT,
 )
 
@@ -784,3 +785,135 @@ class TestCbeaComplianceSquashPrompt:
         assert (
             not missing
         ), f"HARDCODED_SQUASH_PROMPT is missing cbea.ms markers: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# Documentation-only classification rule
+# ---------------------------------------------------------------------------
+
+
+class TestDocsOnlyRuleInHardcodedPrompts:
+    """All three commit-style hardcoded prompts must guide the LLM to treat
+    documentation-only diffs as documentation, not as features or fixes."""
+
+    def test_hardcoded_commit_prompt_mentions_docs_only_rule(self):
+        assert "*.md" in HARDCODED_COMMIT_PROMPT
+        assert "docs/" in HARDCODED_COMMIT_PROMPT
+        assert "documentation" in HARDCODED_COMMIT_PROMPT.lower()
+
+    def test_hardcoded_full_files_prompt_mentions_docs_only_rule(self):
+        assert "*.md" in HARDCODED_FULL_FILES_PROMPT
+        assert "docs/" in HARDCODED_FULL_FILES_PROMPT
+        assert "documentation" in HARDCODED_FULL_FILES_PROMPT.lower()
+
+    def test_hardcoded_squash_prompt_mentions_docs_only_rule(self):
+        assert "*.md" in HARDCODED_SQUASH_PROMPT
+        assert "docs/" in HARDCODED_SQUASH_PROMPT
+        assert "documentation" in HARDCODED_SQUASH_PROMPT.lower()
+
+
+class TestHardcodedPrPrompt:
+    """The PR prompt must allow any bullet count and follow the same
+    commit-message best practices as the commit prompts."""
+
+    def test_pr_prompt_has_summary_and_test_plan(self):
+        assert "## Summary" in HARDCODED_PR_PROMPT
+        assert "## Test plan" in HARDCODED_PR_PROMPT
+
+    def test_pr_prompt_does_not_cap_bullets(self):
+        # The earlier "1 to 3 bullet points" cap was removed — the LLM
+        # should be free to use as many bullets as the work needs.
+        assert "1 to 3" not in HARDCODED_PR_PROMPT
+        assert "no fixed cap" in HARDCODED_PR_PROMPT
+
+    def test_pr_prompt_requires_commit_message_best_practices(self):
+        # Same bullet conventions as the commit prompts: imperative mood,
+        # capitalization, no trailing period, 72-char wrap, what+why.
+        assert "imperative mood" in HARDCODED_PR_PROMPT
+        assert "If applied" in HARDCODED_PR_PROMPT
+        assert "Capitalize" in HARDCODED_PR_PROMPT
+        assert "Do not end the bullet with a period" in HARDCODED_PR_PROMPT
+        assert "72 characters" in HARDCODED_PR_PROMPT
+        assert "what changed and why" in HARDCODED_PR_PROMPT
+
+    def test_pr_prompt_keeps_docs_only_rule(self):
+        assert "*.md" in HARDCODED_PR_PROMPT
+        assert "docs/" in HARDCODED_PR_PROMPT
+
+
+class TestConventionalInstructionDocsRule:
+    """When conventional commits is enabled, the instruction must require
+    `docs` type for documentation-only diffs."""
+
+    def test_conventional_instruction_requires_docs_type_for_doc_only_changes(
+        self, base_config
+    ):
+        config = dict(base_config)
+        config["conventional"] = True
+        gen = CommitMessageGenerator(
+            token="fake-token", config=config, default_model="openai"
+        )
+        instr = gen._conventional_instruction()
+        assert "docs" in instr
+        assert "MUST" in instr
+        assert "*.md" in instr
+
+    def test_conventional_instruction_empty_when_disabled(self, base_config):
+        config = dict(base_config)
+        config["conventional"] = False
+        gen = CommitMessageGenerator(
+            token="fake-token", config=config, default_model="openai"
+        )
+        assert gen._conventional_instruction() == ""
+
+
+# ---------------------------------------------------------------------------
+# language / style / emoji must apply to ALL prompt builders
+# ---------------------------------------------------------------------------
+
+
+class TestLanguageStyleEmojiCoverAllPrompts:
+    """language, style, and emoji are universal stylistic preferences and
+    must be honored by every prompt builder: commit, full-files, squash,
+    and PR. Regression guard: each new prompt builder must opt in."""
+
+    def _make_gen(self, base_config, **overrides):
+        config = dict(base_config)
+        config.update(overrides)
+        return CommitMessageGenerator(
+            token="fake-token", config=config, default_model="openai"
+        )
+
+    def test_commit_prompt_honors_language_style_emoji(self, base_config):
+        gen = self._make_gen(base_config, language="de", style="funny", emoji=True)
+        prompt = gen._build_commit_prompt()
+        assert "German" in prompt
+        assert "funny" in prompt
+        assert "emoji" in prompt.lower()
+
+    def test_full_files_prompt_honors_language_style_emoji(self, base_config):
+        gen = self._make_gen(
+            base_config,
+            language="de",
+            style="funny",
+            emoji=True,
+            full_files=True,
+        )
+        prompt = gen._build_commit_prompt()  # full_files=True routes here
+        assert "German" in prompt
+        assert "funny" in prompt
+        assert "emoji" in prompt.lower()
+
+    def test_squash_prompt_honors_language_style_emoji(self, base_config):
+        gen = self._make_gen(base_config, language="de", style="funny", emoji=True)
+        prompt = gen._build_squash_prompt()
+        assert "German" in prompt
+        assert "funny" in prompt
+        assert "emoji" in prompt.lower()
+
+    def test_pr_prompt_honors_language_style_emoji(self, base_config):
+        gen = self._make_gen(base_config, language="de", style="funny", emoji=True)
+        prompt = gen._build_pr_prompt()
+        assert "German" in prompt
+        assert "funny" in prompt
+        assert "emoji" in prompt.lower()

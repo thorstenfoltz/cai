@@ -17,14 +17,18 @@ from git_cai_cli.core.gitutils import commit_direct, get_last_commit_diff
 
 def test_resolve_mode_amend():
     """--amend flag should return AMEND mode."""
-    mode = modes.resolve_mode(amend=True, list_flag=False, squash=False, update=False)
+    mode = modes.resolve_mode(
+        amend=True, list_flag=False, pr=False, squash=False, update=False
+    )
     assert mode == Mode.AMEND
 
 
 def test_resolve_mode_amend_conflicts_with_squash(capsys):
     """--amend and --squash cannot be used together."""
     with pytest.raises(typer.Exit) as exc:
-        modes.resolve_mode(amend=True, list_flag=False, squash=True, update=False)
+        modes.resolve_mode(
+            amend=True, list_flag=False, pr=False, squash=True, update=False
+        )
     captured = capsys.readouterr()
     assert (
         "cannot be used together" in captured.out
@@ -36,7 +40,9 @@ def test_resolve_mode_amend_conflicts_with_squash(capsys):
 def test_resolve_mode_amend_conflicts_with_list(capsys):
     """--amend and --list cannot be used together."""
     with pytest.raises(typer.Exit) as exc:
-        modes.resolve_mode(amend=True, list_flag=True, squash=False, update=False)
+        modes.resolve_mode(
+            amend=True, list_flag=True, pr=False, squash=False, update=False
+        )
     captured = capsys.readouterr()
     assert (
         "cannot be used together" in captured.out

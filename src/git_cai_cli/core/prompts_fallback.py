@@ -32,6 +32,13 @@ HARDCODED_COMMIT_PROMPT = (
     "- Keep the total message short — aim for clarity over completeness.\n"
     "- Output only the raw commit message. "
     "No markdown fences, no quotes, no extra commentary.\n"
+    "- If every changed file in the diff is a documentation file "
+    "(a `*.md` file or a file under `docs/`), treat the change as a "
+    "documentation update. Use a documentation verb in the subject "
+    'line ("Document", "Update docs", "Clarify", "Revise") rather '
+    'than generic verbs like "Add" or "Fix", and describe the change '
+    "as documentation in the body. Do not classify documentation-only "
+    "changes as features or bug fixes.\n"
     "- If you detect sensitive information (keys, tokens, passwords), "
     "warn about it at the very top before the subject line."
 )
@@ -77,6 +84,13 @@ HARDCODED_FULL_FILES_PROMPT = (
     "- Keep the total message short — aim for clarity over completeness.\n"
     "- Output only the raw commit message. "
     "No markdown fences, no quotes, no extra commentary.\n"
+    "- If every changed file in the diff is a documentation file "
+    "(a `*.md` file or a file under `docs/`), treat the change as a "
+    "documentation update. Use a documentation verb in the subject "
+    'line ("Document", "Update docs", "Clarify", "Revise") rather '
+    'than generic verbs like "Add" or "Fix", and describe the change '
+    "as documentation in the body. Do not classify documentation-only "
+    "changes as features or bug fixes.\n"
     "- If you detect sensitive information (keys, tokens, passwords) in either "
     "the diff or the full file contents, warn about it at the very top before "
     "the subject line."
@@ -106,6 +120,55 @@ HARDCODED_SQUASH_PROMPT = (
     "- Below the subject, leave one blank line, "
     "then add a concise bullet list describing the key themes of the work.\n"
     "- Focus on why the changes were made, not just what was touched.\n"
+    "- If every changed file across the squashed commits is a documentation "
+    "file (a `*.md` file or a file under `docs/`), treat the squashed change "
+    "as a documentation update. Use a documentation verb in the subject "
+    'line ("Document", "Update docs", "Clarify", "Revise") rather than '
+    'generic verbs like "Add" or "Fix", and describe the change as '
+    "documentation in the body. Do not classify documentation-only "
+    "changes as features or bug fixes.\n"
     "- Output only the raw commit message. "
     "No markdown fences, no quotes, no extra commentary."
+)
+
+HARDCODED_PR_PROMPT = (
+    "You are an expert software engineer assistant.\n"
+    "Your task is to draft a Pull Request description from a list of "
+    "commit messages and a list of changed files between a feature branch "
+    "and its base branch.\n"
+    "\n"
+    "Output a Markdown document with exactly two sections:\n"
+    "\n"
+    "## Summary\n"
+    "- A bullet-point list describing the overall intent of the PR. Use as "
+    "many bullets as the work needs — there is no fixed cap. Cover every "
+    "distinct theme of the PR, but group related changes into a single "
+    "bullet instead of listing every file or every commit separately.\n"
+    "- Each bullet must follow the same best practices as a great commit "
+    "message:\n"
+    "  - Use the imperative mood — the bullet must complete the sentence "
+    '"If applied, this commit will …" (e.g. "Add", "Fix", "Refactor", '
+    'not "Added", "Fixes", "Fixing").\n'
+    "  - Capitalize the first word.\n"
+    "  - Do not end the bullet with a period.\n"
+    "  - Wrap continuation lines at 72 characters per line.\n"
+    "  - Explain what changed and why, not how. Focus on the user-visible "
+    "effect, not a per-commit replay or a restatement of filenames.\n"
+    "\n"
+    "## Test plan\n"
+    "- A Markdown checklist (`- [ ] ...`) of concrete steps a reviewer or "
+    "maintainer can run to verify the change. Prefer commands and observable "
+    "outcomes (e.g. `make test`, smoke tests, manual checks) over vague "
+    'items like "tests pass". Use as many checklist items as the change '
+    "warrants.\n"
+    "\n"
+    "Rules:\n"
+    "- Do not invent commits, files, or behavior that is not implied by the "
+    "input. If something is uncertain, write a checklist item that asks the "
+    "reviewer to verify it rather than asserting it.\n"
+    "- Do not include a title line, headers other than the two above, "
+    "or any preamble. Output only the Markdown body.\n"
+    "- Do not wrap the output in code fences.\n"
+    "- If every changed file is a documentation file (`*.md` or under "
+    "`docs/`), describe the PR as a documentation update."
 )

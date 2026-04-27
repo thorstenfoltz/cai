@@ -393,6 +393,19 @@ def test_generate_prompts_here_creates_files(tmp_path, monkeypatch):
     assert (tmp_path / "commit_prompt.md").is_file()
     assert (tmp_path / "squash_prompt.md").is_file()
     assert (tmp_path / "full_files_prompt.md").is_file()
+    assert (tmp_path / "pr_prompt.md").is_file()
+
+
+def test_generate_prompts_here_pr_prompt_has_summary_section(tmp_path, monkeypatch):
+    """The generated pr_prompt.md must carry the PR-specific structure."""
+    manager = CliManager()
+    monkeypatch.chdir(tmp_path)
+
+    manager.generate_prompts_here()
+
+    body = (tmp_path / "pr_prompt.md").read_text(encoding="utf-8")
+    assert "## Summary" in body
+    assert "## Test plan" in body
 
 
 # ---------------------------------------------------------------------------

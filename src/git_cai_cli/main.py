@@ -67,6 +67,7 @@ def run(
     timeout_override: int | None = None,
     full_files_override: bool = False,
     files_override: list[str] | None = None,
+    base_override: str | None = None,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -111,6 +112,18 @@ def run(
             model_override=model_override,
             time_flag=time_flag,
             squash_arg=list_arg,
+            context=context,
+        )
+        return
+
+    if mode is Mode.PR:
+        from git_cai_cli.core.pr import run_pr
+
+        run_pr(
+            provider_override=provider_override,
+            model_override=model_override,
+            time_flag=time_flag,
+            base_override=base_override,
             context=context,
         )
         return

@@ -52,6 +52,7 @@ Currently supported providers:
 - Conventional Commits format support
 - Change configuration from the command line
 - Optional commit squashing with automatic summary generation (all, last N, or up to a specific commit)
+- Pull Request description generator (`--PR`) that summarizes the commits between the current branch and its base
 - List providers, models, active config, and file paths
 - Token usage logging for API calls
 - Branch name as LLM context
@@ -204,6 +205,9 @@ git cai -g
 - `conventional` – use Conventional Commits format
 - `token_logging` – log token usage after each LLM call
 - `measure_time` – log generation time
+- `pr_to_file` – when `--PR` is used, write the generated description to a Markdown file in the repo root instead of stdout (default `false`)
+- `pr_file_name` – filename used when `pr_to_file` is `true` (default `PR_DESCRIPTION.md`)
+- `pr_prompt_file` – optional path to a custom Markdown prompt for `--PR` (falls back to `~/.config/cai/pr_prompt.md`, then a built-in default)
 
 ---
 
@@ -227,6 +231,8 @@ In addition to `git cai`, the following options are available:
 - `-m`, `--model` – override the model for this invocation (requires `-P`)
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
 - `-P`, `--provider` – override the LLM provider for this invocation
+- `-r`, `--PR` – generate a Pull Request description from the commits between the current branch and its base (prints to stdout by default; set `pr_to_file=true` to write a Markdown file)
+- `--base` `BRANCH` – explicit base branch for `--PR` (overrides auto-detection: `origin/HEAD` → `main` → `master`)
 - `-S`, `--set` – set a config value (`key=value`) in repo config (requires existing repo config)
 - `-s`, `--squash` `[N|HASH]` – squash commits on the current branch and summarize them. Without argument: squash all since branch checkout. With a number: squash the last N commits. With a commit hash: squash up to and including that commit
 - `-T`, `--timeout` `SECONDS` – HTTP timeout for this invocation (overrides config)
@@ -287,6 +293,39 @@ Persist the default:
 ```sh
 git cai -S full_files=true
 ```
+
+### Pull Request descriptions
+
+`-r` / `--PR` generates a Markdown Pull Request description from the commits
+between the current branch and its base branch. The output has two sections —
+`## Summary` (bullet list following the same best practices as commit messages:
+imperative mood, capitalized, no trailing period, 72-char wrap) and
+`## Test plan` (a checklist a reviewer can run).
+
+This mode never modifies git state — no commit, no reset, no force push.
+
+```sh
+git cai -r                      # print to stdout (default)
+git cai --PR                    # long form
+git cai -r --base develop       # explicit base branch
+git cai -r -x "Closes JIRA-1234"  # add extra context
+```
+
+The base branch is auto-detected in this order: `origin/HEAD`, then local
+`main`, then local `master`. Use `--base` for repositories with non-standard
+layouts or no `origin/HEAD`.
+
+By default the description is printed to stdout. To write it to a file in the
+repository root instead, set `pr_to_file: true`:
+
+```sh
+git cai -S pr_to_file=true
+git cai -S pr_file_name=PR.md   # optional: change the filename
+git cai -r                       # writes ./PR.md (or PR_DESCRIPTION.md by default)
+```
+
+Configuration follows the usual precedence: repo `cai_config.yml` wins,
+otherwise `~/.config/cai/cai_config.yml`, otherwise the built-in defaults.
 
 ### Changing configuration from the CLI
 

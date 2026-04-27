@@ -15,18 +15,27 @@ class Mode(Enum):
     AMEND = auto()
     COMMIT = auto()
     LIST = auto()
+    PR = auto()
     SQUASH = auto()
     UPDATE = auto()
 
 
-def resolve_mode(*, amend: bool, list_flag: bool, squash: bool, update: bool) -> Mode:
+def resolve_mode(
+    *,
+    amend: bool,
+    list_flag: bool,
+    pr: bool,
+    squash: bool,
+    update: bool,
+) -> Mode:
     """
     Resolves the operational mode based on the provided flags.
     """
-    flags = [amend, list_flag, squash, update]
+    flags = [amend, list_flag, pr, squash, update]
     if sum(flags) > 1:
         typer.echo(
-            "Error: --amend, --list, --squash, and --update cannot be used together.",
+            "Error: --amend, --list, --PR, --squash, and --update "
+            "cannot be used together.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -35,6 +44,8 @@ def resolve_mode(*, amend: bool, list_flag: bool, squash: bool, update: bool) ->
         return Mode.AMEND
     if list_flag:
         return Mode.LIST
+    if pr:
+        return Mode.PR
     if squash:
         return Mode.SQUASH
     if update:
@@ -68,7 +79,7 @@ def validate_options(
 
     if stage_tracked and mode not in (Mode.COMMIT, Mode.AMEND):
         typer.echo(
-            "Error: --all cannot be used with --list, --update, or --squash.",
+            "Error: --all cannot be used with --list, --update, --PR, or --squash.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -87,7 +98,7 @@ def validate_options(
         )
         raise typer.Exit(code=1)
 
-    if context and mode not in (Mode.COMMIT, Mode.AMEND, Mode.SQUASH):
+    if context and mode not in (Mode.COMMIT, Mode.AMEND, Mode.SQUASH, Mode.PR):
         typer.echo(
             "Error: --context cannot be used with --list or --update.",
             err=True,
@@ -96,7 +107,7 @@ def validate_options(
 
     if files and mode not in (Mode.COMMIT, Mode.AMEND):
         typer.echo(
-            "Error: --files cannot be used with --list, --update, or --squash.",
+            "Error: --files cannot be used with --list, --update, --PR, or --squash.",
             err=True,
         )
         raise typer.Exit(code=1)
