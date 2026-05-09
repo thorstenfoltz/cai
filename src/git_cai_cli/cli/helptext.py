@@ -31,6 +31,11 @@ Flags:
   -m, --model NAME         Override model for this invocation (requires --provider)
   -P, --provider NAME      Override LLM provider for this invocation
   -p, --generate-prompts   Generate default commit/squash/full_files/pr prompt files
+  -Q, --stats              Show local-only usage analytics (commits, tokens, latency)
+      --since YYYY-MM-DD   Filter --stats to events on or after this date
+      --json               Render --stats output as JSON instead of text
+      --reset-stats        Delete all rows from the local stats DB
+  -q, --sql true|false     Override stats writing for this run (wins over config)
   -r, --PR                 Generate a Pull Request description from the commits on this branch
       --base BRANCH        Base branch for --PR (overrides auto-detection)
   -S, --set KEY=VALUE      Set a config value in repo config (requires existing repo config)

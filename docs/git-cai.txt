@@ -310,6 +310,83 @@ overwrites.
 git cai -p
 ----
 
+-Q, --stats::
+Show local-only usage analytics: commits and squashes generated, top
+provider, total token counts, average latency, and per-provider rollups.
+Recording is opt-in via the top-level `stats` config key (a plain
+boolean, default `false`), so this view is empty until you turn writing
+on. No diff content, commit messages, or file paths are stored — only
+metadata.
++
+Combine with `--since YYYY-MM-DD` to scope the view to recent activity, or
+with `--json` to emit machine-readable output. Use `--reset-stats` to
+clear the local SQLite database.
++
+The DB lives at `$XDG_DATA_HOME/git-cai/stats.db` (default
+`~/.local/share/git-cai/stats.db`). Override with the top-level
+`stats_db_path` config key.
++
+At the start of every run, git-cai logs whether stats writing is
+enabled and (when enabled) the path of the SQLite database, so users
+always know where their analytics live.
++
+If the running Python build was compiled without sqlite3, this command
+prints a clear message explaining how to fix it; commit generation
+continues to work normally in that case.
++
+The `stats` (and `stats_db_path`) keys are the one configuration
+exception that does not follow the strict repo-replaces-home rule:
+when the repo `cai_config.yml` does not mention them, the values are
+taken from the home `~/.config/cai/cai_config.yml`. If neither file
+defines `stats`, the hardcoded default is `false`. Use `git cai -g` to
+write a fresh config that includes the setting so it is visible.
++
+----
+git cai --stats
+git cai -Q --since 2026-01-01
+git cai -Q --json
+git cai --reset-stats
+----
+
+--since YYYY-MM-DD::
+Restrict `--stats` (`-Q`) output to events recorded on or after this UTC
+date. Has no effect outside of `--stats`. The date format is strict
+ISO-8601 (e.g. `2026-01-15`).
++
+----
+git cai -Q --since 2026-01-01
+----
+
+--json::
+Emit `--stats` (`-Q`) output as a JSON document instead of the text
+summary. Suitable for piping into `jq` or other tooling. Has no effect
+outside of `--stats`.
++
+----
+git cai -Q --json
+git cai -Q --json --since 2026-01-01 | jq '.per_provider'
+----
+
+--reset-stats::
+Delete every row from the local stats SQLite DB and exit. Prints the
+number of rows removed. The schema and DB file are preserved (so the
+next opt-in run records into the same file). No-op when the DB does
+not yet exist.
++
+----
+git cai --reset-stats
+----
+
+-q, --sql VALUE::
+Per-invocation override for `stats.enabled`. VALUE is `true` or `false`
+(also accepts `yes/no`, `on/off`, `1/0`). Wins over the persisted config
+value. Useful for one-off opt-in or opt-out without editing the config.
++
+----
+git cai --sql true       # record this commit even when config has stats off
+git cai -q false         # don't record this commit even when config has stats on
+----
+
 -r, --PR::
 Generate a Pull Request description summarizing the commits between the
 current branch and its base branch. git-cai collects the commit messages
@@ -467,54 +544,6 @@ git cai -x "Performance optimisation for the search endpoint"
 git cai -A -x "Reword after code review feedback"
 git cai --squash -x "Resolves JIRA-99"
 git cai -r -x "Closes JIRA-1234"
-----
-
--Q, --stats::
-Show local-only usage analytics: commits and squashes generated, top
-provider, total token counts, average latency, and per-provider rollups.
-Recording is opt-in via the top-level `stats` config key (a plain
-boolean, default `false`), so this view is empty until you turn writing
-on. No diff content, commit messages, or file paths are stored — only
-metadata.
-+
-Combine with `--since YYYY-MM-DD` to scope the view to recent activity, or
-with `--json` to emit machine-readable output. Use `--reset-stats` to
-clear the local SQLite database.
-+
-The DB lives at `$XDG_DATA_HOME/git-cai/stats.db` (default
-`~/.local/share/git-cai/stats.db`). Override with the top-level
-`stats_db_path` config key.
-+
-At the start of every run, git-cai logs whether stats writing is
-enabled and (when enabled) the path of the SQLite database, so users
-always know where their analytics live.
-+
-If the running Python build was compiled without sqlite3, this command
-prints a clear message explaining how to fix it; commit generation
-continues to work normally in that case.
-+
-The `stats` (and `stats_db_path`) keys are the one configuration
-exception that does not follow the strict repo-replaces-home rule:
-when the repo `cai_config.yml` does not mention them, the values are
-taken from the home `~/.config/cai/cai_config.yml`. If neither file
-defines `stats`, the hardcoded default is `false`. Use `git cai -g` to
-write a fresh config that includes the setting so it is visible.
-+
-----
-git cai --stats
-git cai -Q --since 2026-01-01
-git cai -Q --json
-git cai --reset-stats
-----
-
--q, --sql VALUE::
-Per-invocation override for `stats.enabled`. VALUE is `true` or `false`
-(also accepts `yes/no`, `on/off`, `1/0`). Wins over the persisted config
-value. Useful for one-off opt-in or opt-out without editing the config.
-+
-----
-git cai --sql true       # record this commit even when config has stats off
-git cai -q false         # don't record this commit even when config has stats on
 ----
 
 LIST TYPES
@@ -741,6 +770,13 @@ Available configuration keys:
   (default `32768`)
 - `ollama.timeout` -- HTTP timeout in seconds for Ollama generation calls
   (default `300`; overrides the global `timeout` for this provider only)
+- `stats` -- opt in to local-only usage analytics (`true`/`false`,
+  default `false`). When enabled, every generation appends one row to
+  `~/.local/share/git-cai/stats.db` capturing kind, repo name, provider,
+  model, token counts, real LLM latency, and a snapshot of the active
+  settings (language, style, emoji, temperature, prompt file). No diff
+  content, commit messages, or file paths are stored. View the rollup
+  with `git cai --stats` (`-Q`).
 
 FILES
 -----

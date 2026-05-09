@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-05-08
+.\"      Date: 2026-05-09
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-05-08" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-05-09" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -534,6 +534,113 @@ git cai \-p
 .if n .RE
 .RE
 .sp
+\-Q, \-\-stats
+.RS 4
+Show local\-only usage analytics: commits and squashes generated, top
+provider, total token counts, average latency, and per\-provider rollups.
+Recording is opt\-in via the top\-level \f(CRstats\fP config key (a plain
+boolean, default \f(CRfalse\fP), so this view is empty until you turn writing
+on. No diff content, commit messages, or file paths are stored — only
+metadata.
+.sp
+Combine with \f(CR\-\-since YYYY\-MM\-DD\fP to scope the view to recent activity, or
+with \f(CR\-\-json\fP to emit machine\-readable output. Use \f(CR\-\-reset\-stats\fP to
+clear the local SQLite database.
+.sp
+The DB lives at \f(CR$XDG_DATA_HOME/git\-cai/stats.db\fP (default
+\f(CR~/.local/share/git\-cai/stats.db\fP). Override with the top\-level
+\f(CRstats_db_path\fP config key.
+.sp
+At the start of every run, git\-cai logs whether stats writing is
+enabled and (when enabled) the path of the SQLite database, so users
+always know where their analytics live.
+.sp
+If the running Python build was compiled without sqlite3, this command
+prints a clear message explaining how to fix it; commit generation
+continues to work normally in that case.
+.sp
+The \f(CRstats\fP (and \f(CRstats_db_path\fP) keys are the one configuration
+exception that does not follow the strict repo\-replaces\-home rule:
+when the repo \f(CRcai_config.yml\fP does not mention them, the values are
+taken from the home \f(CR~/.config/cai/cai_config.yml\fP. If neither file
+defines \f(CRstats\fP, the hardcoded default is \f(CRfalse\fP. Use \f(CRgit cai \-g\fP to
+write a fresh config that includes the setting so it is visible.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-stats
+git cai \-Q \-\-since 2026\-01\-01
+git cai \-Q \-\-json
+git cai \-\-reset\-stats
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-\-since YYYY\-MM\-DD
+.RS 4
+Restrict \f(CR\-\-stats\fP (\f(CR\-Q\fP) output to events recorded on or after this UTC
+date. Has no effect outside of \f(CR\-\-stats\fP. The date format is strict
+ISO\-8601 (e.g. \f(CR2026\-01\-15\fP).
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-Q \-\-since 2026\-01\-01
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-\-json
+.RS 4
+Emit \f(CR\-\-stats\fP (\f(CR\-Q\fP) output as a JSON document instead of the text
+summary. Suitable for piping into \f(CRjq\fP or other tooling. Has no effect
+outside of \f(CR\-\-stats\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-Q \-\-json
+git cai \-Q \-\-json \-\-since 2026\-01\-01 | jq \*(Aq.per_provider\*(Aq
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-\-reset\-stats
+.RS 4
+Delete every row from the local stats SQLite DB and exit. Prints the
+number of rows removed. The schema and DB file are preserved (so the
+next opt\-in run records into the same file). No\-op when the DB does
+not yet exist.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-reset\-stats
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-q, \-\-sql VALUE
+.RS 4
+Per\-invocation override for \f(CRstats.enabled\fP. VALUE is \f(CRtrue\fP or \f(CRfalse\fP
+(also accepts \f(CRyes/no\fP, \f(CRon/off\fP, \f(CR1/0\fP). Wins over the persisted config
+value. Useful for one\-off opt\-in or opt\-out without editing the config.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-sql true\&       # record this commit even when config has stats off
+git cai \-q false\&         # don\*(Aqt record this commit even when config has stats on
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-r, \-\-PR
 .RS 4
 Generate a Pull Request description summarizing the commits between the
@@ -750,66 +857,6 @@ git cai \-x "Performance optimisation for the search endpoint"
 git cai \-A \-x "Reword after code review feedback"
 git cai \-\-squash \-x "Resolves JIRA\-99"
 git cai \-r \-x "Closes JIRA\-1234"
-.fam
-.fi
-.if n .RE
-.RE
-.sp
-\-Q, \-\-stats
-.RS 4
-Show local\-only usage analytics: commits and squashes generated, top
-provider, total token counts, average latency, and per\-provider rollups.
-Recording is opt\-in via the top\-level \f(CRstats\fP config key (a plain
-boolean, default \f(CRfalse\fP), so this view is empty until you turn writing
-on. No diff content, commit messages, or file paths are stored — only
-metadata.
-.sp
-Combine with \f(CR\-\-since YYYY\-MM\-DD\fP to scope the view to recent activity, or
-with \f(CR\-\-json\fP to emit machine\-readable output. Use \f(CR\-\-reset\-stats\fP to
-clear the local SQLite database.
-.sp
-The DB lives at \f(CR$XDG_DATA_HOME/git\-cai/stats.db\fP (default
-\f(CR~/.local/share/git\-cai/stats.db\fP). Override with the top\-level
-\f(CRstats_db_path\fP config key.
-.sp
-At the start of every run, git\-cai logs whether stats writing is
-enabled and (when enabled) the path of the SQLite database, so users
-always know where their analytics live.
-.sp
-If the running Python build was compiled without sqlite3, this command
-prints a clear message explaining how to fix it; commit generation
-continues to work normally in that case.
-.sp
-The \f(CRstats\fP (and \f(CRstats_db_path\fP) keys are the one configuration
-exception that does not follow the strict repo\-replaces\-home rule:
-when the repo \f(CRcai_config.yml\fP does not mention them, the values are
-taken from the home \f(CR~/.config/cai/cai_config.yml\fP. If neither file
-defines \f(CRstats\fP, the hardcoded default is \f(CRfalse\fP. Use \f(CRgit cai \-g\fP to
-write a fresh config that includes the setting so it is visible.
-.sp
-.if n .RS 4
-.nf
-.fam C
-git cai \-\-stats
-git cai \-Q \-\-since 2026\-01\-01
-git cai \-Q \-\-json
-git cai \-\-reset\-stats
-.fam
-.fi
-.if n .RE
-.RE
-.sp
-\-q, \-\-sql VALUE
-.RS 4
-Per\-invocation override for \f(CRstats.enabled\fP. VALUE is \f(CRtrue\fP or \f(CRfalse\fP
-(also accepts \f(CRyes/no\fP, \f(CRon/off\fP, \f(CR1/0\fP). Wins over the persisted config
-value. Useful for one\-off opt\-in or opt\-out without editing the config.
-.sp
-.if n .RS 4
-.nf
-.fam C
-git cai \-\-sql true\&       # record this commit even when config has stats off
-git cai \-q false\&         # don\*(Aqt record this commit even when config has stats on
 .fam
 .fi
 .if n .RE
@@ -1334,6 +1381,23 @@ built\-in fallback.
 .\}
 \f(CRollama.timeout\fP \(em HTTP timeout in seconds for Ollama generation calls
 (default \f(CR300\fP; overrides the global \f(CRtimeout\fP for this provider only)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRstats\fP \(em opt in to local\-only usage analytics (\f(CRtrue\fP/\f(CRfalse\fP,
+default \f(CRfalse\fP). When enabled, every generation appends one row to
+\f(CR~/.local/share/git\-cai/stats.db\fP capturing kind, repo name, provider,
+model, token counts, real LLM latency, and a snapshot of the active
+settings (language, style, emoji, temperature, prompt file). No diff
+content, commit messages, or file paths are stored. View the rollup
+with \f(CRgit cai \-\-stats\fP (\f(CR\-Q\fP).
 .RE
 .SH "FILES"
 .sp
