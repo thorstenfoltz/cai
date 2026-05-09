@@ -58,6 +58,7 @@ Currently supported providers:
 - Branch name as LLM context
 - Extra context for the LLM
 - Generation time measurement
+- Local-only usage analytics (per-provider commits, tokens, latency) with opt-in SQLite storage
 - Shell completion for bash, zsh, and fish
 
 ---
@@ -208,6 +209,7 @@ git cai -g
 - `pr_to_file` – when `--PR` is used, write the generated description to a Markdown file in the repo root instead of stdout (default `false`)
 - `pr_file_name` – filename used when `pr_to_file` is `true` (default `PR_DESCRIPTION.md`)
 - `pr_prompt_file` – optional path to a custom Markdown prompt for `--PR` (falls back to `~/.config/cai/pr_prompt.md`, then a built-in default)
+- `stats` – opt in to local-only usage analytics (per-run row in a SQLite DB at `~/.local/share/git-cai/stats.db`); default `false`. No diff content, commit messages, or file paths are stored — only metadata (provider, model, kind, repo name, token counts, latency, settings)
 
 ---
 
@@ -229,17 +231,22 @@ In addition to `git cai`, the following options are available:
 - `-i`, `--install-completion` – install shell completion for bash, zsh, or fish
 - `-l`, `--list` – list available information (`config`, `editor`, `language`, `model`, `path`, `provider`, `style`)
 - `-m`, `--model` – override the model for this invocation (requires `-P`)
-- `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
 - `-P`, `--provider` – override the LLM provider for this invocation
+- `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
+- `-Q`, `--stats` – show local-only usage analytics (commits/squashes/PRs per provider, tokens, average latency)
+- `--since YYYY-MM-DD` – filter `--stats` to events on or after this date
+- `--json` – render `--stats` output as JSON
+- `--reset-stats` – delete all rows from the local stats DB
+- `-q`, `--sql true|false` – override stats writing for this run (wins over the persisted `stats` config)
 - `-r`, `--PR` – generate a Pull Request description from the commits between the current branch and its base (prints to stdout by default; set `pr_to_file=true` to write a Markdown file)
 - `--base` `BRANCH` – explicit base branch for `--PR` (overrides auto-detection: `origin/HEAD` → `main` → `master`)
 - `-S`, `--set` – set a config value (`key=value`) in repo config (requires existing repo config)
 - `-s`, `--squash` `[N|HASH]` – squash commits on the current branch and summarize them. Without argument: squash all since branch checkout. With a number: squash the last N commits. With a commit hash: squash up to and including that commit
 - `-T`, `--timeout` `SECONDS` – HTTP timeout for this invocation (overrides config)
 - `-t`, `--time` – measure and log commit message generation time
-- `-x`, `--context` – provide extra context for the LLM (e.g. ticket number, reason for change)
 - `-u`, `--update` – check for updates
 - `-v`, `--version` – show the installed version
+- `-x`, `--context` – provide extra context for the LLM (e.g. ticket number, reason for change)
 
 ## Examples
 
@@ -326,6 +333,24 @@ git cai -r                       # writes ./PR.md (or PR_DESCRIPTION.md by defau
 
 Configuration follows the usual precedence: repo `cai_config.yml` wins,
 otherwise `~/.config/cai/cai_config.yml`, otherwise the built-in defaults.
+
+### Local usage analytics
+
+Opt in by setting `stats: true` in `cai_config.yml` (or pass `-q true` for a single run). Each generation appends one row to a local SQLite DB at `~/.local/share/git-cai/stats.db` with metadata only — no diff, message, or file content.
+
+```sh
+git cai -S stats=true            # enable persistently in the repo config
+git cai -H stats=true            # or in the home config
+git cai -q true                  # one-off opt-in regardless of config
+git cai -q false                 # one-off opt-out
+
+git cai --stats                  # text summary
+git cai -Q --json                # machine-readable
+git cai -Q --since 2026-01-01    # date filter
+git cai --reset-stats            # wipe all rows
+```
+
+Rows are split by `kind` (`commit`, `amend`, `squash`, `pr`) and capture provider, model, repo name, token counts, real LLM latency, and a snapshot of the active settings (language, style, emoji, temperature, prompt file).
 
 ### Changing configuration from the CLI
 
