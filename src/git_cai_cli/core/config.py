@@ -63,6 +63,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "pr_to_file": False,
     "pr_file_name": "PR_DESCRIPTION.md",
     "pr_prompt_file": "",
+    "stats": False,
 }
 
 # Providers that do not require an API token in tokens.yml
@@ -107,6 +108,35 @@ def _find_repo_config() -> Path | None:
 
     log.debug("No repository config found")
     return None
+
+
+def _load_home_stats(home_config_file: Path) -> dict[str, Any] | None:
+    """Read the ``stats``-related keys from the home config (if any).
+
+    Used when a repo config exists but doesn't mention ``stats`` —
+    we fall through to the user's global preference rather than
+    silently disabling analytics. Returns ``None`` if the home
+    config has no relevant keys; otherwise a dict containing
+    whichever of ``stats`` / ``stats_db_path`` are set.
+    """
+    try:
+        if not home_config_file.exists() or home_config_file.stat().st_size == 0:
+            return None
+        with home_config_file.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        log.debug("Could not read home stats fallback: %s", exc)
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    out: dict[str, Any] = {}
+    if "stats" in data:
+        out["stats"] = data["stats"]
+    if "stats_db_path" in data:
+        out["stats_db_path"] = data["stats_db_path"]
+    return out or None
 
 
 def load_config(
@@ -245,6 +275,19 @@ def load_config(
         config["style"] = _validate_style(cast(str | None, config.get("style")))
 
         _normalize_prompt_paths(config, base_dir=repo_config_file.parent)
+
+        # Stats is the only key that falls back through the home config:
+        # users typically configure analytics globally (one DB across
+        # repos), so a repo-level config that omits ``stats`` should not
+        # silently disable it. If the home config also doesn't define
+        # it, the hardcoded default (``stats: false``) wins via
+        # ``stats.is_enabled``'s missing-key handling. Same fallback
+        # applies to the optional ``stats_db_path`` override.
+        if "stats" not in config or "stats_db_path" not in config:
+            home_stats = _load_home_stats(fallback_config_file)
+            if home_stats is not None:
+                for key, value in home_stats.items():
+                    config.setdefault(key, value)
 
         log.info("Repository configuration validated successfully")
         return config
@@ -419,6 +462,8 @@ def ordered_default_config(
         "pr_to_file",
         "pr_file_name",
         "pr_prompt_file",
+        "stats",
+        "stats_db_path",
     ]
 
     ordered: dict[str, Any] = {}
@@ -540,24 +585,32 @@ def set_config_value(key: str, raw_value: str, *, force_home: bool = False) -> P
 def apply_cli_overrides(
     config: dict,
     *,
-    conventional: bool = False,
-    branch_context: bool = False,
+    conventional: bool | None = None,
+    branch_context: bool | None = None,
     timeout_override: int | None = None,
-    full_files_override: bool = False,
+    full_files_override: bool | None = None,
+    sql_override: bool | None = None,
 ) -> None:
     """Apply per-invocation CLI flag overrides to the config dict in-place.
 
-    Only writes keys when the flag was set. Absent flags leave the config
-    value untouched so the persisted default continues to win.
+    Boolean overrides use ``None`` to mean "no override; keep the
+    persisted config value." ``True`` and ``False`` both override —
+    so a user can pass ``--no-conventional`` to flip a persisted
+    ``conventional: true`` off for one invocation.
+
+    ``sql_override`` mirrors ``--sql true|false`` and overrides the
+    top-level ``stats`` boolean.
     """
-    if conventional:
-        config["conventional"] = True
-    if branch_context:
-        config["branch_context"] = True
+    if conventional is not None:
+        config["conventional"] = conventional
+    if branch_context is not None:
+        config["branch_context"] = branch_context
     if timeout_override is not None:
         config["timeout"] = timeout_override
-    if full_files_override:
-        config["full_files"] = True
+    if full_files_override is not None:
+        config["full_files"] = full_files_override
+    if sql_override is not None:
+        config["stats"] = sql_override
 
 
 def apply_provider_overrides(

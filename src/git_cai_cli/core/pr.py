@@ -20,7 +20,11 @@ from git_cai_cli.core.config import (
     load_config,
     load_token,
 )
-from git_cai_cli.core.gitutils import detect_base_branch, find_git_root
+from git_cai_cli.core.gitutils import (
+    detect_base_branch,
+    find_git_root,
+    repo_name_from_root,
+)
 from git_cai_cli.core.llm import CommitMessageGenerator
 from git_cai_cli.core.spinner import Spinner
 
@@ -61,6 +65,7 @@ def run_pr(
     time_flag: bool = False,
     base_override: str | None = None,
     context: str | None = None,
+    sql_override: bool | None = None,
 ) -> None:
     """
     Generate a PR description for the current branch.
@@ -79,6 +84,12 @@ def run_pr(
 
     config = load_config()
     apply_provider_overrides(config, provider_override, model_override)
+
+    from git_cai_cli.core import stats as stats_module
+    from git_cai_cli.core.config import apply_cli_overrides
+
+    apply_cli_overrides(config, sql_override=sql_override)
+    stats_module.log_state(config)
 
     provider = config["default"]
     token = load_token(config=config)
@@ -120,6 +131,8 @@ def run_pr(
     start = time.perf_counter() if measure else None
 
     generator = CommitMessageGenerator(token, config, provider)
+    generator.kind = "pr"
+    generator.repo = repo_name_from_root(repo_root)
     try:
         try:
             with Spinner("Generating PR description"):
@@ -135,6 +148,7 @@ def run_pr(
     if start is not None:
         elapsed = time.perf_counter() - start
         log.info("PR description generated in %.2fs", elapsed)
+        generator.record_elapsed(int(elapsed * 1000))
 
     if config.get("pr_to_file", False):
         filename = config.get("pr_file_name") or "PR_DESCRIPTION.md"

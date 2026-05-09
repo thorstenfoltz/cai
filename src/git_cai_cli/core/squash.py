@@ -23,6 +23,7 @@ from git_cai_cli.core.gitutils import (
     find_git_root,
     get_git_editor,
     git_diff_excluding,
+    repo_name_from_root,
     sha256_of_file,
 )
 from git_cai_cli.core.llm import CommitMessageGenerator
@@ -80,6 +81,23 @@ def _count_total_commits() -> int:
         ["git", "rev-list", "--count", "HEAD"], text=True
     ).strip()
     return int(output)
+
+
+def _is_shallow_clone() -> bool:
+    """Return True if the current repo is a shallow clone.
+
+    Squash relies on traversing branch history (``HEAD~N``,
+    ``merge-base``); a shallow clone may lack the commits required and
+    git emits cryptic ``unknown revision`` errors. We pre-flight this
+    check so the user gets a clear message.
+    """
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "--is-shallow-repository"], text=True
+        ).strip()
+    except subprocess.CalledProcessError:
+        return False
+    return out == "true"
 
 
 def _resolve_squash_target(squash_arg: str) -> str:
@@ -185,6 +203,7 @@ def squash_branch(
     time_flag: bool = False,
     squash_arg: str | None = None,
     context: str | None = None,
+    sql_override: bool | None = None,
 ) -> None:
     """
     Squash commits in the current branch into a single commit with an LLM-generated message.
@@ -200,6 +219,15 @@ def squash_branch(
         log.error("Not inside a Git repository.")
         return
 
+    if _is_shallow_clone():
+        log.error(
+            "This repository is a shallow clone. Squash needs full branch "
+            "history (HEAD~N and merge-base). Run "
+            "`git fetch --unshallow` (or `git fetch --depth=<N>`) to fetch "
+            "the missing commits, then retry."
+        )
+        return
+
     staged = subprocess.check_output(
         ["git", "diff", "--cached", "--name-only"], text=True
     ).strip()
@@ -212,6 +240,17 @@ def squash_branch(
     # Apply provider/model overrides
     apply_provider_overrides(config, provider_override, model_override)
 
+    # `--sql true|false` honored in squash mode too: stats writing
+    # must behave consistently across `git cai`, `git cai -s`, and
+    # `git cai -r`.
+    from git_cai_cli.core.config import apply_cli_overrides
+
+    apply_cli_overrides(config, sql_override=sql_override)
+
+    from git_cai_cli.core import stats as stats_module
+
+    stats_module.log_state(config)
+
     provider = config["default"]
     token = load_token(config=config)
 
@@ -223,6 +262,7 @@ def squash_branch(
         )
         sys.exit(1)
     generator = CommitMessageGenerator(token, config, provider)
+    generator.repo = repo_name_from_root(repo_root)
 
     measure = time_flag or config.get("measure_time", False)
 
@@ -240,6 +280,7 @@ def squash_branch(
 
             start = time.perf_counter() if measure else None
 
+            generator.kind = "commit"
             try:
                 with Spinner("Generating commit message for staged changes"):
                     msg = generator.generate(diff)
@@ -250,12 +291,16 @@ def squash_branch(
             if start is not None:
                 elapsed = time.perf_counter() - start
                 log.info("Commit message generated in %.2fs", elapsed)
+                generator.record_elapsed(int(elapsed * 1000))
 
             result = commit_with_edit_template(msg)
             if result != 0:
-                log.info(
-                    "Commit aborted — squash cancelled. "
-                    "Note: staged changes were already committed."
+                log.warning(
+                    "Commit aborted — squash cancelled.\n"
+                    "Your previously staged changes were already committed before "
+                    "the squash step ran. To roll that commit back into the staging "
+                    "area without losing any work, run:\n\n"
+                    "    git reset HEAD~1 --soft\n"
                 )
                 return
 
@@ -297,6 +342,7 @@ def squash_branch(
 
         start = time.perf_counter() if measure else None
 
+        generator.kind = "squash"
         try:
             with Spinner("Summarizing commit history"):
                 summary_message = generator.summarize_commit_history(
@@ -309,6 +355,7 @@ def squash_branch(
         if start is not None:
             elapsed = time.perf_counter() - start
             log.info("Squash summary generated in %.2fs", elapsed)
+            generator.record_elapsed(int(elapsed * 1000))
 
         # 4) Let user edit the summary without making a commit yet
         log.info(
@@ -326,15 +373,14 @@ def squash_branch(
 
             editor = get_git_editor()
             parts = shlex.split(editor)
-            if not shutil.which(parts[0]):
-                # This editor command requires shell interpretation
-                rc = subprocess.run(
-                    f'{editor} "{tf_name}"',
-                    shell=True,
-                    check=False,  # nosemgrep
-                ).returncode  # nosec # nosemgrep
-            else:
-                rc = subprocess.run(parts + [str(tf_name)], check=False).returncode
+            if not parts or not shutil.which(parts[0]):
+                log.error(
+                    "Editor %r not found in PATH; please set GIT_EDITOR properly.",
+                    editor,
+                )
+                return
+
+            rc = subprocess.run(parts + [str(tf_name)], check=False).returncode
 
             if rc != 0:
                 log.info("Editor exited non-zero — squash cancelled.")

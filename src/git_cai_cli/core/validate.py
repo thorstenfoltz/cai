@@ -5,7 +5,36 @@ Validation utilities for configuration settings
 import logging
 from typing import Any
 
+import requests
+
 log = logging.getLogger(__name__)
+
+_AUTH_STATUS_CODES = frozenset({401, 403})
+_RATE_LIMIT_STATUS_CODES = frozenset({429})
+
+
+def _extract_api_error_message(response: requests.Response | None) -> str:
+    """Best-effort extraction of an upstream API error body's human message.
+
+    Most providers return JSON like ``{"error": {"message": "...", ...}}``
+    or ``{"error": "..."}``. Falls back to the raw text body if the JSON
+    can't be parsed. Returns an empty string on any failure.
+    """
+    if response is None:
+        return ""
+    try:
+        payload = response.json()
+    except (ValueError, requests.exceptions.JSONDecodeError):
+        text = (response.text or "").strip()
+        return text[:500]
+
+    err = payload.get("error") if isinstance(payload, dict) else None
+    if isinstance(err, dict):
+        msg = err.get("message") or err.get("type") or ""
+        return str(msg).strip()
+    if isinstance(err, str):
+        return err.strip()
+    return ""
 
 
 def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> None:
@@ -38,7 +67,12 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
         "pr_to_file",
         "pr_file_name",
         "pr_prompt_file",
+        "stats",
+        "stats_db_path",
     }
+    # Internal escape-hatch keys: accepted if a user sets them, but never
+    # reported as "missing" — they aren't part of the documented surface.
+    internal_only_keys = {"stats_db_path"}
     allowed_provider_keys = set(reference.keys()) - allowed_global_keys
 
     config_keys = set(config.keys())
@@ -50,7 +84,7 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
         raise KeyError("Unknown config keys: " + ", ".join(sorted(unknown_keys)))
 
     # Info on missing global keys (non-fatal; defaults or global config will be used)
-    missing_globals = allowed_global_keys - config_keys
+    missing_globals = allowed_global_keys - config_keys - internal_only_keys
     if missing_globals:
         log.info(
             "Config does not define: %s. Global or default values will be used.",
@@ -157,38 +191,88 @@ def _validate_llm_call(
     try:
         return fn(*args, **kwargs)
 
-    except Exception as exc:
-        msg = str(exc).lower()
+    except requests.HTTPError as exc:
+        response = exc.response
+        status = response.status_code if response is not None else None
+        api_msg = _extract_api_error_message(response)
 
-        auth_markers = (
-            "api key",
-            "apikey",
-            "authorization",
-            "unauthorized",
-            "forbidden",
-            "400",
-            "401",
-            "403",
-            "invalid token",
-            "invalid api key",
-            "authentication",
-            "permission denied",
-        )
-
-        if any(marker in msg for marker in auth_markers):
-            log.error("LLM authentication failed.")
+        if status in _AUTH_STATUS_CODES:
             log.error(
-                "If this is the first run after installation, this is expected. Please configure your API key."
+                "LLM authentication failed (HTTP %s)%s",
+                status,
+                f": {api_msg}" if api_msg else ".",
             )
             raise ValueError(
-                "API token is invalid or not authorized. Please check your API key."
-                "If error 400, 401, or 403 is mentioned, it often indicates an authentication issue."
-                "Sometimes waiting a Mintute and trying again can resolve transient issues, especially with new API keys."
-                "If the problem persists, please verify your API key and its permissions."
+                f"API token is invalid or not authorized (HTTP {status}). "
+                f"{api_msg or 'Please check your API key and its permissions.'}"
             ) from None
 
+        if status in _RATE_LIMIT_STATUS_CODES:
+            log.error(
+                "LLM rate limit hit (HTTP %s)%s",
+                status,
+                f": {api_msg}" if api_msg else ".",
+            )
+            raise ValueError(
+                f"Rate limit exceeded (HTTP {status}). "
+                f"{api_msg or 'Please wait a minute and retry.'}"
+            ) from None
+
+        log.exception("LLM call failed (HTTP %s).", status)
+        raise ValueError(
+            f"LLM call failed (HTTP {status})."
+            + (f" Upstream message: {api_msg}" if api_msg else "")
+        ) from None
+
+    except Exception:
+        # Unexpected non-HTTP error — preserve the original traceback.
+        # OpenAI-SDK paths surface their own exception classes whose
+        # ``status_code`` attribute (when present) is checked by the
+        # SDK-aware caller. Here we just log and re-raise so debug mode
+        # users see the full stack.
+        sdk_status = _openai_sdk_status_code()
+        if sdk_status is not None:
+            # Re-raise as ValueError with classification consistent with
+            # the requests path so user-facing flow is uniform.
+            if sdk_status in _AUTH_STATUS_CODES:
+                log.error("LLM authentication failed (SDK status %s).", sdk_status)
+                raise ValueError(
+                    f"API token is invalid or not authorized (status {sdk_status}). "
+                    "Please check your API key and its permissions."
+                ) from None
+            if sdk_status in _RATE_LIMIT_STATUS_CODES:
+                log.error("LLM rate limit hit (SDK status %s).", sdk_status)
+                raise ValueError(
+                    f"Rate limit exceeded (status {sdk_status}). "
+                    "Please wait a minute and retry."
+                ) from None
         log.exception("Unexpected error during LLM execution.")
         raise
+
+
+def _openai_sdk_status_code() -> int | None:
+    """Return the HTTP status code from the in-flight OpenAI SDK exception,
+    if one is currently being handled. Returns None otherwise.
+
+    Done lazily so importing ``openai`` is not required when only
+    ``requests``-based providers are used.
+    """
+    import sys
+
+    exc = sys.exc_info()[1]
+    if exc is None:
+        return None
+
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        return status
+
+    response = getattr(exc, "response", None)
+    if response is not None:
+        status = getattr(response, "status_code", None)
+        if isinstance(status, int):
+            return status
+    return None
 
 
 def _validate_style(style: str | None) -> str:

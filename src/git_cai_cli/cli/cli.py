@@ -32,17 +32,17 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     amend: bool = typer.Option(
         False, "-A", "--amend", help="Regenerate and amend the last commit message"
     ),
-    branch_context: bool = typer.Option(
-        False,
+    branch_context: bool | None = typer.Option(
+        None,
+        "--branch/--no-branch",
         "-b",
-        "--branch",
-        help="Include current branch name as context for the LLM",
+        help="Include current branch name as context for the LLM. Use --no-branch to explicitly disable when the persisted config has it enabled.",
     ),
-    conventional: bool = typer.Option(
-        False,
+    conventional: bool | None = typer.Option(
+        None,
+        "--conventional/--no-conventional",
         "-C",
-        "--conventional",
-        help="Use Conventional Commits format (type(scope): description)",
+        help="Use Conventional Commits format (type(scope): description). Use --no-conventional to explicitly disable when the persisted config has it enabled.",
     ),
     crazy: bool = typer.Option(
         False, "-c", "--crazy", help="Commit immediately without opening editor"
@@ -123,17 +123,44 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         "--timeout",
         help="HTTP timeout in seconds for this invocation (overrides config; default 30).",
     ),
-    full_files: bool = typer.Option(
-        False,
+    full_files: bool | None = typer.Option(
+        None,
+        "--full-files/--no-full-files",
         "-F",
-        "--full-files",
-        help="Send the full contents of affected files alongside the diff.",
+        help="Send the full contents of affected files alongside the diff. Use --no-full-files to explicitly disable when the persisted config has it enabled.",
     ),
     files: list[str] = typer.Option(
         None,
         "-f",
         "--files",
         help="Limit the diff (and full-file content, if enabled) to these paths. Repeat for multiple files.",
+    ),
+    sql: str = typer.Option(
+        None,
+        "--sql",
+        "-q",
+        help="Override stats writing for this run: --sql true / --sql false. Wins over the persisted `stats` config.",
+    ),
+    stats: bool = typer.Option(
+        False,
+        "--stats",
+        "-Q",
+        help="Show local-only usage analytics (commits per provider, token totals, latency).",
+    ),
+    stats_since: str = typer.Option(
+        None,
+        "--since",
+        help="Filter --stats to events on or after this date (YYYY-MM-DD).",
+    ),
+    stats_json: bool = typer.Option(
+        False,
+        "--json",
+        help="Render --stats output as JSON instead of text.",
+    ),
+    stats_reset: bool = typer.Option(
+        False,
+        "--reset-stats",
+        help="Delete all rows from the local stats DB.",
     ),
 ):
     """
@@ -159,8 +186,20 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         list_flag=list_flag,
         pr=pr,
         squash=squash,
+        stats=stats,
         update=update,
     )
+
+    sql_override: bool | None = None
+    if sql is not None:
+        normalized = sql.strip().lower()
+        if normalized in ("true", "1", "yes", "on"):
+            sql_override = True
+        elif normalized in ("false", "0", "no", "off"):
+            sql_override = False
+        else:
+            typer.echo(f"Error: --sql expects true/false, got {sql!r}.", err=True)
+            raise typer.Exit(code=1)
 
     validate_options(
         mode=mode,
@@ -246,6 +285,10 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         full_files_override=full_files,
         files_override=files,
         base_override=base,
+        sql_override=sql_override,
+        stats_since=stats_since,
+        stats_json=stats_json,
+        stats_reset=stats_reset,
     )
 
 

@@ -265,8 +265,9 @@ def test_branch_short_flag_passed_to_run(monkeypatch):
     assert captured["branch_context"] is True
 
 
-def test_branch_false_by_default(monkeypatch):
-    """Verify branch_context is False when not provided."""
+def test_branch_none_by_default(monkeypatch):
+    """When neither --branch nor --no-branch is passed, branch_context is
+    None so the persisted config value wins (Optional[bool] semantics)."""
     captured = {}
 
     def _fake_run(**kwargs):
@@ -276,6 +277,21 @@ def test_branch_false_by_default(monkeypatch):
     monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
 
     result = runner.invoke(cli.app, [])
+    assert result.exit_code == 0
+    assert captured["branch_context"] is None
+
+
+def test_no_branch_flag_sets_false(monkeypatch):
+    """--no-branch must explicitly disable branch_context (override true config)."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--no-branch"])
     assert result.exit_code == 0
     assert captured["branch_context"] is False
 
@@ -380,8 +396,9 @@ def test_short_full_files_flag_passed_to_run(monkeypatch):
     assert captured["full_files_override"] is True
 
 
-def test_full_files_false_by_default(monkeypatch):
-    """Verify full_files_override is False when flag absent."""
+def test_full_files_none_by_default(monkeypatch):
+    """When neither --full-files nor --no-full-files is passed,
+    full_files_override is None so the persisted config wins."""
     captured = {}
 
     def _fake_run(**kwargs):
@@ -391,6 +408,21 @@ def test_full_files_false_by_default(monkeypatch):
     monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
 
     result = runner.invoke(cli.app, [])
+    assert result.exit_code == 0
+    assert captured["full_files_override"] is None
+
+
+def test_no_full_files_flag_sets_false(monkeypatch):
+    """--no-full-files must explicitly disable full-files (override true config)."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--no-full-files"])
     assert result.exit_code == 0
     assert captured["full_files_override"] is False
 
@@ -459,3 +491,77 @@ def test_files_flag_passed_to_validate_options(monkeypatch):
     result = runner.invoke(cli.app, ["-f", "x.py"])
     assert result.exit_code == 0
     assert captured["files"] == ["x.py"]
+
+
+# ---------------------------------------------------------------------------
+# FB.11 — --sql / -q value-form override + --stats viewer
+# ---------------------------------------------------------------------------
+
+
+def test_sql_true_threads_through_to_run(monkeypatch):
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--sql", "true"])
+    assert result.exit_code == 0
+    assert captured["sql_override"] is True
+
+
+def test_sql_false_threads_through_to_run(monkeypatch):
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["-q", "false"])
+    assert result.exit_code == 0
+    assert captured["sql_override"] is False
+
+
+def test_sql_invalid_value_errors(monkeypatch):
+    """--sql must reject anything that isn't a boolean string."""
+    monkeypatch.setattr(cli, "run", lambda **kwargs: None)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--sql", "maybe"])
+    assert result.exit_code != 0
+    assert "true/false" in result.output
+
+
+def test_sql_absent_passes_none(monkeypatch):
+    """When --sql is omitted, sql_override is None (no per-run override)."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, [])
+    assert result.exit_code == 0
+    assert captured["sql_override"] is None
+
+
+def test_no_conventional_flag_threads_to_run(monkeypatch):
+    """--no-conventional must thread False through to run() so a persisted
+    `conventional: true` can be overridden for a single invocation (F0.3)."""
+    captured = {}
+
+    def _fake_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(cli, "run", _fake_run)
+    monkeypatch.setattr(cli, "validate_options", lambda **kwargs: None)
+
+    result = runner.invoke(cli.app, ["--no-conventional"])
+    assert result.exit_code == 0
+    assert captured["conventional"] is False

@@ -76,6 +76,14 @@ def find_git_root(
         return None
 
 
+def repo_name_from_root(repo_root: Path | None) -> str | None:
+    """Return the basename of a git root path, or None if unset/empty."""
+    if repo_root is None:
+        return None
+    name = repo_root.name
+    return name or None
+
+
 def _load_caiignore_patterns(repo_root: Path) -> list[str]:
     """Read `.caiignore` from the repo root and return its non-empty patterns."""
     ignore_file = repo_root / ".caiignore"
@@ -120,15 +128,20 @@ def git_diff_excluding(
 
 
 def _matches_caiignore(path: str, patterns: Sequence[str]) -> bool:
-    """Return True if `path` matches any of the `.caiignore` patterns."""
-    import fnmatch
+    """Return True if `path` matches any of the `.caiignore` patterns.
 
-    for pattern in patterns:
-        if fnmatch.fnmatch(path, pattern):
-            return True
-        if "/" not in pattern and fnmatch.fnmatch(os.path.basename(path), pattern):
-            return True
-    return False
+    Uses gitignore semantics via ``pathspec.GitWildMatchPattern`` so
+    users get the behavior they expect: ``**`` recursion, ``!negation``
+    re-inclusion, and directory-anchored patterns (``/foo`` matches at
+    the repo root only; ``foo`` matches anywhere).
+    """
+    if not patterns:
+        return False
+
+    import pathspec
+
+    spec = pathspec.GitIgnoreSpec.from_lines(patterns)
+    return spec.match_file(path)
 
 
 def _is_binary_file(path: Path) -> bool:

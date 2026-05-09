@@ -173,7 +173,7 @@ def test_generate_anthropic():
         "content": [{"text": "   test   "}],
     }
 
-    with patch(f"{module_path}.requests.post", mock_post):
+    with patch(f"{module_path}._http_post", mock_post):
         result = gen.generate_anthropic("abc", system_prompt_override="sys")
 
     assert result == "test"
@@ -230,7 +230,7 @@ def test_generate_gemini():
         "candidates": [{"content": {"parts": [{"text": "   gemini text   "}]}}]
     }
 
-    with patch(f"{module_path}.requests.post", mock_post):
+    with patch(f"{module_path}._http_post", mock_post):
         result = gen.generate_gemini("abc", system_prompt_override="sys")
 
     assert result == "gemini text"
@@ -283,7 +283,7 @@ def test_generate_groq():
         "choices": [{"message": {"content": "   groq result   "}}]
     }
 
-    with patch(f"{module_path}.requests.post", mock_post):
+    with patch(f"{module_path}._http_post", mock_post):
         result = gen.generate_groq("abc", system_prompt_override="sys")
 
     assert result == "groq result"
@@ -335,7 +335,7 @@ def test_generate_xai():
         "choices": [{"message": {"content": "   xai content   "}}]
     }
 
-    with patch(f"{module_path}.requests.post", mock_post):
+    with patch(f"{module_path}._http_post", mock_post):
         result = gen.generate_xai("hello x", system_prompt_override="sys")
 
     assert result == "xai content"
@@ -392,7 +392,7 @@ def test_generate_ollama():
         patch.dict(f"{module_path}.os.environ", {}, clear=True),
         patch(f"{module_path}.shutil.which", return_value="/usr/bin/ollama"),
         patch(f"{module_path}.requests.get", return_value=MagicMock(status_code=200)),
-        patch(f"{module_path}.requests.post", mock_post),
+        patch(f"{module_path}._http_post", mock_post),
     ):
         result = gen.generate_ollama("abc", system_prompt_override="sys")
 
@@ -453,7 +453,7 @@ def test_generate_ollama_autostarts_and_stops_server():
         patch.dict(f"{module_path}.os.environ", {}, clear=True),
         patch(f"{module_path}.shutil.which", return_value="/usr/bin/ollama"),
         patch(f"{module_path}.requests.get", mock_get),
-        patch(f"{module_path}.requests.post", mock_post),
+        patch(f"{module_path}._http_post", mock_post),
         patch(f"{module_path}.subprocess.Popen", return_value=proc) as popen,
         patch(f"{module_path}.os.killpg") as killpg,
     ):
@@ -515,7 +515,7 @@ def test_token_usage_logged_anthropic(caplog):
     }
 
     with caplog.at_level(logging.INFO):
-        with patch(f"{module_path}.requests.post", mock_post):
+        with patch(f"{module_path}._http_post", mock_post):
             gen.generate_anthropic("diff", system_prompt_override="sys")
 
     assert (
@@ -540,7 +540,7 @@ def test_token_usage_logged_gemini(caplog):
     }
 
     with caplog.at_level(logging.INFO):
-        with patch(f"{module_path}.requests.post", mock_post):
+        with patch(f"{module_path}._http_post", mock_post):
             gen.generate_gemini("diff", system_prompt_override="sys")
 
     assert "Token usage [gemini]: prompt=150, completion=60, total=210" in caplog.text
@@ -563,7 +563,7 @@ def test_token_usage_logged_groq(caplog):
     }
 
     with caplog.at_level(logging.INFO):
-        with patch(f"{module_path}.requests.post", mock_post):
+        with patch(f"{module_path}._http_post", mock_post):
             gen.generate_groq("diff", system_prompt_override="sys")
 
     assert "Token usage [groq]: prompt=120, completion=40, total=160" in caplog.text
@@ -596,7 +596,7 @@ def test_token_usage_logged_ollama(caplog):
                 f"{module_path}.requests.get",
                 return_value=MagicMock(status_code=200),
             ),
-            patch(f"{module_path}.requests.post", mock_post),
+            patch(f"{module_path}._http_post", mock_post),
         ):
             gen.generate_ollama("diff", system_prompt_override="sys")
 
@@ -620,7 +620,7 @@ def test_token_usage_not_available(caplog):
     }
 
     with caplog.at_level(logging.DEBUG):
-        with patch(f"{module_path}.requests.post", mock_post):
+        with patch(f"{module_path}._http_post", mock_post):
             gen.generate_groq("diff", system_prompt_override="sys")
 
     assert "Token usage not available" in caplog.text
@@ -643,7 +643,7 @@ def test_token_usage_disabled(caplog):
     }
 
     with caplog.at_level(logging.DEBUG):
-        with patch(f"{module_path}.requests.post", mock_post):
+        with patch(f"{module_path}._http_post", mock_post):
             gen.generate_groq("diff", system_prompt_override="sys")
 
     assert "Token usage" not in caplog.text
@@ -666,7 +666,7 @@ def test_token_usage_disabled_when_key_missing(caplog):
     }
 
     with caplog.at_level(logging.DEBUG):
-        with patch(f"{module_path}.requests.post", mock_post):
+        with patch(f"{module_path}._http_post", mock_post):
             gen.generate_groq("diff", system_prompt_override="sys")
 
     assert "Token usage" not in caplog.text
@@ -699,7 +699,7 @@ def test_generate_mistral():
         "choices": [{"message": {"content": "   mistral result   "}}]
     }
 
-    with patch(f"{module_path}.requests.post", mock_post):
+    with patch(f"{module_path}._http_post", mock_post):
         result = gen.generate_mistral("abc", system_prompt_override="sys")
 
     assert result == "mistral result"
@@ -749,7 +749,7 @@ def test_generate_mistral_raises_on_http_error():
         "401 Unauthorized"
     )
 
-    with patch(f"{module_path}.requests.post", mock_post):
+    with patch(f"{module_path}._http_post", mock_post):
         with pytest.raises(requests.HTTPError):
             gen.generate_mistral("abc", system_prompt_override="sys")
 
@@ -771,7 +771,7 @@ def test_token_usage_logged_mistral(caplog):
     }
 
     with caplog.at_level(logging.INFO):
-        with patch(f"{module_path}.requests.post", mock_post):
+        with patch(f"{module_path}._http_post", mock_post):
             gen.generate_mistral("diff", system_prompt_override="sys")
 
     assert "Token usage [mistral]: prompt=110, completion=45, total=155" in caplog.text
@@ -859,7 +859,7 @@ def test_generate_mistral_none_system_prompt_omits_system_message():
         "choices": [{"message": {"content": "msg"}}],
     }
 
-    with patch(f"{module_path}.requests.post", mock_post):
+    with patch(f"{module_path}._http_post", mock_post):
         gen.generate_mistral("diff", system_prompt_override=None)
 
     call_kwargs = mock_post.call_args[1]
@@ -882,7 +882,7 @@ def test_generate_xai_none_system_prompt_omits_system_message():
         "choices": [{"message": {"content": "msg"}}],
     }
 
-    with patch(f"{module_path}.requests.post", mock_post):
+    with patch(f"{module_path}._http_post", mock_post):
         gen.generate_xai("diff", system_prompt_override=None)
 
     call_kwargs = mock_post.call_args[1]
@@ -920,7 +920,7 @@ def test_generate_xai_raises_on_http_error():
         "403 Forbidden"
     )
 
-    with patch(f"{module_path}.requests.post", mock_post):
+    with patch(f"{module_path}._http_post", mock_post):
         with pytest.raises(requests.HTTPError):
             gen.generate_xai("abc", system_prompt_override="sys")
 
@@ -1059,7 +1059,7 @@ def test_generate_anthropic_uses_configured_max_tokens():
     mock_post = MagicMock()
     mock_post.return_value.json.return_value = {"content": [{"text": "ok"}]}
 
-    with patch(f"{CommitMessageGenerator.__module__}.requests.post", mock_post):
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
         gen.generate_anthropic("abc", system_prompt_override="sys")
 
     _, kwargs = mock_post.call_args
@@ -1072,7 +1072,7 @@ def test_generate_anthropic_defaults_max_tokens_to_32768():
     mock_post = MagicMock()
     mock_post.return_value.json.return_value = {"content": [{"text": "ok"}]}
 
-    with patch(f"{CommitMessageGenerator.__module__}.requests.post", mock_post):
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
         gen.generate_anthropic("abc", system_prompt_override="sys")
 
     _, kwargs = mock_post.call_args
@@ -1123,7 +1123,7 @@ def test_remote_providers_respect_configured_timeout(
     mock_post = MagicMock()
     mock_post.return_value.json.return_value = response_json
 
-    with patch(f"{CommitMessageGenerator.__module__}.requests.post", mock_post):
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
         getattr(gen, f"generate_{provider}")("abc", system_prompt_override="sys")
 
     _, kwargs = mock_post.call_args
@@ -1148,7 +1148,7 @@ def test_generate_ollama_uses_ollama_timeout():
         patch.dict(f"{module_path}.os.environ", {}, clear=True),
         patch(f"{module_path}.shutil.which", return_value="/usr/bin/ollama"),
         patch(f"{module_path}.requests.get", return_value=MagicMock(status_code=200)),
-        patch(f"{module_path}.requests.post", mock_post),
+        patch(f"{module_path}._http_post", mock_post),
     ):
         gen.generate_ollama("abc", system_prompt_override="sys")
 
@@ -1172,3 +1172,156 @@ def test_generate_openai_sdk_receives_timeout():
     fake_openai_cls.assert_called_once()
     _, kwargs = fake_openai_cls.call_args
     assert kwargs["timeout"] == 55
+
+
+# ---------------------------------------------------------------------------
+# F0.4 — retry/backoff layer for transient HTTP failures
+# ---------------------------------------------------------------------------
+
+
+def test_retry_session_configures_status_forcelist():
+    """The session's adapter must retry on 429 and the 5xx codes that
+    typically signal transient upstream failures. Verifies the config
+    contract directly because requests-mock intercepts above the
+    urllib3 retry layer and would bypass the actual retry machinery."""
+    from git_cai_cli.core.llm import _build_retrying_session
+
+    session = _build_retrying_session()
+    adapter = session.get_adapter("https://example.com/")
+    retry = adapter.max_retries
+
+    for code in (429, 500, 502, 503, 504):
+        assert code in retry.status_forcelist, f"{code} must be retried"
+
+
+def test_retry_session_allows_retries_on_post():
+    """POST must be in the allowed retry methods — provider calls are POSTs."""
+    from git_cai_cli.core.llm import _build_retrying_session
+
+    session = _build_retrying_session()
+    adapter = session.get_adapter("https://example.com/")
+    allowed = {m.upper() for m in adapter.max_retries.allowed_methods}
+    assert "POST" in allowed
+    assert "GET" in allowed
+
+
+def test_retry_session_uses_backoff_and_finite_attempts():
+    """Retry config must have a positive backoff and a small bounded total
+    so a permanently-down provider fails the commit, not hangs forever."""
+    from git_cai_cli.core.llm import _build_retrying_session
+
+    session = _build_retrying_session()
+    adapter = session.get_adapter("https://example.com/")
+    retry = adapter.max_retries
+
+    assert retry.total is not None and retry.total >= 1
+    assert retry.backoff_factor is not None and retry.backoff_factor > 0
+    # Don't raise inside urllib3 — we want validate.py to classify the
+    # final HTTPError.
+    assert retry.raise_on_status is False
+
+
+def test_http_post_routes_through_retrying_session(monkeypatch):
+    """The provider-facing helper _http_post must use the retrying
+    session, not raw requests.post."""
+    import git_cai_cli.core.llm as llm_module
+
+    # Reset the lru-cached session so we observe a fresh build
+    llm_module._get_http_session.cache_clear()
+
+    captured = {}
+    real_get_session = llm_module._get_http_session
+
+    def spy_get_session():
+        s = real_get_session()
+        captured["session"] = s
+        return s
+
+    monkeypatch.setattr(llm_module, "_get_http_session", spy_get_session)
+
+    sentinel = MagicMock(name="response")
+
+    def fake_post(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return sentinel
+
+    monkeypatch.setattr(llm_module, "_get_http_session", spy_get_session)
+    spy_get_session().post = fake_post  # type: ignore[method-assign]
+
+    result = llm_module._http_post("https://x", json={"a": 1}, timeout=5)
+
+    assert result is sentinel
+    assert captured["args"] == ("https://x",)
+    assert captured["kwargs"] == {"json": {"a": 1}, "timeout": 5}
+
+
+# ---------------------------------------------------------------------------
+# F1.7 — max_output_tokens config (anthropic), backward-compatible with max_tokens
+# ---------------------------------------------------------------------------
+
+
+def test_anthropic_max_output_tokens_overrides_max_tokens():
+    """max_output_tokens (canonical) wins over the legacy max_tokens key."""
+    config = {
+        "anthropic": {
+            "model": "m",
+            "temperature": 0,
+            "max_tokens": 1000,
+            "max_output_tokens": 5000,
+        }
+    }
+    gen = CommitMessageGenerator(token="t", config=config, default_model="anthropic")
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {"content": [{"text": "ok"}]}
+
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        gen.generate_anthropic("abc", system_prompt_override="sys")
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["json"]["max_tokens"] == 5000
+
+
+def test_anthropic_legacy_max_tokens_still_works():
+    """Existing user configs that only use max_tokens must keep working."""
+    config = {"anthropic": {"model": "m", "temperature": 0, "max_tokens": 7777}}
+    gen = CommitMessageGenerator(token="t", config=config, default_model="anthropic")
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {"content": [{"text": "ok"}]}
+
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        gen.generate_anthropic("abc", system_prompt_override="sys")
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["json"]["max_tokens"] == 7777
+
+
+# ---------------------------------------------------------------------------
+# F1.3 — Ollama startup timeout config + Windows gate
+# ---------------------------------------------------------------------------
+
+
+def test_ollama_startup_timeout_uses_config_value():
+    config = {"ollama": {"model": "llama3", "temperature": 0, "startup_timeout": 30}}
+    gen = CommitMessageGenerator(token=None, config=config, default_model="ollama")
+    assert gen._ollama_startup_timeout() == 30.0
+
+
+def test_ollama_startup_timeout_default():
+    config = {"ollama": {"model": "llama3", "temperature": 0}}
+    gen = CommitMessageGenerator(token=None, config=config, default_model="ollama")
+    assert gen._ollama_startup_timeout() == 8.0
+
+
+def test_ollama_start_skips_start_new_session_on_windows(monkeypatch, generator):
+    """On Windows, start_new_session is invalid and would raise; the
+    code must omit it."""
+    import git_cai_cli.core.llm as llm_module
+
+    monkeypatch.setattr(llm_module.sys, "platform", "win32")
+    monkeypatch.setattr(generator, "_ollama_is_running", lambda: True)
+
+    # Should not raise; running check returns True so Popen isn't called
+    generator._start_ollama_server_if_needed()

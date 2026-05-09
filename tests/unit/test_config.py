@@ -117,7 +117,13 @@ def test_repo_config_precedence(tmp_path):
     with patch("git_cai_cli.core.config.find_git_root", return_value=tmp_path):
         config = load_config(fallback_config_file=fallback)
 
+    # Repo config wins for every key it defines; `stats` is the one
+    # exception and falls through to the home config.
+    home_stats = config.pop("stats", None)
     assert config == repo_data
+    assert home_stats == DEFAULT_CONFIG["stats"]
+    # The default is the flat boolean, not a nested dict.
+    assert home_stats is False
 
 
 def test_load_token_creates_template(tmp_path):
@@ -472,11 +478,32 @@ def test_apply_cli_overrides_full_files_true_sets_true():
     assert cfg["full_files"] is True
 
 
-def test_apply_cli_overrides_full_files_false_preserves_true_config():
-    """Absence of the flag must not clobber a config-level `full_files: true`."""
+def test_apply_cli_overrides_none_preserves_true_config():
+    """``None`` (no flag passed) must not clobber a config-level `full_files: true`."""
+    cfg = {"full_files": True}
+    apply_cli_overrides(cfg, full_files_override=None)
+    assert cfg["full_files"] is True
+
+
+def test_apply_cli_overrides_full_files_false_overrides_true_config():
+    """Explicit ``--no-full-files`` must flip a persisted `full_files: true` off."""
     cfg = {"full_files": True}
     apply_cli_overrides(cfg, full_files_override=False)
-    assert cfg["full_files"] is True
+    assert cfg["full_files"] is False
+
+
+def test_apply_cli_overrides_conventional_false_overrides_true_config():
+    """Explicit ``--no-conventional`` must flip a persisted `conventional: true` off."""
+    cfg = {"conventional": True}
+    apply_cli_overrides(cfg, conventional=False)
+    assert cfg["conventional"] is False
+
+
+def test_apply_cli_overrides_branch_context_false_overrides_true_config():
+    """Explicit ``--no-branch`` must flip a persisted `branch_context: true` off."""
+    cfg = {"branch_context": True}
+    apply_cli_overrides(cfg, branch_context=False)
+    assert cfg["branch_context"] is False
 
 
 def test_apply_cli_overrides_all_flags_at_once():
@@ -494,3 +521,204 @@ def test_apply_cli_overrides_all_flags_at_once():
         "timeout": 75,
         "full_files": True,
     }
+
+
+# ---------------------------------------------------------------------------
+# `git cai -g` must include the `stats` block in the generated config
+# ---------------------------------------------------------------------------
+
+
+def test_ordered_default_config_includes_stats():
+    from git_cai_cli.core.config import DEFAULT_CONFIG, ordered_default_config
+
+    ordered = ordered_default_config()
+    assert "stats" in ordered
+    assert ordered["stats"] == DEFAULT_CONFIG["stats"]
+    assert ordered["stats"] is False
+
+
+def test_generated_config_yaml_contains_stats(tmp_path):
+    """The YAML written by `git cai -g` must surface the stats setting
+    as a flat boolean so users see and can toggle it."""
+    import yaml
+    from git_cai_cli.core.options import CliManager
+
+    manager = CliManager(package_name="git-cai-cli")
+    target = tmp_path / "cai_config.yml"
+
+    cwd = tmp_path
+    import os
+
+    prev = os.getcwd()
+    os.chdir(cwd)
+    try:
+        manager.generate_config_here(filename=str(target))
+    finally:
+        os.chdir(prev)
+
+    with target.open() as f:
+        loaded = yaml.safe_load(f)
+
+    assert "stats" in loaded
+    assert loaded["stats"] is False
+
+
+# ---------------------------------------------------------------------------
+# stats fallback chain: repo > home > hardcoded false
+# ---------------------------------------------------------------------------
+
+
+def test_load_config_repo_without_stats_falls_back_to_home(tmp_path, monkeypatch):
+    """If the repo config exists but lacks `stats`, load_config must
+    pull the `stats` block from the home config so users don't lose
+    their global analytics preference per-repo."""
+    import yaml
+    from git_cai_cli.core import config as config_module
+
+    # Repo config — no `stats` key
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    repo_config = repo_dir / "cai_config.yml"
+    repo_config.write_text(
+        yaml.safe_dump(
+            {
+                "openai": {"model": "gpt-5.1", "temperature": 0},
+                "default": "openai",
+                "language": "en",
+                "style": "professional",
+                "emoji": True,
+                "load_tokens_from": "/tmp/tokens.yml",
+                "prompt_file": "",
+                "squash_prompt_file": "",
+            }
+        )
+    )
+
+    # Home config — defines stats
+    home_config = tmp_path / "home_cai_config.yml"
+    home_config.write_text(yaml.safe_dump({"stats": True}))
+
+    monkeypatch.chdir(repo_dir)
+    monkeypatch.setattr(config_module, "_find_repo_config", lambda: repo_config)
+
+    result = config_module.load_config(fallback_config_file=home_config)
+
+    assert result["stats"] is True
+
+
+def test_load_config_repo_with_stats_does_not_fall_back(tmp_path, monkeypatch):
+    """If the repo config defines `stats`, the repo value wins —
+    home config is not consulted."""
+    import yaml
+    from git_cai_cli.core import config as config_module
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    repo_config = repo_dir / "cai_config.yml"
+    repo_config.write_text(
+        yaml.safe_dump(
+            {
+                "openai": {"model": "gpt-5.1", "temperature": 0},
+                "default": "openai",
+                "language": "en",
+                "style": "professional",
+                "emoji": True,
+                "load_tokens_from": "/tmp/tokens.yml",
+                "prompt_file": "",
+                "squash_prompt_file": "",
+                "stats": False,
+            }
+        )
+    )
+
+    home_config = tmp_path / "home_cai_config.yml"
+    home_config.write_text(yaml.safe_dump({"stats": True}))
+
+    monkeypatch.chdir(repo_dir)
+    monkeypatch.setattr(config_module, "_find_repo_config", lambda: repo_config)
+
+    result = config_module.load_config(fallback_config_file=home_config)
+
+    # Repo wins
+    assert result["stats"] is False
+
+
+def test_load_config_no_stats_anywhere_means_disabled(tmp_path, monkeypatch):
+    """Repo config has no stats, home config has no stats — the
+    hardcoded default kicks in via stats.is_enabled."""
+    import yaml
+    from git_cai_cli.core import config as config_module
+    from git_cai_cli.core import stats as stats_module
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    repo_config = repo_dir / "cai_config.yml"
+    repo_config.write_text(
+        yaml.safe_dump(
+            {
+                "openai": {"model": "gpt-5.1", "temperature": 0},
+                "default": "openai",
+                "language": "en",
+                "style": "professional",
+                "emoji": True,
+                "load_tokens_from": "/tmp/tokens.yml",
+                "prompt_file": "",
+                "squash_prompt_file": "",
+            }
+        )
+    )
+
+    home_config = tmp_path / "home_cai_config.yml"  # absent on disk
+
+    monkeypatch.chdir(repo_dir)
+    monkeypatch.setattr(config_module, "_find_repo_config", lambda: repo_config)
+
+    result = config_module.load_config(fallback_config_file=home_config)
+
+    # No `stats` key in repo, no home file → key absent in loaded config
+    assert "stats" not in result
+    # Hardcoded default → False
+    assert stats_module.is_enabled(result) is False
+
+
+def test_load_home_stats_returns_none_when_home_missing(tmp_path):
+    from git_cai_cli.core.config import _load_home_stats
+
+    assert _load_home_stats(tmp_path / "absent.yml") is None
+
+
+def test_load_home_stats_returns_none_when_block_missing(tmp_path):
+    import yaml
+    from git_cai_cli.core.config import _load_home_stats
+
+    home = tmp_path / "home.yml"
+    home.write_text(yaml.safe_dump({"language": "en"}))
+
+    assert _load_home_stats(home) is None
+
+
+def test_load_home_stats_returns_dict_when_present(tmp_path):
+    """When home config defines `stats` and/or `stats_db_path`, the
+    helper returns a dict with whichever keys are set so the caller
+    can merge them."""
+    import yaml
+    from git_cai_cli.core.config import _load_home_stats
+
+    home = tmp_path / "home.yml"
+    home.write_text(yaml.safe_dump({"stats": True, "stats_db_path": "/tmp/x.db"}))
+
+    block = _load_home_stats(home)
+    assert block == {"stats": True, "stats_db_path": "/tmp/x.db"}
+
+
+def test_load_home_stats_partial_returns_only_present_keys(tmp_path):
+    """If only `stats` (or only `stats_db_path`) is in home, only that
+    key is returned."""
+    import yaml
+    from git_cai_cli.core.config import _load_home_stats
+
+    home = tmp_path / "home.yml"
+    home.write_text(yaml.safe_dump({"stats_db_path": "/tmp/x.db"}))
+
+    block = _load_home_stats(home)
+    assert block == {"stats_db_path": "/tmp/x.db"}

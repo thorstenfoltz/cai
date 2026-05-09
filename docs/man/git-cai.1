@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-04-27
+.\"      Date: 2026-05-08
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-04-27" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-05-08" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -34,7 +34,7 @@ git-cai \- AI\-powered commit message generator
 .nf
 \f(CRgit cai\fP [\-A | \-\-amend] [\-a | \-\-all] [\-C | \-\-conventional]
         [\-b | \-\-branch] [\-c | \-\-crazy] [\-d | \-\-debug]
-        [\-F | \-\-full\-files] [\-f PATH | \-\-files PATH]
+        [\-F | \-\-full\-files | \-\-no\-full\-files] [\-f PATH | \-\-files PATH]
         [\-g | \-\-generate\-config]
         [\-H KEY=VALUE | \-\-set\-home KEY=VALUE] [\-h | \-\-help]
         [\-i | \-\-install\-completion]
@@ -45,6 +45,8 @@ git-cai \- AI\-powered commit message generator
         [\-r | \-\-PR] [\-\-base BRANCH]
         [\-S KEY=VALUE | \-\-set KEY=VALUE]
         [\-s [N|HASH] | \-\-squash [N|HASH]]
+        [\-Q | \-\-stats] [\-\-since YYYY\-MM\-DD] [\-\-json] [\-\-reset\-stats]
+        [\-q true|false | \-\-sql true|false]
         [\-T SECONDS | \-\-timeout SECONDS]
         [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
         [\-x CONTEXT | \-\-context CONTEXT]
@@ -225,12 +227,15 @@ git cai \-a
 .if n .RE
 .RE
 .sp
-\-b, \-\-branch
+\-b, \-\-branch / \-\-no\-branch
 .RS 4
 Include the current Git branch name as context when generating the commit
 message. The LLM uses the branch name to better understand the intent and
 scope of the changes (e.g., a branch named \f(CRfix/login\-timeout\fP hints at a
 bug fix related to login timeouts).
+.sp
+Use \f(CR\-\-no\-branch\fP to explicitly disable branch context for this run when
+the persisted config has it enabled.
 .sp
 This flag applies for the current invocation only. To enable it permanently,
 set \f(CRbranch_context: true\fP in \f(CRcai_config.yml\fP or run:
@@ -248,18 +253,22 @@ git cai \-S branch_context=true
 .fam C
 git cai \-b
 git cai \-b \-c
+git cai \-\-no\-branch
 .fam
 .fi
 .if n .RE
 .RE
 .sp
-\-C, \-\-conventional
+\-C, \-\-conventional / \-\-no\-conventional
 .RS 4
 Generate the commit message in Conventional Commits format
 (\f(CRtype(scope): description\fP). The LLM is instructed to use one of the
 following types: \f(CRfeat\fP, \f(CRfix\fP, \f(CRdocs\fP, \f(CRstyle\fP, \f(CRrefactor\fP, \f(CRperf\fP, \f(CRtest\fP,
 \f(CRbuild\fP, \f(CRci\fP, \f(CRchore\fP, \f(CRrevert\fP. Append \f(CR!\fP after the type or scope to
 signal a breaking change.
+.sp
+Use \f(CR\-\-no\-conventional\fP to explicitly disable Conventional Commits for
+this run when the persisted config has it enabled.
 .sp
 This flag applies for the current invocation only. To enable it permanently,
 set \f(CRconventional: true\fP in \f(CRcai_config.yml\fP or run:
@@ -277,6 +286,7 @@ git cai \-S conventional=true
 .fam C
 git cai \-C
 git cai \-C \-c
+git cai \-\-no\-conventional
 .fam
 .fi
 .if n .RE
@@ -740,6 +750,66 @@ git cai \-x "Performance optimisation for the search endpoint"
 git cai \-A \-x "Reword after code review feedback"
 git cai \-\-squash \-x "Resolves JIRA\-99"
 git cai \-r \-x "Closes JIRA\-1234"
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-Q, \-\-stats
+.RS 4
+Show local\-only usage analytics: commits and squashes generated, top
+provider, total token counts, average latency, and per\-provider rollups.
+Recording is opt\-in via the top\-level \f(CRstats\fP config key (a plain
+boolean, default \f(CRfalse\fP), so this view is empty until you turn writing
+on. No diff content, commit messages, or file paths are stored — only
+metadata.
+.sp
+Combine with \f(CR\-\-since YYYY\-MM\-DD\fP to scope the view to recent activity, or
+with \f(CR\-\-json\fP to emit machine\-readable output. Use \f(CR\-\-reset\-stats\fP to
+clear the local SQLite database.
+.sp
+The DB lives at \f(CR$XDG_DATA_HOME/git\-cai/stats.db\fP (default
+\f(CR~/.local/share/git\-cai/stats.db\fP). Override with the top\-level
+\f(CRstats_db_path\fP config key.
+.sp
+At the start of every run, git\-cai logs whether stats writing is
+enabled and (when enabled) the path of the SQLite database, so users
+always know where their analytics live.
+.sp
+If the running Python build was compiled without sqlite3, this command
+prints a clear message explaining how to fix it; commit generation
+continues to work normally in that case.
+.sp
+The \f(CRstats\fP (and \f(CRstats_db_path\fP) keys are the one configuration
+exception that does not follow the strict repo\-replaces\-home rule:
+when the repo \f(CRcai_config.yml\fP does not mention them, the values are
+taken from the home \f(CR~/.config/cai/cai_config.yml\fP. If neither file
+defines \f(CRstats\fP, the hardcoded default is \f(CRfalse\fP. Use \f(CRgit cai \-g\fP to
+write a fresh config that includes the setting so it is visible.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-stats
+git cai \-Q \-\-since 2026\-01\-01
+git cai \-Q \-\-json
+git cai \-\-reset\-stats
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-q, \-\-sql VALUE
+.RS 4
+Per\-invocation override for \f(CRstats.enabled\fP. VALUE is \f(CRtrue\fP or \f(CRfalse\fP
+(also accepts \f(CRyes/no\fP, \f(CRon/off\fP, \f(CR1/0\fP). Wins over the persisted config
+value. Useful for one\-off opt\-in or opt\-out without editing the config.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-sql true\&       # record this commit even when config has stats off
+git cai \-q false\&         # don\*(Aqt record this commit even when config has stats on
 .fam
 .fi
 .if n .RE
