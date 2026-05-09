@@ -917,3 +917,59 @@ class TestLanguageStyleEmojiCoverAllPrompts:
         assert "German" in prompt
         assert "funny" in prompt
         assert "emoji" in prompt.lower()
+
+
+# ---------------------------------------------------------------------------
+# Base + suffix join uses a blank line, not a single space
+# ---------------------------------------------------------------------------
+
+
+class TestPromptBaseSuffixJoin:
+    """Base prompt files end with a newline; appending the config-driven
+    suffix with a single space used to glue an instruction onto the last
+    line of the base. Joining with a blank line keeps the base intact and
+    visually separates it from the suffix."""
+
+    def _make_gen(self, base_config, prompt_file_key, prompt_path):
+        config = dict(base_config)
+        config[prompt_file_key] = str(prompt_path)
+        return CommitMessageGenerator(
+            token="fake-token", config=config, default_model="openai"
+        )
+
+    def test_commit_prompt_uses_blank_line_between_base_and_suffix(
+        self, tmp_path, base_config
+    ):
+        prompt_file = tmp_path / "base.md"
+        prompt_file.write_text("Base prompt body.\n", encoding="utf-8")
+        gen = self._make_gen(base_config, "prompt_file", prompt_file)
+
+        prompt = gen._build_commit_prompt()
+
+        assert "Base prompt body.\n\n" in prompt
+        assert "Base prompt body. " not in prompt
+        assert "Base prompt body.\n " not in prompt
+
+    def test_squash_prompt_uses_blank_line_between_base_and_suffix(
+        self, tmp_path, base_config
+    ):
+        prompt_file = tmp_path / "squash_base.md"
+        prompt_file.write_text("Squash base body.\n", encoding="utf-8")
+        gen = self._make_gen(base_config, "squash_prompt_file", prompt_file)
+
+        prompt = gen._build_squash_prompt()
+
+        assert "Squash base body.\n\n" in prompt
+        assert "Squash base body. " not in prompt
+
+    def test_pr_prompt_uses_blank_line_between_base_and_suffix(
+        self, tmp_path, base_config
+    ):
+        prompt_file = tmp_path / "pr_base.md"
+        prompt_file.write_text("PR base body.\n", encoding="utf-8")
+        gen = self._make_gen(base_config, "pr_prompt_file", prompt_file)
+
+        prompt = gen._build_pr_prompt()
+
+        assert "PR base body.\n\n" in prompt
+        assert "PR base body. " not in prompt

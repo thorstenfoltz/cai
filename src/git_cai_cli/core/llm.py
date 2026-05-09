@@ -2,11 +2,13 @@
 Use LLMs to generate git commit messages from diffs or multiple commits.
 """
 
+import functools
 import logging
 import os
 import shutil
 import signal
 import subprocess
+import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -23,8 +25,62 @@ from git_cai_cli.core.prompts_fallback import (
     HARDCODED_SQUASH_PROMPT,
 )
 from openai import OpenAI
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 log = logging.getLogger(__name__)
+
+
+_RETRY_STATUS_CODES = (429, 500, 502, 503, 504)
+_RETRY_TOTAL = 3
+_RETRY_BACKOFF_FACTOR = 0.5
+
+
+def _build_retrying_session() -> requests.Session:
+    """Build a requests.Session with urllib3-level retry/backoff.
+
+    Retries idempotent and POST requests on 429 + 5xx with exponential
+    backoff. ``raise_for_status`` is still required at the call site so
+    final non-retried failures surface as ``requests.HTTPError`` for the
+    central error classifier in ``validate.py``.
+    """
+    retry = Retry(
+        total=_RETRY_TOTAL,
+        backoff_factor=_RETRY_BACKOFF_FACTOR,
+        status_forcelist=_RETRY_STATUS_CODES,
+        allowed_methods=frozenset({"GET", "POST"}),
+        raise_on_status=False,
+        respect_retry_after_header=True,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session = requests.Session()
+    # http:// adapter is required for local Ollama (http://localhost:11434).
+    session.mount(
+        "http://",  # nosemgrep: python.lang.security.audit.insecure-transport.requests.request-session-with-http.request-session-with-http
+        adapter,
+    )
+    session.mount("https://", adapter)
+    return session
+
+
+@functools.lru_cache(maxsize=1)
+def _get_http_session() -> requests.Session:
+    """Process-wide retrying session, built lazily on first use.
+
+    ``lru_cache(maxsize=1)`` is used as a thread-safe singleton holder so
+    we avoid the module-level mutable + ``global`` statement pattern.
+    """
+    return _build_retrying_session()
+
+
+def _http_post(*args, **kwargs):
+    """POST via the module-level retrying session.
+
+    Single patch-point for tests; never uses ``requests.post`` directly so
+    every provider call benefits from urllib3 retry/backoff on transient
+    failures (429 / 5xx).
+    """
+    return _get_http_session().post(*args, **kwargs)
 
 
 def load_prompt_file(
@@ -101,10 +157,32 @@ class CommitMessageGenerator:
     Generates git commit messages from diffs or from multiple commit messages.
     """
 
-    def __init__(self, token: str | None, config: Dict[str, Any], default_model: str):
+    def __init__(
+        self,
+        token: str | None,
+        config: Dict[str, Any],
+        default_model: str,
+        *,
+        branch_name: str | None = None,
+    ):
         self.token = token
         self.config = config
         self.default_model = default_model
+        self.branch_name = branch_name
+
+        # Mutated by callers (main / squash / pr) before generation so
+        # the resulting stats row carries the right kind/repo. Default
+        # "commit" because that is the most common entry point.
+        self.kind: str = "commit"
+        self.repo: str | None = None
+
+        # Set by the provider methods around each HTTP call so
+        # ``_log_token_usage`` can persist real latency data.
+        # ``_last_event_id`` is the row id from the most recent
+        # stats.record() — used by ``record_elapsed`` to patch in the
+        # user-perceived elapsed time once the caller knows it.
+        self._last_latency_ms: int | None = None
+        self._last_event_id: int | None = None
 
         # Ollama lifecycle tracking (only used when provider == "ollama")
         self._ollama_proc: subprocess.Popen[str] | None = None
@@ -130,13 +208,91 @@ class CommitMessageGenerator:
 
         return 300 if provider == "ollama" else 30
 
+    _PROMPT_FILE_KEY_BY_KIND: Dict[str, str] = {
+        "commit": "prompt_file",
+        "amend": "prompt_file",
+        "squash": "squash_prompt_file",
+        "pr": "pr_prompt_file",
+    }
+
+    def _settings_snapshot(self, provider: str) -> Dict[str, Any]:
+        """Snapshot of the user-visible generation settings for the
+        active call. Empty/missing values become ``None`` so the stats
+        row reflects "not set" rather than a default lie."""
+        cfg = self.config
+
+        emoji_raw = cfg.get("emoji")
+        emoji_val: bool | None
+        if emoji_raw is None:
+            emoji_val = None
+        else:
+            emoji_val = bool(emoji_raw)
+
+        temperature_val: float | None = None
+        block = cfg.get(provider)
+        if isinstance(block, dict):
+            temp = block.get("temperature")
+            if isinstance(temp, (int, float)):
+                temperature_val = float(temp)
+
+        # Full-files mode swaps the commit prompt file for a dedicated
+        # one — surface that when active, regardless of kind.
+        if self.kind in ("commit", "amend") and cfg.get("full_files"):
+            prompt_key = "full_files_prompt_file"
+        else:
+            prompt_key = self._PROMPT_FILE_KEY_BY_KIND.get(self.kind, "prompt_file")
+        prompt_file_raw = cfg.get(prompt_key)
+        prompt_file_val: str | None = None
+        if isinstance(prompt_file_raw, (str, Path)):
+            text = str(prompt_file_raw).strip()
+            prompt_file_val = text or None
+
+        language_raw = cfg.get("language")
+        language_val = str(language_raw) if language_raw else None
+
+        style_raw = cfg.get("style")
+        style_val = str(style_raw) if style_raw else None
+
+        return {
+            "language": language_val,
+            "style": style_val,
+            "emoji": emoji_val,
+            "temperature": temperature_val,
+            "prompt_file": prompt_file_val,
+        }
+
     def _log_token_usage(
         self,
         provider: str,
         prompt_tokens: int | None,
         completion_tokens: int | None,
     ) -> None:
-        """Log token usage if token_logging is enabled in config."""
+        """Log token usage if token_logging is enabled, and record an
+        analytics event if `stats: true` is set in config (FB.11)."""
+        # Stats recording — best-effort, never raises. Routed before
+        # token_logging short-circuit so analytics still capture even
+        # when token_logging is off.
+        try:
+            from git_cai_cli.core import stats
+
+            model = None
+            block = self.config.get(provider)
+            if isinstance(block, dict):
+                model = block.get("model")
+            self._last_event_id = stats.record(
+                config=self.config,
+                kind=self.kind,
+                provider=provider,
+                model=model,
+                tokens_in=prompt_tokens,
+                tokens_out=completion_tokens,
+                latency_ms=self._last_latency_ms,
+                repo=self.repo,
+                **self._settings_snapshot(provider),
+            )
+        except (ImportError, AttributeError, TypeError, KeyError) as exc:
+            log.debug("stats.record failed (non-fatal): %s", exc)
+
         if not self.config.get("token_logging", False):
             return
         if prompt_tokens is None and completion_tokens is None:
@@ -152,6 +308,17 @@ class CommitMessageGenerator:
             completion_tokens if completion_tokens is not None else "n/a",  # nosemgrep
             total,  # nosemgrep
         )
+
+    def record_elapsed(self, time_ms: int | None) -> None:
+        """Patch the most recent stats event with the user-perceived
+        elapsed time. Best-effort no-op when stats are disabled or no
+        event has been recorded for this generator yet."""
+        try:
+            from git_cai_cli.core import stats
+
+            stats.set_time_ms(self.config, self._last_event_id, time_ms)
+        except (ImportError, AttributeError, TypeError, KeyError) as exc:
+            log.debug("stats.set_time_ms failed (non-fatal): %s", exc)
 
     def generate(self, git_diff: str, context: str | None = None) -> str:
         """
@@ -306,7 +473,7 @@ class CommitMessageGenerator:
         if not self.config.get("branch_context", False):
             return ""
 
-        branch_name = self.config.get("branch_name", "")
+        branch_name = self.branch_name or ""
         if not branch_name:
             return ""
 
@@ -361,7 +528,7 @@ class CommitMessageGenerator:
 
         suffix = self._config_instructions()
         if suffix:
-            prompt = f"{base} {suffix}"
+            prompt = "\n\n".join([base.rstrip(), suffix.lstrip()])
         else:
             prompt = base
 
@@ -382,7 +549,7 @@ class CommitMessageGenerator:
 
         suffix = self._config_instructions()
         if suffix:
-            prompt = f"{base} {suffix}"
+            prompt = "\n\n".join([base.rstrip(), suffix.lstrip()])
         else:
             prompt = base
 
@@ -412,7 +579,7 @@ class CommitMessageGenerator:
             self._emoji_instruction(),
         ]
         suffix = " ".join(p for p in parts if p)
-        prompt = f"{base} {suffix}" if suffix else base
+        prompt = "\n\n".join([base.rstrip(), suffix.lstrip()]) if suffix else base
 
         log.debug("Final PR prompt (%d characters).", len(prompt))
         return prompt
@@ -484,7 +651,14 @@ class CommitMessageGenerator:
 
         model = self.config["anthropic"]["model"]
         temperature = self.config["anthropic"]["temperature"]
-        max_tokens = int(self.config["anthropic"].get("max_tokens", 32768))
+        # ``max_output_tokens`` is the canonical config key (consistent
+        # naming across providers); ``max_tokens`` is kept for backwards
+        # compatibility with existing user configs.
+        anthropic_cfg = self.config["anthropic"]
+        max_tokens = int(
+            anthropic_cfg.get("max_output_tokens")
+            or anthropic_cfg.get("max_tokens", 32768)
+        )
 
         log.info("Using anthropic model '%s'.", model)
 
@@ -501,9 +675,11 @@ class CommitMessageGenerator:
         if system_prompt_override:
             request["system"] = system_prompt_override
 
-        response = requests.post(  # nosec B113
+        start = time.perf_counter()
+        response = _http_post(  # nosec B113
             url, json=request, headers=headers, timeout=self._timeout("anthropic")
         )
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
         response.raise_for_status()
 
         data = response.json()
@@ -570,9 +746,11 @@ class CommitMessageGenerator:
             },
         }
 
-        response = requests.post(  # nosec B113
+        start = time.perf_counter()
+        response = _http_post(  # nosec B113
             url, json=request, headers=headers, timeout=self._timeout("gemini")
         )
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
         response.raise_for_status()
 
         data = response.json()
@@ -630,9 +808,11 @@ class CommitMessageGenerator:
             "temperature": temperature,
         }
 
-        response = requests.post(  # nosec B113
+        start = time.perf_counter()
+        response = _http_post(  # nosec B113
             url, json=request, headers=headers, timeout=self._timeout("groq")
         )
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
         response.raise_for_status()
 
         data = response.json()
@@ -688,9 +868,11 @@ class CommitMessageGenerator:
             "temperature": temperature,
         }
 
-        response = requests.post(  # nosec B113
+        start = time.perf_counter()
+        response = _http_post(  # nosec B113
             url, json=request, headers=headers, timeout=self._timeout("mistral")
         )
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
         response.raise_for_status()
 
         data = response.json()
@@ -703,6 +885,16 @@ class CommitMessageGenerator:
         )
 
         return data["choices"][0]["message"]["content"].strip()
+
+    def _ollama_startup_timeout(self) -> float:
+        """Seconds to wait for ``ollama serve`` to come up. Configurable
+        per-user since first-load of large models can exceed the default."""
+        ollama_cfg = self.config.get("ollama") or {}
+        if isinstance(ollama_cfg, dict):
+            value = ollama_cfg.get("startup_timeout")
+            if isinstance(value, (int, float)) and value > 0:
+                return float(value)
+        return 8.0
 
     def _ollama_base_url(self) -> str:
         host = os.environ.get("OLLAMA_HOST", "").strip()
@@ -740,21 +932,30 @@ class CommitMessageGenerator:
 
         if self._ollama_proc is None or self._ollama_proc.poll() is not None:
             log.info("Ollama is not running; starting 'ollama serve'...")
+            popen_kwargs: Dict[str, Any] = {
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "text": True,
+            }
+            # ``start_new_session`` is POSIX-only; using it on Windows
+            # raises ValueError. We need it on POSIX so we can later
+            # killpg() the whole process group, but we have no equivalent
+            # on Windows — fall back to per-process termination there.
+            if sys.platform != "win32":
+                popen_kwargs["start_new_session"] = True
             try:
                 self._ollama_proc = (
                     subprocess.Popen(  # pylint: disable=consider-using-with
                         ["ollama", "serve"],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        text=True,
-                        start_new_session=True,
+                        **popen_kwargs,
                     )
                 )
             except OSError as exc:
                 raise ValueError("Failed to start Ollama server.") from exc
             self._ollama_started_by_us = True
 
-        deadline = time.time() + 8
+        startup_timeout = self._ollama_startup_timeout()
+        deadline = time.time() + startup_timeout
         while time.time() < deadline:
             if self._ollama_proc is not None and self._ollama_proc.poll() is not None:
                 raise ValueError(
@@ -778,8 +979,14 @@ class CommitMessageGenerator:
 
         log.info("Stopping Ollama server started by cai...")
 
+        # POSIX: terminate the process group so child workers exit too.
+        # Windows: no killpg, just terminate the parent process.
+        posix = sys.platform != "win32"
         try:
-            os.killpg(self._ollama_proc.pid, signal.SIGTERM)
+            if posix:
+                os.killpg(self._ollama_proc.pid, signal.SIGTERM)
+            else:
+                self._ollama_proc.terminate()
         except (ProcessLookupError, PermissionError, OSError):
             try:
                 self._ollama_proc.terminate()
@@ -791,7 +998,10 @@ class CommitMessageGenerator:
             log.info("Ollama server stopped successfully.")
         except subprocess.TimeoutExpired:
             try:
-                os.killpg(self._ollama_proc.pid, signal.SIGKILL)
+                if posix:
+                    os.killpg(self._ollama_proc.pid, signal.SIGKILL)
+                else:
+                    self._ollama_proc.kill()
                 log.info("Ollama server killed successfully.")
             except (ProcessLookupError, PermissionError, OSError):
                 try:
@@ -836,14 +1046,16 @@ class CommitMessageGenerator:
             },
         }
 
+        start = time.perf_counter()
         try:
-            response = requests.post(  # nosec B113
+            response = _http_post(  # nosec B113
                 url, json=request, timeout=self._timeout("ollama")
             )
         except requests.RequestException as exc:
             raise ValueError(
                 "Failed to reach Ollama. Ensure it is running (try: `ollama serve`)."
             ) from exc
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
 
         try:
             response.raise_for_status()
@@ -920,12 +1132,14 @@ class CommitMessageGenerator:
 
         messages.append({"role": "user", "content": content})
 
+        start = time.perf_counter()
         completion = client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=temperature,
             stream=False,
         )
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
 
         usage = completion.usage
         self._log_token_usage(
@@ -977,9 +1191,11 @@ class CommitMessageGenerator:
             "messages": messages,
             "temperature": temperature,
         }
-        response = requests.post(  # nosec B113
+        start = time.perf_counter()
+        response = _http_post(  # nosec B113
             url, json=request, headers=headers, timeout=self._timeout("xai")
         )
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
         response.raise_for_status()
 
         data = response.json()

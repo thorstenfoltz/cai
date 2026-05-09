@@ -46,6 +46,8 @@ def clean_git_state() -> typing.Callable:
         """
         Simulates subprocess.check_output side effects for a clean Git state.
         """
+        if cmd[:3] == ["git", "rev-parse", "--is-shallow-repository"]:
+            return "false"
         if cmd[:3] == ["git", "diff", "--cached"]:
             return ""
         if cmd[:2] == ["git", "diff"]:
@@ -80,6 +82,7 @@ def test_aborts_on_unstaged_changes(mock_repo_root) -> None:
         patch(
             "subprocess.check_output",
             side_effect=[
+                "false",  # is-shallow-repository
                 "",  # staged
                 "file.py",  # unstaged
             ],
@@ -101,6 +104,8 @@ def test_commits_staged_changes_first(mock_repo_root, mock_generator) -> None:
         """
         Simulates subprocess.check_output side effects for staged changes.
         """
+        if cmd[:3] == ["git", "rev-parse", "--is-shallow-repository"]:
+            return "false"
         if cmd[:3] == ["git", "diff", "--cached"]:
             return "file.py"
         if cmd[:2] == ["git", "diff"]:
@@ -344,6 +349,8 @@ def test_squash_branch_with_squash_arg(mock_repo_root, mock_generator) -> None:
     run_mock = MagicMock(return_value=MagicMock(returncode=0))
 
     def git_side_effect(cmd, text=True, **kwargs) -> str:
+        if cmd[:3] == ["git", "rev-parse", "--is-shallow-repository"]:
+            return "false"
         if cmd[:3] == ["git", "diff", "--cached"]:
             return ""
         if cmd[:2] == ["git", "diff"]:
@@ -411,3 +418,191 @@ def test_squash_branch_passes_context_to_generator(
 
     call_args = mock_generator.summarize_commit_history.call_args
     assert call_args[1].get("context") == "Closes #42"
+
+
+# ---------------------------------------------------------------------------
+# Editor launch must use argv form (no shell=True) — F0.2 security fix
+# ---------------------------------------------------------------------------
+
+
+def test_editor_launch_uses_argv_never_shell(
+    mock_repo_root, clean_git_state, mock_generator
+) -> None:
+    """
+    The editor must always be launched via argv list. Using shell=True is a
+    code-injection vector if GIT_EDITOR carries shell metacharacters.
+    """
+    run_mock = MagicMock(return_value=MagicMock(returncode=0))
+
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("subprocess.check_output", side_effect=clean_git_state),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+        patch(
+            "git_cai_cli.core.squash.CommitMessageGenerator",
+            return_value=mock_generator,
+        ),
+        patch("git_cai_cli.core.squash.get_git_editor", return_value="true"),
+        patch("git_cai_cli.core.squash.sha256_of_file", side_effect=["a", "b"]),
+        patch("subprocess.run", run_mock),
+        patch("git_cai_cli.core.squash._has_upstream", return_value=False),
+    ):
+        squash_branch()
+
+    for kwargs in (c.kwargs for c in run_mock.call_args_list):
+        assert (
+            kwargs.get("shell", False) is False
+        ), "subprocess.run was invoked with shell=True — security regression"
+
+    editor_calls = [
+        c
+        for c in run_mock.call_args_list
+        if c.args and isinstance(c.args[0], list) and c.args[0][0] == "true"
+    ]
+    assert editor_calls, "expected an argv-form call for the editor invocation"
+
+
+def test_editor_with_shell_metacharacters_is_not_expanded(
+    mock_repo_root, clean_git_state, mock_generator, tmp_path
+) -> None:
+    """
+    A malicious GIT_EDITOR like 'true; rm -rf /' must be parsed by shlex
+    and either rejected (executable 'true; rm -rf /' isn't on PATH) or
+    passed as a single argv[0] — never expanded by a shell.
+    """
+    canary = tmp_path / "should-not-exist.txt"
+    malicious = f"true; touch {canary}"
+
+    run_mock = MagicMock(return_value=MagicMock(returncode=0))
+
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("subprocess.check_output", side_effect=clean_git_state),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+        patch(
+            "git_cai_cli.core.squash.CommitMessageGenerator",
+            return_value=mock_generator,
+        ),
+        patch("git_cai_cli.core.squash.get_git_editor", return_value=malicious),
+        patch("git_cai_cli.core.squash.sha256_of_file", side_effect=["a", "b"]),
+        patch("subprocess.run", run_mock),
+        patch("git_cai_cli.core.squash._has_upstream", return_value=False),
+    ):
+        squash_branch()
+
+    for kwargs in (c.kwargs for c in run_mock.call_args_list):
+        assert kwargs.get("shell", False) is False
+    assert (
+        not canary.exists()
+    ), "shell metacharacters in GIT_EDITOR were expanded — injection vector"
+
+
+def test_editor_not_on_path_aborts_cleanly(
+    mock_repo_root, clean_git_state, mock_generator, caplog
+) -> None:
+    """
+    If the editor binary isn't on PATH, the squash flow logs a clear error
+    and returns — no fallback to shell=True.
+    """
+    run_mock = MagicMock(return_value=MagicMock(returncode=0))
+
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("subprocess.check_output", side_effect=clean_git_state),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+        patch(
+            "git_cai_cli.core.squash.CommitMessageGenerator",
+            return_value=mock_generator,
+        ),
+        patch(
+            "git_cai_cli.core.squash.get_git_editor",
+            return_value="/nonexistent/editor-xyz",
+        ),
+        patch("git_cai_cli.core.squash.sha256_of_file", return_value="hash"),
+        patch("subprocess.run", run_mock),
+        patch("git_cai_cli.core.squash._has_upstream", return_value=False),
+    ):
+        squash_branch()
+
+    assert "not found in PATH" in caplog.text
+    for kwargs in (c.kwargs for c in run_mock.call_args_list):
+        assert kwargs.get("shell", False) is False
+
+
+# ---------------------------------------------------------------------------
+# F1.2 — shallow-clone preflight
+# ---------------------------------------------------------------------------
+
+
+def test_shallow_clone_aborts_with_clear_message(mock_repo_root, caplog) -> None:
+    """A shallow clone must be detected and surfaced clearly so the user
+    isn't left guessing why HEAD~N or merge-base failed."""
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("subprocess.check_output", return_value="true"),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+    ):
+        squash_branch()
+
+    assert "shallow clone" in caplog.text.lower()
+    assert "git fetch --unshallow" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# F1.1 — squash editor cancel surfaces rollback instructions
+# ---------------------------------------------------------------------------
+
+
+def test_cancel_after_staged_commit_surfaces_rollback_instructions(
+    mock_repo_root, mock_generator, caplog
+) -> None:
+    """If the user has staged changes that get committed before the squash
+    summary editor is opened, and they then cancel the editor, we must
+    point them at `git reset HEAD~1 --soft` so they can recover."""
+
+    def git_side_effect(cmd, text=True, **kwargs) -> str:
+        if cmd[:3] == ["git", "rev-parse", "--is-shallow-repository"]:
+            return "false"
+        if cmd[:3] == ["git", "diff", "--cached"]:
+            return "file.py"
+        if cmd[:2] == ["git", "diff"]:
+            return ""
+        if cmd[:2] == ["git", "--no-pager"] and "log" in cmd:
+            return "commit 1\ncommit 2"
+        if "merge-base" in cmd:
+            return "BASE"
+        if "symbolic-ref" in cmd:
+            return "refs/remotes/origin/main"
+        raise AssertionError(f"Unexpected git command: {cmd}")
+
+    caplog.set_level("WARNING")
+
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("git_cai_cli.core.squash.git_diff_excluding", return_value="diff"),
+        patch("subprocess.check_output", side_effect=git_side_effect),
+        patch("git_cai_cli.core.squash.commit_with_edit_template", return_value=1),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+        patch(
+            "git_cai_cli.core.squash.CommitMessageGenerator",
+            return_value=mock_generator,
+        ),
+    ):
+        squash_branch()
+
+    assert "git reset HEAD~1 --soft" in caplog.text

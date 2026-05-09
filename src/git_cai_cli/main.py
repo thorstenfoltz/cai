@@ -51,23 +51,39 @@ def ensure_git_alias() -> None:
         raise typer.Exit(code=1)
 
 
+def _log_stats_state(config: dict) -> None:
+    """Backwards-compatible wrapper around ``stats.log_state``.
+
+    The implementation moved into ``core.stats`` to break a cyclic
+    import (``core.pr`` / ``core.squash`` used to import this from
+    ``main``). Kept here so existing test imports continue to work.
+    """
+    from git_cai_cli.core import stats as stats_module
+
+    stats_module.log_state(config)
+
+
 def run(
     *,
     mode: Mode,
     enable_debug: bool,
     list_arg: str | None,
     stage_tracked: bool,
-    conventional: bool = False,
-    branch_context: bool = False,
+    conventional: bool | None = None,
+    branch_context: bool | None = None,
     crazy: bool,
     provider_override: str | None = None,
     model_override: str | None = None,
     time_flag: bool = False,
     context: str | None = None,
     timeout_override: int | None = None,
-    full_files_override: bool = False,
+    full_files_override: bool | None = None,
     files_override: list[str] | None = None,
     base_override: str | None = None,
+    sql_override: bool | None = None,
+    stats_since: str | None = None,
+    stats_json: bool = False,
+    stats_reset: bool = False,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -90,6 +106,7 @@ def run(
         find_git_root,
         get_last_commit_diff,
         git_diff_excluding,
+        repo_name_from_root,
     )
     from git_cai_cli.core.llm import CommitMessageGenerator
     from git_cai_cli.core.options import CliManager
@@ -113,6 +130,7 @@ def run(
             time_flag=time_flag,
             squash_arg=list_arg,
             context=context,
+            sql_override=sql_override,
         )
         return
 
@@ -125,11 +143,23 @@ def run(
             time_flag=time_flag,
             base_override=base_override,
             context=context,
+            sql_override=sql_override,
         )
         return
 
     if mode is Mode.UPDATE:
         manager.check_and_update()
+        return
+
+    if mode is Mode.STATS:
+        from git_cai_cli.core import stats
+
+        config = load_config()
+        if stats_reset:
+            removed = stats.reset(config)
+            typer.echo(f"Cleared {removed} stats event(s).")
+            return
+        typer.echo(stats.show(config, since=stats_since, as_json=stats_json))
         return
 
     is_amend = mode is Mode.AMEND
@@ -148,14 +178,16 @@ def run(
         branch_context=branch_context,
         timeout_override=timeout_override,
         full_files_override=full_files_override,
+        sql_override=sql_override,
     )
 
+    _log_stats_state(config)
+
+    branch_name: str | None = None
     if config.get("branch_context", False):
         from git_cai_cli.core.gitutils import get_current_branch
 
         branch_name = get_current_branch()
-        if branch_name:
-            config["branch_name"] = branch_name
 
     provider = config["default"]
     token = load_token(config=config)
@@ -188,7 +220,9 @@ def run(
     measure = time_flag or config.get("measure_time", False)
     start = time.perf_counter() if measure else None
 
-    generator = CommitMessageGenerator(token, config, provider)
+    generator = CommitMessageGenerator(token, config, provider, branch_name=branch_name)
+    generator.kind = "amend" if is_amend else "commit"
+    generator.repo = repo_name_from_root(repo_root)
     try:
         try:
             spinner_text = (
@@ -213,6 +247,7 @@ def run(
     if start is not None:
         elapsed = time.perf_counter() - start
         log.info("Commit message generated in %.2fs", elapsed)
+        generator.record_elapsed(int(elapsed * 1000))
 
     if crazy:
         rc = manager.commit_crazy(commit_message, amend=is_amend)

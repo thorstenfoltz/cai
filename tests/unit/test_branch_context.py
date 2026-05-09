@@ -15,12 +15,12 @@ def _make_generator(branch_context=False, branch_name=""):
         "emoji": True,
         "conventional": False,
         "branch_context": branch_context,
-        "branch_name": branch_name,
     }
     return CommitMessageGenerator(
         token="fake-token",
         config=config,
         default_model="openai",
+        branch_name=branch_name or None,
     )
 
 
@@ -76,3 +76,15 @@ def test_default_config_contains_branch_context():
     """DEFAULT_CONFIG should include branch_context key set to False."""
     assert "branch_context" in DEFAULT_CONFIG
     assert DEFAULT_CONFIG["branch_context"] is False
+
+
+def test_branch_name_does_not_leak_into_config():
+    """F1.6 regression: branch name is constructor state, not config.
+
+    The previous implementation stuffed branch_name into the config
+    dict so it surfaced in `git cai -l config` output. It must now live
+    on the generator instance only.
+    """
+    gen = _make_generator(branch_context=True, branch_name="feat/x")
+    assert "branch_name" not in gen.config
+    assert gen.branch_name == "feat/x"

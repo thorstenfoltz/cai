@@ -508,3 +508,45 @@ def test_commit_with_edit_template_runs_git_commit(tmp_path):
 
         rc = commit_with_edit_template("initial\n")
         assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# F1.4 — .caiignore must use gitignore semantics, not bare fnmatch
+# ---------------------------------------------------------------------------
+
+
+from git_cai_cli.core.gitutils import _matches_caiignore as _ci_matches  # noqa: E402
+
+
+def test_caiignore_double_star_recurses():
+    """`**/foo` must match `foo`, `a/foo`, and `a/b/foo` — fnmatch did not."""
+    patterns = ["**/foo.txt"]
+    assert _ci_matches("foo.txt", patterns)
+    assert _ci_matches("a/foo.txt", patterns)
+    assert _ci_matches("a/b/c/foo.txt", patterns)
+
+
+def test_caiignore_negation_re_includes():
+    """`!pattern` re-includes a previously-excluded path."""
+    patterns = ["*.log", "!keep.log"]
+    assert _ci_matches("a.log", patterns)
+    assert not _ci_matches("keep.log", patterns)
+
+
+def test_caiignore_directory_anchored_pattern_only_matches_root():
+    """`/foo` matches at the repo root only — not in subdirectories."""
+    patterns = ["/foo.txt"]
+    assert _ci_matches("foo.txt", patterns)
+    assert not _ci_matches("sub/foo.txt", patterns)
+
+
+def test_caiignore_unanchored_pattern_matches_anywhere():
+    """`foo` (no leading slash) matches at any depth."""
+    patterns = ["foo.txt"]
+    assert _ci_matches("foo.txt", patterns)
+    assert _ci_matches("a/foo.txt", patterns)
+
+
+def test_caiignore_empty_patterns_no_match():
+    """Empty pattern list never matches."""
+    assert not _ci_matches("anything.txt", [])

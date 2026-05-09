@@ -367,6 +367,7 @@ git cai -l style
         time_flag: bool = False,
         squash_arg: str | None = None,
         context: str | None = None,
+        sql_override: bool | None = None,
     ) -> None:
         """
         Squash commits on the current branch and summarize them.
@@ -377,6 +378,7 @@ git cai -l style
             time_flag=time_flag,
             squash_arg=squash_arg,
             context=context,
+            sql_override=sql_override,
         )
 
     def stage_tracked_files(self) -> None:

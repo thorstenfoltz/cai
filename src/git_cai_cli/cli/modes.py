@@ -17,6 +17,7 @@ class Mode(Enum):
     LIST = auto()
     PR = auto()
     SQUASH = auto()
+    STATS = auto()
     UPDATE = auto()
 
 
@@ -26,15 +27,16 @@ def resolve_mode(
     list_flag: bool,
     pr: bool,
     squash: bool,
+    stats: bool = False,
     update: bool,
 ) -> Mode:
     """
     Resolves the operational mode based on the provided flags.
     """
-    flags = [amend, list_flag, pr, squash, update]
+    flags = [amend, list_flag, pr, squash, stats, update]
     if sum(flags) > 1:
         typer.echo(
-            "Error: --amend, --list, --PR, --squash, and --update "
+            "Error: --amend, --list, --PR, --squash, --stats, and --update "
             "cannot be used together.",
             err=True,
         )
@@ -48,6 +50,8 @@ def resolve_mode(
         return Mode.PR
     if squash:
         return Mode.SQUASH
+    if stats:
+        return Mode.STATS
     if update:
         return Mode.UPDATE
 
