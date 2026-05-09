@@ -209,7 +209,8 @@ git cai -g
 - `pr_to_file` – when `--PR` is used, write the generated description to a Markdown file in the repo root instead of stdout (default `false`)
 - `pr_file_name` – filename used when `pr_to_file` is `true` (default `PR_DESCRIPTION.md`)
 - `pr_prompt_file` – optional path to a custom Markdown prompt for `--PR` (falls back to `~/.config/cai/pr_prompt.md`, then a built-in default)
-- `stats` – opt in to local-only usage analytics (per-run row in a SQLite DB at `~/.local/share/git-cai/stats.db`); default `false`. No diff content, commit messages, or file paths are stored — only metadata (provider, model, kind, repo name, token counts, latency, settings)
+- `stats` – opt in to local-only usage analytics (per-run row in a SQLite DB at `~/.local/share/git-cai/stats.db`); default `false`. 
+No diff content, commit messages, or file paths are stored — only metadata (provider, model, kind, repo name, token counts, latency, settings)
 
 ---
 
