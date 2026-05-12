@@ -248,7 +248,7 @@ class CliManager:
 
         typer.echo(
             f"Error: unknown list option '{list_arg}'. "
-            "Valid values are 'config', 'editor', 'language', 'model', 'path', 'provider', 'stats', or 'style'.",
+            "Valid values are 'config', 'editor', 'language', 'model', 'path', 'provider', or 'style'.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -267,7 +267,6 @@ language  - List supported languages
 model     - Show the default model for each provider
 path      - Show resolved configuration file paths
 provider  - List supported LLM providers
-stats     - Show local-only usage analytics
 style     - Show available commit message styles
 
 Usage:
@@ -277,7 +276,6 @@ git cai -l language
 git cai -l model
 git cai -l path
 git cai -l provider
-git cai -l stats
 git cai -l style
 """
 

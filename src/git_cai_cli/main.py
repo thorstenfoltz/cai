@@ -120,17 +120,18 @@ def run(
         manager.stage_tracked_files()
 
     if mode is Mode.LIST:
-        if list_arg == "stats":
-            from git_cai_cli.core import stats
-
-            config = load_config()
-            if stats_reset:
-                removed = stats.reset(config)
-                typer.echo(f"Cleared {removed} stats event(s).")
-                return
-            typer.echo(stats.show(config, since=stats_since, as_json=stats_json))
-            return
         manager.handle_list(list_arg)
+        return
+
+    if mode is Mode.STATS:
+        from git_cai_cli.core import stats
+
+        config = load_config()
+        if stats_reset:
+            removed = stats.reset(config)
+            typer.echo(f"Cleared {removed} stats event(s).")
+            return
+        typer.echo(stats.show(config, since=stats_since, as_json=stats_json))
         return
 
     if mode is Mode.SQUASH:

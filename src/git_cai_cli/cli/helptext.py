@@ -28,11 +28,7 @@ Flags:
   -h, --help               Show this help message or opens manual
   -i, --install-completion Install shell completion for git-cai
   -l, --list [TYPE]        List information. TYPE: config, editor, language,
-                           model, path, provider, stats, style
-      stats                Show local-only usage analytics (commits, tokens, latency)
-      --since YYYY-MM-DD   Filter --list stats to events on or after this date
-      --json               Render --list stats output as JSON instead of text
-      --reset-stats        Delete all rows from the local stats DB
+                           model, path, provider, style
   -m, --model NAME         Override model for this invocation (requires --provider)
   -P, --provider NAME      Override LLM provider for this invocation
   -p, --generate-prompts   Generate default commit/squash/full_files/pr prompt files
@@ -49,6 +45,10 @@ Flags:
   -u, --update             Check for updates
   -v, --version            Show installed version
   -x, --context TEXT       Provide extra context for the LLM (e.g. ticket number, reason)
+  -z, --stats              Show local-only usage analytics (commits, tokens, latency)
+      --since YYYY-MM-DD   Filter --stats to events on or after this date
+      --json               Render --stats output as JSON instead of text
+      --reset-stats        Delete all rows from the local stats DB
 
 Configuration:
   Tokens are loaded from {HOME}/.config/cai/tokens.yml

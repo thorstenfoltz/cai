@@ -38,9 +38,8 @@ git-cai \- AI\-powered commit message generator
         [\-g | \-\-generate\-config]
         [\-H KEY=VALUE | \-\-set\-home KEY=VALUE] [\-h | \-\-help]
         [\-i | \-\-install\-completion]
-        [\-l [config|editor|language|model|path|provider|stats|style] |
-         \-\-list [config|editor|language|model|path|provider|stats|style]]
-        [\-\-since YYYY\-MM\-DD] [\-\-json] [\-\-reset\-stats]
+        [\-l [config|editor|language|model|path|provider|style] |
+         \-\-list [config|editor|language|model|path|provider|style]]
         [\-m MODEL | \-\-model MODEL]
         [\-P PROVIDER | \-\-provider PROVIDER] [\-p | \-\-generate\-prompts]
         [\-r | \-\-PR] [\-\-base BRANCH]
@@ -50,6 +49,7 @@ git-cai \- AI\-powered commit message generator
         [\-T SECONDS | \-\-timeout SECONDS]
         [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
         [\-x CONTEXT | \-\-context CONTEXT]
+        [\-z | \-\-stats] [\-\-since YYYY\-MM\-DD] [\-\-json] [\-\-reset\-stats]
 .fi
 .br
 .SH "DESCRIPTION"
@@ -459,7 +459,7 @@ git cai \-i
 .if n .RE
 .RE
 .sp
-\-l, \-\-list [config|editor|language|model|path|provider|stats|style]
+\-l, \-\-list [config|editor|language|model|path|provider|style]
 .RS 4
 List information about a specific category. Provide one of the supported
 list types as the next argument. Without an argument, a help text is shown
@@ -474,7 +474,6 @@ git cai \-l language
 git cai \-l model
 git cai \-l path
 git cai \-l provider
-git cai \-l stats
 git cai \-l style
 .fam
 .fi
@@ -771,6 +770,73 @@ git cai \-r \-x "Closes JIRA\-1234"
 .fi
 .if n .RE
 .RE
+.sp
+\-z, \-\-stats
+.RS 4
+Show local\-only usage analytics: commits and squashes generated, top
+provider, total token counts, average latency, and per\-provider rollups.
+Recording is opt\-in via the top\-level \f(CRstats\fP config key (a plain
+boolean, default \f(CRfalse\fP), so this view is empty until you turn writing
+on. No diff content, commit messages, or file paths are stored — only
+metadata.
+.sp
+The DB lives at \f(CR$XDG_DATA_HOME/git\-cai/stats.db\fP (default
+\f(CR~/.local/share/git\-cai/stats.db\fP). Override with the top\-level
+\f(CRstats_db_path\fP config key.
+.sp
+At the start of every run, git\-cai logs whether stats writing is
+enabled and (when enabled) the path of the SQLite database, so users
+always know where their analytics live.
+.sp
+If the running Python build was compiled without sqlite3, this command
+prints a clear message explaining how to fix it; commit generation
+continues to work normally in that case.
+.sp
+The \f(CRstats\fP (and \f(CRstats_db_path\fP) keys are the one configuration
+exception that does not follow the strict repo\-replaces\-home rule:
+when the repo \f(CRcai_config.yml\fP does not mention them, the values are
+taken from the home \f(CR~/.config/cai/cai_config.yml\fP. If neither file
+defines \f(CRstats\fP, the hardcoded default is \f(CRfalse\fP. Use \f(CRgit cai \-g\fP to
+write a fresh config that includes the setting so it is visible.
+.sp
+Cannot be combined with \f(CR\-\-amend\fP, \f(CR\-\-list\fP, \f(CR\-\-PR\fP, \f(CR\-\-squash\fP, or
+\f(CR\-\-update\fP.
+.sp
+Modifiers for \f(CR\-\-stats\fP:
+.sp
+\f(CR\-\-since YYYY\-MM\-DD\fP
+.RS 4
+Restrict output to events recorded on or after this UTC date. The date
+format is strict ISO\-8601 (e.g. \f(CR2026\-01\-15\fP).
+.RE
+.sp
+\f(CR\-\-json\fP
+.RS 4
+Emit output as a JSON document instead of the text summary. Suitable
+for piping into \f(CRjq\fP or other tooling.
+.RE
+.sp
+\f(CR\-\-reset\-stats\fP
+.RS 4
+Delete every row from the local stats SQLite DB and exit. Prints the
+number of rows removed. The schema and DB file are preserved (so the
+next opt\-in run records into the same file). No\-op when the DB does
+not yet exist.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-z
+git cai \-\-stats
+git cai \-z \-\-since 2026\-01\-01
+git cai \-z \-\-json
+git cai \-z \-\-json \-\-since 2026\-01\-01 | jq \*(Aq.per_provider\*(Aq
+git cai \-\-stats \-\-reset\-stats
+.fam
+.fi
+.if n .RE
+.RE
+.RE
 .SH "LIST TYPES"
 .sp
 The argument to \f(CR\-\-list\fP must be one of the following:
@@ -975,69 +1041,6 @@ Supported providers:
 .fam
 .fi
 .if n .RE
-.RE
-.sp
-stats
-.RS 4
-Show local\-only usage analytics: commits and squashes generated, top
-provider, total token counts, average latency, and per\-provider rollups.
-Recording is opt\-in via the top\-level \f(CRstats\fP config key (a plain
-boolean, default \f(CRfalse\fP), so this view is empty until you turn writing
-on. No diff content, commit messages, or file paths are stored — only
-metadata.
-.sp
-The DB lives at \f(CR$XDG_DATA_HOME/git\-cai/stats.db\fP (default
-\f(CR~/.local/share/git\-cai/stats.db\fP). Override with the top\-level
-\f(CRstats_db_path\fP config key.
-.sp
-At the start of every run, git\-cai logs whether stats writing is
-enabled and (when enabled) the path of the SQLite database, so users
-always know where their analytics live.
-.sp
-If the running Python build was compiled without sqlite3, this command
-prints a clear message explaining how to fix it; commit generation
-continues to work normally in that case.
-.sp
-The \f(CRstats\fP (and \f(CRstats_db_path\fP) keys are the one configuration
-exception that does not follow the strict repo\-replaces\-home rule:
-when the repo \f(CRcai_config.yml\fP does not mention them, the values are
-taken from the home \f(CR~/.config/cai/cai_config.yml\fP. If neither file
-defines \f(CRstats\fP, the hardcoded default is \f(CRfalse\fP. Use \f(CRgit cai \-g\fP to
-write a fresh config that includes the setting so it is visible.
-.sp
-Modifiers for \f(CR\-\-list stats\fP:
-.sp
-\f(CR\-\-since YYYY\-MM\-DD\fP
-.RS 4
-Restrict output to events recorded on or after this UTC date. The date
-format is strict ISO\-8601 (e.g. \f(CR2026\-01\-15\fP).
-.RE
-.sp
-\f(CR\-\-json\fP
-.RS 4
-Emit output as a JSON document instead of the text summary. Suitable
-for piping into \f(CRjq\fP or other tooling.
-.RE
-.sp
-\f(CR\-\-reset\-stats\fP
-.RS 4
-Delete every row from the local stats SQLite DB and exit. Prints the
-number of rows removed. The schema and DB file are preserved (so the
-next opt\-in run records into the same file). No\-op when the DB does
-not yet exist.
-.sp
-.if n .RS 4
-.nf
-.fam C
-git cai \-l stats
-git cai \-l stats \-\-since 2026\-01\-01
-git cai \-l stats \-\-json
-git cai \-l stats \-\-json \-\-since 2026\-01\-01 | jq \*(Aq.per_provider\*(Aq
-git cai \-l stats \-\-reset\-stats
-.fam
-.fi
-.if n .RE
-.RE
 .RE
 .sp
 style
@@ -1370,7 +1373,7 @@ default \f(CRfalse\fP). When enabled, every generation appends one row to
 model, token counts, real LLM latency, and a snapshot of the active
 settings (language, style, emoji, temperature, prompt file). No diff
 content, commit messages, or file paths are stored. View the rollup
-with \f(CRgit cai \-l stats\fP.
+with \f(CRgit cai \-z\fP (\f(CR\-\-stats\fP).
 .RE
 .SH "FILES"
 .sp
