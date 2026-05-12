@@ -27,14 +27,15 @@ Flags:
   -H, --set-home KEY=VALUE Set a config value in home config (~/.config/cai/)
   -h, --help               Show this help message or opens manual
   -i, --install-completion Install shell completion for git-cai
-  -l, --list               List information (e.g. languages, styles, providers, config)
+  -l, --list [TYPE]        List information. TYPE: config, editor, language,
+                           model, path, provider, stats, style
+      stats                Show local-only usage analytics (commits, tokens, latency)
+      --since YYYY-MM-DD   Filter --list stats to events on or after this date
+      --json               Render --list stats output as JSON instead of text
+      --reset-stats        Delete all rows from the local stats DB
   -m, --model NAME         Override model for this invocation (requires --provider)
   -P, --provider NAME      Override LLM provider for this invocation
   -p, --generate-prompts   Generate default commit/squash/full_files/pr prompt files
-  -Q, --stats              Show local-only usage analytics (commits, tokens, latency)
-      --since YYYY-MM-DD   Filter --stats to events on or after this date
-      --json               Render --stats output as JSON instead of text
-      --reset-stats        Delete all rows from the local stats DB
   -q, --sql true|false     Override stats writing for this run (wins over config)
   -r, --PR                 Generate a Pull Request description from the commits on this branch
       --base BRANCH        Base branch for --PR (overrides auto-detection)

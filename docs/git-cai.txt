@@ -16,14 +16,14 @@ SYNOPSIS
         [-g | --generate-config]
         [-H KEY=VALUE | --set-home KEY=VALUE] [-h | --help]
         [-i | --install-completion]
-        [-l [config|editor|language|model|path|provider|style] |
-         --list [config|editor|language|model|path|provider|style]]
+        [-l [config|editor|language|model|path|provider|stats|style] |
+         --list [config|editor|language|model|path|provider|stats|style]]
+        [--since YYYY-MM-DD] [--json] [--reset-stats]
         [-m MODEL | --model MODEL]
         [-P PROVIDER | --provider PROVIDER] [-p | --generate-prompts]
         [-r | --PR] [--base BRANCH]
         [-S KEY=VALUE | --set KEY=VALUE]
         [-s [N|HASH] | --squash [N|HASH]]
-        [-Q | --stats] [--since YYYY-MM-DD] [--json] [--reset-stats]
         [-q true|false | --sql true|false]
         [-T SECONDS | --timeout SECONDS]
         [-t | --time] [-u | --update] [-v | --version]
@@ -259,7 +259,7 @@ file for the completions to take effect.
 git cai -i
 ----
 
--l, --list [config|editor|language|model|path|provider|style]::
+-l, --list [config|editor|language|model|path|provider|stats|style]::
 List information about a specific category. Provide one of the supported
 list types as the next argument. Without an argument, a help text is shown
 listing all valid choices.
@@ -271,6 +271,7 @@ git cai -l language
 git cai -l model
 git cai -l path
 git cai -l provider
+git cai -l stats
 git cai -l style
 ----
 
@@ -308,73 +309,6 @@ overwrites.
 +
 ----
 git cai -p
-----
-
--Q, --stats::
-Show local-only usage analytics: commits and squashes generated, top
-provider, total token counts, average latency, and per-provider rollups.
-Recording is opt-in via the top-level `stats` config key (a plain
-boolean, default `false`), so this view is empty until you turn writing
-on. No diff content, commit messages, or file paths are stored — only
-metadata.
-+
-Combine with `--since YYYY-MM-DD` to scope the view to recent activity, or
-with `--json` to emit machine-readable output. Use `--reset-stats` to
-clear the local SQLite database.
-+
-The DB lives at `$XDG_DATA_HOME/git-cai/stats.db` (default
-`~/.local/share/git-cai/stats.db`). Override with the top-level
-`stats_db_path` config key.
-+
-At the start of every run, git-cai logs whether stats writing is
-enabled and (when enabled) the path of the SQLite database, so users
-always know where their analytics live.
-+
-If the running Python build was compiled without sqlite3, this command
-prints a clear message explaining how to fix it; commit generation
-continues to work normally in that case.
-+
-The `stats` (and `stats_db_path`) keys are the one configuration
-exception that does not follow the strict repo-replaces-home rule:
-when the repo `cai_config.yml` does not mention them, the values are
-taken from the home `~/.config/cai/cai_config.yml`. If neither file
-defines `stats`, the hardcoded default is `false`. Use `git cai -g` to
-write a fresh config that includes the setting so it is visible.
-+
-----
-git cai --stats
-git cai -Q --since 2026-01-01
-git cai -Q --json
-git cai --reset-stats
-----
-
---since YYYY-MM-DD::
-Restrict `--stats` (`-Q`) output to events recorded on or after this UTC
-date. Has no effect outside of `--stats`. The date format is strict
-ISO-8601 (e.g. `2026-01-15`).
-+
-----
-git cai -Q --since 2026-01-01
-----
-
---json::
-Emit `--stats` (`-Q`) output as a JSON document instead of the text
-summary. Suitable for piping into `jq` or other tooling. Has no effect
-outside of `--stats`.
-+
-----
-git cai -Q --json
-git cai -Q --json --since 2026-01-01 | jq '.per_provider'
-----
-
---reset-stats::
-Delete every row from the local stats SQLite DB and exit. Prints the
-number of rows removed. The schema and DB file are preserved (so the
-next opt-in run records into the same file). No-op when the DB does
-not yet exist.
-+
-----
-git cai --reset-stats
 ----
 
 -q, --sql VALUE::
@@ -696,6 +630,57 @@ Supported providers:
   xai          model: grok-4-1-fast-reasoning            (token required)
 ----
 
+stats::
+Show local-only usage analytics: commits and squashes generated, top
+provider, total token counts, average latency, and per-provider rollups.
+Recording is opt-in via the top-level `stats` config key (a plain
+boolean, default `false`), so this view is empty until you turn writing
+on. No diff content, commit messages, or file paths are stored — only
+metadata.
++
+The DB lives at `$XDG_DATA_HOME/git-cai/stats.db` (default
+`~/.local/share/git-cai/stats.db`). Override with the top-level
+`stats_db_path` config key.
++
+At the start of every run, git-cai logs whether stats writing is
+enabled and (when enabled) the path of the SQLite database, so users
+always know where their analytics live.
++
+If the running Python build was compiled without sqlite3, this command
+prints a clear message explaining how to fix it; commit generation
+continues to work normally in that case.
++
+The `stats` (and `stats_db_path`) keys are the one configuration
+exception that does not follow the strict repo-replaces-home rule:
+when the repo `cai_config.yml` does not mention them, the values are
+taken from the home `~/.config/cai/cai_config.yml`. If neither file
+defines `stats`, the hardcoded default is `false`. Use `git cai -g` to
+write a fresh config that includes the setting so it is visible.
++
+Modifiers for `--list stats`:
++
+`--since YYYY-MM-DD`;;
+Restrict output to events recorded on or after this UTC date. The date
+format is strict ISO-8601 (e.g. `2026-01-15`).
++
+`--json`;;
+Emit output as a JSON document instead of the text summary. Suitable
+for piping into `jq` or other tooling.
++
+`--reset-stats`;;
+Delete every row from the local stats SQLite DB and exit. Prints the
+number of rows removed. The schema and DB file are preserved (so the
+next opt-in run records into the same file). No-op when the DB does
+not yet exist.
++
+----
+git cai -l stats
+git cai -l stats --since 2026-01-01
+git cai -l stats --json
+git cai -l stats --json --since 2026-01-01 | jq '.per_provider'
+git cai -l stats --reset-stats
+----
+
 style::
 Show available commit message styles with descriptions and examples. The
 style controls the tone of the generated commit message. Set the style in
@@ -776,7 +761,7 @@ Available configuration keys:
   model, token counts, real LLM latency, and a snapshot of the active
   settings (language, style, emoji, temperature, prompt file). No diff
   content, commit messages, or file paths are stored. View the rollup
-  with `git cai --stats` (`-Q`).
+  with `git cai -l stats`.
 
 FILES
 -----

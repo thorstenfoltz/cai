@@ -141,12 +141,6 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         "-q",
         help="Override stats writing for this run: --sql true / --sql false. Wins over the persisted `stats` config.",
     ),
-    stats: bool = typer.Option(
-        False,
-        "--stats",
-        "-Q",
-        help="Show local-only usage analytics (commits per provider, token totals, latency).",
-    ),
     stats_since: str = typer.Option(
         None,
         "--since",
@@ -186,7 +180,6 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         list_flag=list_flag,
         pr=pr,
         squash=squash,
-        stats=stats,
         update=update,
     )
 
