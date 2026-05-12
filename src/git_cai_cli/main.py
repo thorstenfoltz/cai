@@ -123,6 +123,17 @@ def run(
         manager.handle_list(list_arg)
         return
 
+    if mode is Mode.STATS:
+        from git_cai_cli.core import stats
+
+        config = load_config()
+        if stats_reset:
+            removed = stats.reset(config)
+            typer.echo(f"Cleared {removed} stats event(s).")
+            return
+        typer.echo(stats.show(config, since=stats_since, as_json=stats_json))
+        return
+
     if mode is Mode.SQUASH:
         manager.squash_branch(
             provider_override=provider_override,
@@ -149,17 +160,6 @@ def run(
 
     if mode is Mode.UPDATE:
         manager.check_and_update()
-        return
-
-    if mode is Mode.STATS:
-        from git_cai_cli.core import stats
-
-        config = load_config()
-        if stats_reset:
-            removed = stats.reset(config)
-            typer.echo(f"Cleared {removed} stats event(s).")
-            return
-        typer.echo(stats.show(config, since=stats_since, as_json=stats_json))
         return
 
     is_amend = mode is Mode.AMEND

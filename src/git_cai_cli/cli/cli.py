@@ -144,7 +144,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     stats: bool = typer.Option(
         False,
         "--stats",
-        "-Q",
+        "-z",
         help="Show local-only usage analytics (commits per provider, token totals, latency).",
     ),
     stats_since: str = typer.Option(

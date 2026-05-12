@@ -230,15 +230,15 @@ In addition to `git cai`, the following options are available:
 - `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-h`, `--help` – show help and available commands
 - `-i`, `--install-completion` – install shell completion for bash, zsh, or fish
-- `-l`, `--list` – list available information (`config`, `editor`, `language`, `model`, `path`, `provider`, `style`)
+- `-l`, `--list` – list available information. Valid types: `config`, `editor`, `language`, `model`, `path`, `provider`, `style`
 - `-m`, `--model` – override the model for this invocation (requires `-P`)
 - `-P`, `--provider` – override the LLM provider for this invocation
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
-- `-Q`, `--stats` – show local-only usage analytics (commits/squashes/PRs per provider, tokens, average latency)
-- `--since YYYY-MM-DD` – filter `--stats` to events on or after this date
-- `--json` – render `--stats` output as JSON
-- `--reset-stats` – delete all rows from the local stats DB
 - `-q`, `--sql true|false` – override stats writing for this run (wins over the persisted `stats` config)
+- `-z`, `--stats` – show local-only usage analytics (commits/squashes/PRs per provider, tokens, average latency)
+  - `--since YYYY-MM-DD` – filter `--stats` to events on or after this date
+  - `--json` – render `--stats` output as JSON
+  - `--reset-stats` – delete all rows from the local stats DB
 - `-r`, `--PR` – generate a Pull Request description from the commits between the current branch and its base (prints to stdout by default; set `pr_to_file=true` to write a Markdown file)
 - `--base` `BRANCH` – explicit base branch for `--PR` (overrides auto-detection: `origin/HEAD` → `main` → `master`)
 - `-S`, `--set` – set a config value (`key=value`) in repo config (requires existing repo config)
@@ -345,10 +345,10 @@ git cai -H stats=true            # or in the home config
 git cai -q true                  # one-off opt-in regardless of config
 git cai -q false                 # one-off opt-out
 
-git cai --stats                  # text summary
-git cai -Q --json                # machine-readable
-git cai -Q --since 2026-01-01    # date filter
-git cai --reset-stats            # wipe all rows
+git cai -z                       # text summary
+git cai -z --json                # machine-readable
+git cai --stats --since 2026-01-01  # date filter
+git cai --stats --reset-stats    # wipe all rows
 ```
 
 Rows are split by `kind` (`commit`, `amend`, `squash`, `pr`) and capture provider, model, repo name, token counts, real LLM latency, and a snapshot of the active settings (language, style, emoji, temperature, prompt file).
