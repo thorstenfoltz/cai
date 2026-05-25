@@ -128,9 +128,7 @@ def test_append_signoff_calls_get_git_identity_when_no_identity_passed(monkeypat
         called.append(True)
         return ("Alice", "alice@example.com")
 
-    monkeypatch.setattr(
-        "git_cai_cli.core.gitutils.get_git_identity", fake_identity
-    )
+    monkeypatch.setattr("git_cai_cli.core.gitutils.get_git_identity", fake_identity)
     out = append_signoff("Fix typo")
     assert called
     assert "Signed-off-by: Alice <alice@example.com>" in out

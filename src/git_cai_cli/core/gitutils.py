@@ -102,9 +102,7 @@ def get_git_identity(
     name = _query("user.name")
     email = _query("user.email")
     if not name or not email:
-        raise RuntimeError(
-            "--signoff requires git user.name and user.email to be set."
-        )
+        raise RuntimeError("--signoff requires git user.name and user.email to be set.")
     return name, email
 
 

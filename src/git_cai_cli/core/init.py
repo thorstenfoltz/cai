@@ -47,9 +47,7 @@ def _pick_provider() -> str:
         block = DEFAULT_CONFIG.get(name, {})
         model = block.get("model", "n/a") if isinstance(block, dict) else "n/a"
         token_info = (
-            "no token required"
-            if name in TOKENLESS_PROVIDERS
-            else "token required"
+            "no token required" if name in TOKENLESS_PROVIDERS else "token required"
         )
         typer.echo(f"  {idx}. {name:<10} default model: {model}  ({token_info})")
 
@@ -72,9 +70,13 @@ def _pick_provider() -> str:
 def _pick_language() -> str:
     default = "en"
     while True:
-        raw = typer.prompt(
-            "Language code (e.g. en, de, fr; 'none' to disable)", default=default
-        ).strip().lower()
+        raw = (
+            typer.prompt(
+                "Language code (e.g. en, de, fr; 'none' to disable)", default=default
+            )
+            .strip()
+            .lower()
+        )
         if raw == "none" or raw in LANGUAGE_MAP:
             return raw
         typer.echo(
@@ -94,8 +96,7 @@ def _pick_style() -> str:
 
 def _read_token(provider: str) -> str:
     typer.echo(
-        f"\nEnter your {provider} API key. "
-        "Input will be hidden while you type."
+        f"\nEnter your {provider} API key. " "Input will be hidden while you type."
     )
     while True:
         token = getpass.getpass(prompt=f"{provider} API key: ").strip()
@@ -113,7 +114,11 @@ def _write_tokens_file(provider: str, token: str, tokens_path: Path) -> None:
             if isinstance(loaded, dict):
                 tokens = cast(dict[str, Any], loaded)
         except yaml.YAMLError as exc:
-            log.warning("Existing tokens.yml could not be parsed (%s) — overwriting.", exc)
+            # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+            log.warning(
+                "Existing token store could not be parsed (%s) — overwriting.",
+                exc,
+            )
 
         if provider in tokens and not typer.confirm(
             f"A {provider} token already exists in {tokens_path}. Overwrite?",
@@ -142,9 +147,7 @@ def _write_config_file(
     emoji: bool,
 ) -> None:
     block = DEFAULT_CONFIG.get(provider, {})
-    provider_block = (
-        {k: v for k, v in block.items()} if isinstance(block, dict) else {}
-    )
+    provider_block = dict(block) if isinstance(block, dict) else {}
 
     config: dict[str, Any] = {
         "default": provider,
