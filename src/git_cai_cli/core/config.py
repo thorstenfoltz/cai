@@ -64,6 +64,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "pr_file_name": "PR_DESCRIPTION.md",
     "pr_prompt_file": "",
     "stats": False,
+    "signoff": False,
 }
 
 # Providers that do not require an API token in tokens.yml
@@ -464,6 +465,7 @@ def ordered_default_config(
         "pr_prompt_file",
         "stats",
         "stats_db_path",
+        "signoff",
     ]
 
     ordered: dict[str, Any] = {}

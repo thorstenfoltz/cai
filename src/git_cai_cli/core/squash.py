@@ -19,6 +19,7 @@ from git_cai_cli.core.config import (
 )
 from git_cai_cli.core.gitutils import (
     _has_upstream,
+    append_signoff,
     commit_with_edit_template,
     find_git_root,
     get_git_editor,
@@ -204,6 +205,7 @@ def squash_branch(
     squash_arg: str | None = None,
     context: str | None = None,
     sql_override: bool | None = None,
+    signoff: bool | None = None,
 ) -> None:
     """
     Squash commits in the current branch into a single commit with an LLM-generated message.
@@ -246,6 +248,8 @@ def squash_branch(
     from git_cai_cli.core.config import apply_cli_overrides
 
     apply_cli_overrides(config, sql_override=sql_override)
+
+    apply_signoff = signoff if signoff is not None else config.get("signoff", False)
 
     from git_cai_cli.core import stats as stats_module
 
@@ -292,6 +296,13 @@ def squash_branch(
                 elapsed = time.perf_counter() - start
                 log.info("Commit message generated in %.2fs", elapsed)
                 generator.record_elapsed(int(elapsed * 1000))
+
+            if apply_signoff:
+                try:
+                    msg = append_signoff(msg)
+                except RuntimeError as e:
+                    log.error("%s", e)
+                    sys.exit(1)
 
             result = commit_with_edit_template(msg)
             if result != 0:
@@ -396,6 +407,13 @@ def squash_branch(
             final_message = tf_name.read_text(encoding="utf-8").strip()
         finally:
             tf_name.unlink(missing_ok=True)
+
+        if apply_signoff:
+            try:
+                final_message = append_signoff(final_message)
+            except RuntimeError as e:
+                log.error("%s", e)
+                sys.exit(1)
 
         # 5) Perform squash
         subprocess.run(["git", "reset", "--soft", merge_base], check=True)

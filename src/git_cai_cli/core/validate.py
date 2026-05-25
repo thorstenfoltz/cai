@@ -69,6 +69,7 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
         "pr_prompt_file",
         "stats",
         "stats_db_path",
+        "signoff",
     }
     # Internal escape-hatch keys: accepted if a user sets them, but never
     # reported as "missing" — they aren't part of the documented surface.
