@@ -15,11 +15,14 @@ SYNOPSIS
         [-F | --full-files | --no-full-files] [-f PATH | --files PATH]
         [-g | --generate-config]
         [-H KEY=VALUE | --set-home KEY=VALUE] [-h | --help]
+        [-I | --init]
         [-i | --install-completion]
         [-l [config|editor|language|model|path|provider|style] |
          --list [config|editor|language|model|path|provider|style]]
         [-m MODEL | --model MODEL]
+        [-o | --signoff | --no-signoff]
         [-P PROVIDER | --provider PROVIDER] [-p | --generate-prompts]
+        [--print]
         [-r | --PR] [--base BRANCH]
         [-S KEY=VALUE | --set KEY=VALUE]
         [-s [N|HASH] | --squash [N|HASH]]
@@ -46,7 +49,16 @@ git-cai behaves like `git commit`, but with the commit message pre-filled:
 
 SETUP
 -----
-First run / configuration:
+Guided setup (recommended):
+
+- Run `git cai --init` (or `-I`). The interactive wizard asks for a
+  default provider, language, style, and emoji preference, then
+  collects the API key (hidden input). It writes
+  `~/.config/cai/cai_config.yml` and, for providers that need one,
+  `~/.config/cai/tokens.yml` with mode `0600`. Existing token entries
+  for other providers are preserved.
+
+First run / configuration (manual):
 
 - Run `git cai` once. If no config exists yet, git-cai creates:
   `~/.config/cai/cai_config.yml` (global config) and ensures default prompt files exist:
@@ -248,6 +260,28 @@ git cai -H groq.model=llama-3.3-70b
 Show a summary of available flags and usage information. When a manual page
 is installed, the full manual is opened instead.
 
+-I, --init::
+Run the interactive setup wizard. Bootstraps the home-scope
+configuration only: writes `~/.config/cai/cai_config.yml` and (for
+providers that require one) `~/.config/cai/tokens.yml` with mode
+`0600`.
++
+The wizard asks for a default provider, language, commit-message
+style, whether to use emoji, and — for providers other than `ollama`
+— the API key. Input for the API key is hidden while you type.
++
+If `~/.config/cai/cai_config.yml` already exists, the wizard prompts
+before overwriting it. Existing entries in `tokens.yml` for other
+providers are preserved; only the chosen provider's key is updated.
++
+For repository-level configuration use `-g`/`--generate-config`
+instead — `--init` only writes home-scope files.
++
+----
+git cai --init
+git cai -I
+----
+
 -i, --install-completion::
 Install shell completion for `git cai`. Supports bash, zsh, and fish.
 Completions cover all flags and provider names for `--provider`.
@@ -286,6 +320,33 @@ git cai -P anthropic -m claude-haiku-4-5
 git cai -P ollama -m mistral
 ----
 
+-o, --signoff / --no-signoff::
+Append a `Signed-off-by:` trailer to the generated commit message
+using your configured git `user.name` and `user.email`. Applies in
+COMMIT, AMEND, and SQUASH modes.
++
+If the message body already ends in a trailer block (e.g. an existing
+`Co-authored-by:` or `Signed-off-by:` line) the new sign-off is added
+to that block without an extra blank line. A duplicate trailer for the
+same identity is detected and skipped, so re-running with
+`--signoff` on a message that already carries one is a no-op.
++
+Use `--no-signoff` to explicitly disable for the current run when the
+persisted config has `signoff: true`. To enable permanently:
++
+----
+git cai -S signoff=true
+----
++
+Errors out if either git `user.name` or `user.email` is empty.
++
+----
+git cai --signoff
+git cai -o -c
+git cai -A --signoff
+git cai -s --signoff
+----
+
 -P, --provider PROVIDER::
 Override the LLM provider for this invocation. The model and temperature
 from the configuration for that provider are used unless `--model` is also
@@ -309,6 +370,27 @@ overwrites.
 ----
 git cai -p
 ----
+
+--print::
+Generate the commit message, print it to stdout, and exit without
+opening the editor and without committing. Useful for scripting:
++
+----
+MSG=$(git cai --print)
+----
++
+Composes with `--conventional`, `--signoff`, `--branch`, `--context`,
+`--provider`, `--model`, and the other modifiers — the printed output
+reflects every modifier as if you were committing.
++
+Limited to COMMIT and AMEND modes. Mutually exclusive with `--crazy`
+(the two flags are contradictory: `--crazy` commits immediately,
+`--print` does not commit at all).
++
+Diagnostic output (the spinner, `--time` measurements, `--debug` logs)
+goes to stderr, so command substitution captures only the message.
+Stats recording is unaffected — generations made with `--print` are
+still recorded when stats are enabled.
 
 -q, --sql VALUE::
 Per-invocation override for `stats.enabled`. VALUE is `true` or `false`

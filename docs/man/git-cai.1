@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-05-12
+.\"      Date: 2026-05-25
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-05-12" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-05-25" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -37,11 +37,14 @@ git-cai \- AI\-powered commit message generator
         [\-F | \-\-full\-files | \-\-no\-full\-files] [\-f PATH | \-\-files PATH]
         [\-g | \-\-generate\-config]
         [\-H KEY=VALUE | \-\-set\-home KEY=VALUE] [\-h | \-\-help]
+        [\-I | \-\-init]
         [\-i | \-\-install\-completion]
         [\-l [config|editor|language|model|path|provider|style] |
          \-\-list [config|editor|language|model|path|provider|style]]
         [\-m MODEL | \-\-model MODEL]
+        [\-o | \-\-signoff | \-\-no\-signoff]
         [\-P PROVIDER | \-\-provider PROVIDER] [\-p | \-\-generate\-prompts]
+        [\-\-print]
         [\-r | \-\-PR] [\-\-base BRANCH]
         [\-S KEY=VALUE | \-\-set KEY=VALUE]
         [\-s [N|HASH] | \-\-squash [N|HASH]]
@@ -96,7 +99,25 @@ It opens your configured Git editor so you can review/edit before committing.
 .RE
 .SH "SETUP"
 .sp
-First run / configuration:
+Guided setup (recommended):
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Run \f(CRgit cai \-\-init\fP (or \f(CR\-I\fP). The interactive wizard asks for a
+default provider, language, style, and emoji preference, then
+collects the API key (hidden input). It writes
+\f(CR~/.config/cai/cai_config.yml\fP and, for providers that need one,
+\f(CR~/.config/cai/tokens.yml\fP with mode \f(CR0600\fP. Existing token entries
+for other providers are preserved.
+.RE
+.sp
+First run / configuration (manual):
 .sp
 .RS 4
 .ie n \{\
@@ -442,6 +463,34 @@ Show a summary of available flags and usage information. When a manual page
 is installed, the full manual is opened instead.
 .RE
 .sp
+\-I, \-\-init
+.RS 4
+Run the interactive setup wizard. Bootstraps the home\-scope
+configuration only: writes \f(CR~/.config/cai/cai_config.yml\fP and (for
+providers that require one) \f(CR~/.config/cai/tokens.yml\fP with mode
+\f(CR0600\fP.
+.sp
+The wizard asks for a default provider, language, commit\-message
+style, whether to use emoji, and — for providers other than \f(CRollama\fP
+— the API key. Input for the API key is hidden while you type.
+.sp
+If \f(CR~/.config/cai/cai_config.yml\fP already exists, the wizard prompts
+before overwriting it. Existing entries in \f(CRtokens.yml\fP for other
+providers are preserved; only the chosen provider\(cqs key is updated.
+.sp
+For repository\-level configuration use \f(CR\-g\fP/\f(CR\-\-generate\-config\fP
+instead — \f(CR\-\-init\fP only writes home\-scope files.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-init
+git cai \-I
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-i, \-\-install\-completion
 .RS 4
 Install shell completion for \f(CRgit cai\fP. Supports bash, zsh, and fish.
@@ -498,6 +547,43 @@ git cai \-P ollama \-m mistral
 .if n .RE
 .RE
 .sp
+\-o, \-\-signoff / \-\-no\-signoff
+.RS 4
+Append a \f(CRSigned\-off\-by:\fP trailer to the generated commit message
+using your configured git \f(CRuser.name\fP and \f(CRuser.email\fP. Applies in
+COMMIT, AMEND, and SQUASH modes.
+.sp
+If the message body already ends in a trailer block (e.g. an existing
+\f(CRCo\-authored\-by:\fP or \f(CRSigned\-off\-by:\fP line) the new sign\-off is added
+to that block without an extra blank line. A duplicate trailer for the
+same identity is detected and skipped, so re\-running with
+\f(CR\-\-signoff\fP on a message that already carries one is a no\-op.
+.sp
+Use \f(CR\-\-no\-signoff\fP to explicitly disable for the current run when the
+persisted config has \f(CRsignoff: true\fP. To enable permanently:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-S signoff=true
+.fam
+.fi
+.if n .RE
+.sp
+Errors out if either git \f(CRuser.name\fP or \f(CRuser.email\fP is empty.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-signoff
+git cai \-o \-c
+git cai \-A \-\-signoff
+git cai \-s \-\-signoff
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-P, \-\-provider PROVIDER
 .RS 4
 Override the LLM provider for this invocation. The model and temperature
@@ -532,6 +618,33 @@ git cai \-p
 .fam
 .fi
 .if n .RE
+.RE
+.sp
+\-\-print
+.RS 4
+Generate the commit message, print it to stdout, and exit without
+opening the editor and without committing. Useful for scripting:
+.sp
+.if n .RS 4
+.nf
+.fam C
+MSG=$(git cai \-\-print)
+.fam
+.fi
+.if n .RE
+.sp
+Composes with \f(CR\-\-conventional\fP, \f(CR\-\-signoff\fP, \f(CR\-\-branch\fP, \f(CR\-\-context\fP,
+\f(CR\-\-provider\fP, \f(CR\-\-model\fP, and the other modifiers — the printed output
+reflects every modifier as if you were committing.
+.sp
+Limited to COMMIT and AMEND modes. Mutually exclusive with \f(CR\-\-crazy\fP
+(the two flags are contradictory: \f(CR\-\-crazy\fP commits immediately,
+\f(CR\-\-print\fP does not commit at all).
+.sp
+Diagnostic output (the spinner, \f(CR\-\-time\fP measurements, \f(CR\-\-debug\fP logs)
+goes to stderr, so command substitution captures only the message.
+Stats recording is unaffected — generations made with \f(CR\-\-print\fP are
+still recorded when stats are enabled.
 .RE
 .sp
 \-q, \-\-sql VALUE

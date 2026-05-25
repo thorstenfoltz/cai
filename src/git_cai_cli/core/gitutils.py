@@ -5,6 +5,7 @@ Check git repo and run git diff
 import hashlib
 import logging
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -74,6 +75,72 @@ def find_git_root(
         return Path(result.stdout.strip())
     except subprocess.CalledProcessError:
         return None
+
+
+def get_git_identity(
+    run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> tuple[str, str]:
+    """Return the configured git ``user.name`` and ``user.email``.
+
+    Raises ``RuntimeError`` if either is missing or empty — the caller
+    surfaces a friendly message instead of producing a malformed
+    ``Signed-off-by:`` trailer.
+    """
+
+    def _query(key: str) -> str:
+        try:
+            result = run_cmd(
+                ["git", "config", "--get", key],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except (FileNotFoundError, OSError) as exc:
+            raise RuntimeError("Git is not available on PATH.") from exc
+        return (result.stdout or "").strip()
+
+    name = _query("user.name")
+    email = _query("user.email")
+    if not name or not email:
+        raise RuntimeError(
+            "--signoff requires git user.name and user.email to be set."
+        )
+    return name, email
+
+
+_TRAILER_LINE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]*:\s")
+
+
+def append_signoff(message: str, identity: tuple[str, str] | None = None) -> str:
+    """Append a ``Signed-off-by:`` trailer to ``message``.
+
+    Idempotent: if the exact trailer for the active git identity is
+    already present, the message is returned unchanged. When the
+    message already ends in a trailer block (any ``Key: value`` line
+    such as ``Co-authored-by:`` or another ``Signed-off-by:``), the new
+    one is appended directly to that block; otherwise a blank-line
+    separator is inserted between body and trailer.
+
+    No trailing newline is appended: the editor flow uses a hash check
+    to decide whether the user saved the message, and vim's default of
+    adding a final newline on write is what tells us the user accepted.
+    Pre-adding ``\\n`` here would defeat that signal.
+    """
+    name, email = identity if identity is not None else get_git_identity()
+    trailer = f"Signed-off-by: {name} <{email}>"
+
+    if trailer in message:
+        return message
+
+    stripped = message.rstrip()
+    if not stripped:
+        return trailer
+
+    last_line = stripped.rsplit("\n", 1)[-1]
+    if _TRAILER_LINE_RE.match(last_line):
+        return f"{stripped}\n{trailer}"
+
+    return f"{stripped}\n\n{trailer}"
 
 
 def repo_name_from_root(repo_root: Path | None) -> str | None:

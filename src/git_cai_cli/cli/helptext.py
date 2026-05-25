@@ -26,12 +26,15 @@ Flags:
   -g, --generate-config    Generate default cai_config.yml in the current directory
   -H, --set-home KEY=VALUE Set a config value in home config (~/.config/cai/)
   -h, --help               Show this help message or opens manual
+  -I, --init               Interactive setup wizard (writes home config and tokens.yml)
   -i, --install-completion Install shell completion for git-cai
   -l, --list [TYPE]        List information. TYPE: config, editor, language,
                            model, path, provider, style
   -m, --model NAME         Override model for this invocation (requires --provider)
+  -o, --signoff            Append a `Signed-off-by:` trailer (git user.name / user.email)
   -P, --provider NAME      Override LLM provider for this invocation
   -p, --generate-prompts   Generate default commit/squash/full_files/pr prompt files
+      --print              Print the generated commit message to stdout and exit (no commit)
   -q, --sql true|false     Override stats writing for this run (wins over config)
   -r, --PR                 Generate a Pull Request description from the commits on this branch
       --base BRANCH        Base branch for --PR (overrides auto-detection)

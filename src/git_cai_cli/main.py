@@ -84,6 +84,8 @@ def run(
     stats_since: str | None = None,
     stats_json: bool = False,
     stats_reset: bool = False,
+    signoff: bool | None = None,
+    print_only: bool = False,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -119,6 +121,12 @@ def run(
     if stage_tracked:
         manager.stage_tracked_files()
 
+    if mode is Mode.INIT:
+        from git_cai_cli.core.init import run_init_wizard
+
+        rc = run_init_wizard()
+        raise typer.Exit(code=rc)
+
     if mode is Mode.LIST:
         manager.handle_list(list_arg)
         return
@@ -142,6 +150,7 @@ def run(
             squash_arg=list_arg,
             context=context,
             sql_override=sql_override,
+            signoff=signoff,
         )
         return
 
@@ -248,6 +257,20 @@ def run(
         elapsed = time.perf_counter() - start
         log.info("Commit message generated in %.2fs", elapsed)
         generator.record_elapsed(int(elapsed * 1000))
+
+    apply_signoff = signoff if signoff is not None else config.get("signoff", False)
+    if apply_signoff:
+        from git_cai_cli.core.gitutils import append_signoff
+
+        try:
+            commit_message = append_signoff(commit_message)
+        except RuntimeError as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(code=1)
+
+    if print_only:
+        typer.echo(commit_message)
+        return
 
     if crazy:
         rc = manager.commit_crazy(commit_message, amend=is_amend)

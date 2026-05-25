@@ -162,6 +162,23 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         "--reset-stats",
         help="Delete all rows from the local stats DB.",
     ),
+    init: bool = typer.Option(
+        False,
+        "--init",
+        "-I",
+        help="Interactive setup wizard: writes ~/.config/cai/cai_config.yml and tokens.yml.",
+    ),
+    signoff: bool | None = typer.Option(
+        None,
+        "--signoff/--no-signoff",
+        "-o",
+        help="Append a `Signed-off-by:` trailer using git user.name/user.email. Use --no-signoff to disable when the persisted config has it enabled.",
+    ),
+    print_only: bool = typer.Option(
+        False,
+        "--print",
+        help="Generate the commit message, print it to stdout, and exit without committing.",
+    ),
 ):
     """
     CLI entry point for git-cai-cli.
@@ -183,6 +200,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
 
     mode = resolve_mode(
         amend=amend,
+        init=init,
         list_flag=list_flag,
         pr=pr,
         squash=squash,
@@ -212,6 +230,8 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         time_flag=time_flag,
         context=context,
         files=files,
+        print_only=print_only,
+        crazy=crazy,
     )
 
     if generate_config:
@@ -289,6 +309,8 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         stats_since=stats_since,
         stats_json=stats_json,
         stats_reset=stats_reset,
+        signoff=signoff,
+        print_only=print_only,
     )
 
 

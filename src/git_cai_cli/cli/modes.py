@@ -14,6 +14,7 @@ class Mode(Enum):
 
     AMEND = auto()
     COMMIT = auto()
+    INIT = auto()
     LIST = auto()
     PR = auto()
     SQUASH = auto()
@@ -24,6 +25,7 @@ class Mode(Enum):
 def resolve_mode(
     *,
     amend: bool,
+    init: bool = False,
     list_flag: bool,
     pr: bool,
     squash: bool,
@@ -33,10 +35,10 @@ def resolve_mode(
     """
     Resolves the operational mode based on the provided flags.
     """
-    flags = [amend, list_flag, pr, squash, stats, update]
+    flags = [amend, init, list_flag, pr, squash, stats, update]
     if sum(flags) > 1:
         typer.echo(
-            "Error: --amend, --list, --PR, --squash, --stats, and --update "
+            "Error: --amend, --init, --list, --PR, --squash, --stats, and --update "
             "cannot be used together.",
             err=True,
         )
@@ -44,6 +46,8 @@ def resolve_mode(
 
     if amend:
         return Mode.AMEND
+    if init:
+        return Mode.INIT
     if list_flag:
         return Mode.LIST
     if pr:
@@ -70,6 +74,8 @@ def validate_options(
     time_flag: bool = False,
     context: str | None = None,
     files: list[str] | None = None,
+    print_only: bool = False,
+    crazy: bool = False,
 ) -> None:
     """
     Validates the combination of command-line options provided by the user.
@@ -83,35 +89,53 @@ def validate_options(
 
     if stage_tracked and mode not in (Mode.COMMIT, Mode.AMEND):
         typer.echo(
-            "Error: --all cannot be used with --list, --update, --PR, or --squash.",
+            "Error: --all cannot be used with --init, --list, --update, --PR, or --squash.",
             err=True,
         )
         raise typer.Exit(code=1)
 
-    if (provider_override or model_override) and mode in (Mode.LIST, Mode.UPDATE):
+    if (provider_override or model_override) and mode in (
+        Mode.INIT,
+        Mode.LIST,
+        Mode.UPDATE,
+    ):
         typer.echo(
-            "Error: --provider/--model cannot be used with --list or --update.",
+            "Error: --provider/--model cannot be used with --init, --list, or --update.",
             err=True,
         )
         raise typer.Exit(code=1)
 
-    if time_flag and mode in (Mode.LIST, Mode.UPDATE):
+    if time_flag and mode in (Mode.INIT, Mode.LIST, Mode.UPDATE):
         typer.echo(
-            "Error: --time cannot be used with --list or --update.",
+            "Error: --time cannot be used with --init, --list, or --update.",
             err=True,
         )
         raise typer.Exit(code=1)
 
     if context and mode not in (Mode.COMMIT, Mode.AMEND, Mode.SQUASH, Mode.PR):
         typer.echo(
-            "Error: --context cannot be used with --list or --update.",
+            "Error: --context cannot be used with --init, --list, or --update.",
             err=True,
         )
         raise typer.Exit(code=1)
 
     if files and mode not in (Mode.COMMIT, Mode.AMEND):
         typer.echo(
-            "Error: --files cannot be used with --list, --update, --PR, or --squash.",
+            "Error: --files cannot be used with --init, --list, --update, --PR, or --squash.",
             err=True,
         )
         raise typer.Exit(code=1)
+
+    if print_only:
+        if mode not in (Mode.COMMIT, Mode.AMEND):
+            typer.echo(
+                "Error: --print can only be used in COMMIT or AMEND mode.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        if crazy:
+            typer.echo(
+                "Error: --print and --crazy are mutually exclusive.",
+                err=True,
+            )
+            raise typer.Exit(code=1)

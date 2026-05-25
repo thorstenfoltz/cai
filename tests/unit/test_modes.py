@@ -129,8 +129,8 @@ def test_validate_options_stage_tracked_with_non_commit(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list, --update" in captured.out
-        or "cannot be used with --list, --update" in captured.err
+        "cannot be used with --init, --list, --update" in captured.out
+        or "cannot be used with --init, --list, --update" in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -172,8 +172,8 @@ def test_provider_rejected_with_list_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list or --update" in captured.out
-        or "cannot be used with --list or --update" in captured.err
+        "cannot be used with --init, --list, or --update" in captured.out
+        or "cannot be used with --init, --list, or --update" in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -191,8 +191,8 @@ def test_provider_rejected_with_update_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list or --update" in captured.out
-        or "cannot be used with --list or --update" in captured.err
+        "cannot be used with --init, --list, or --update" in captured.out
+        or "cannot be used with --init, --list, or --update" in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -240,8 +240,8 @@ def test_time_flag_rejected_with_list_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list or --update" in captured.out
-        or "cannot be used with --list or --update" in captured.err
+        "cannot be used with --init, --list, or --update" in captured.out
+        or "cannot be used with --init, --list, or --update" in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -259,8 +259,8 @@ def test_time_flag_rejected_with_update_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list or --update" in captured.out
-        or "cannot be used with --list or --update" in captured.err
+        "cannot be used with --init, --list, or --update" in captured.out
+        or "cannot be used with --init, --list, or --update" in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -295,8 +295,8 @@ def test_context_rejected_with_list_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list or --update" in captured.out
-        or "cannot be used with --list or --update" in captured.err
+        "cannot be used with --init, --list, or --update" in captured.out
+        or "cannot be used with --init, --list, or --update" in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -314,8 +314,8 @@ def test_context_rejected_with_update_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --list or --update" in captured.out
-        or "cannot be used with --list or --update" in captured.err
+        "cannot be used with --init, --list, or --update" in captured.out
+        or "cannot be used with --init, --list, or --update" in captured.err
     )
     assert exc.value.exit_code == 1
 

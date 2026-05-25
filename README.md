@@ -47,9 +47,12 @@ Currently supported providers:
 - Seamless integration with Git
 - Supports multiple LLM providers and models
 - Global configuration with per-repository overrides
+- Interactive `--init` wizard for first-time setup (provider, token, language, style)
 - Repository-specific language, style, and model selection
 - Amend the last commit message with a regenerated one
 - Conventional Commits format support
+- `Signed-off-by:` (DCO) trailer support via `--signoff`
+- `--print` mode that emits the generated message to stdout for scripting
 - Change configuration from the command line
 - Optional commit squashing with automatic summary generation (all, last N, or up to a specific commit)
 - Pull Request description generator (`--PR`) that summarizes the commits between the current branch and its base
@@ -113,6 +116,19 @@ The syntax is identical to `.gitignore`.
 ---
 
 ## Configuration
+
+The fastest way to get started is the interactive wizard:
+
+```sh
+git cai --init     # or: git cai -I
+```
+
+It asks for a default provider, language, style, and emoji preference,
+then collects the API key (input is hidden while you type). The wizard
+writes `~/.config/cai/cai_config.yml` and, for providers that need one,
+`~/.config/cai/tokens.yml` with mode `0600`. Existing entries for other
+providers in `tokens.yml` are preserved. `--init` only writes home-scope
+files — use `-g` / `--generate-config` to bootstrap a repo-level config.
 
 On first execution, cai automatically creates the base configuration in your home directory.
 
@@ -211,6 +227,7 @@ git cai -g
 - `pr_prompt_file` – optional path to a custom Markdown prompt for `--PR` (falls back to `~/.config/cai/pr_prompt.md`, then a built-in default)
 - `stats` – opt in to local-only usage analytics (per-run row in a SQLite DB at `~/.local/share/git-cai/stats.db`); default `false`.
 No diff content, commit messages, or file paths are stored — only metadata (provider, model, kind, repo name, token counts, latency, settings)
+- `signoff` – append a `Signed-off-by:` trailer (built from git `user.name` / `user.email`) to every commit message; default `false`
 
 ---
 
@@ -229,11 +246,14 @@ In addition to `git cai`, the following options are available:
 - `-g`, `--generate-config` – generate the default `cai_config.yml` in the current directory
 - `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-h`, `--help` – show help and available commands
+- `-I`, `--init` – interactive setup wizard (writes home config and tokens.yml)
 - `-i`, `--install-completion` – install shell completion for bash, zsh, or fish
 - `-l`, `--list` – list available information. Valid types: `config`, `editor`, `language`, `model`, `path`, `provider`, `style`
 - `-m`, `--model` – override the model for this invocation (requires `-P`)
+- `-o`, `--signoff` / `--no-signoff` – append a `Signed-off-by:` trailer (uses git `user.name` / `user.email`); applies to commit, amend, and squash modes
 - `-P`, `--provider` – override the LLM provider for this invocation
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
+- `--print` – print the generated commit message to stdout and exit without committing (commit/amend modes only; mutually exclusive with `-c`)
 - `-q`, `--sql true|false` – override stats writing for this run (wins over the persisted `stats` config)
 - `-z`, `--stats` – show local-only usage analytics (commits/squashes/PRs per provider, tokens, average latency)
   - `--since YYYY-MM-DD` – filter `--stats` to events on or after this date
@@ -352,6 +372,40 @@ git cai --stats --reset-stats    # wipe all rows
 ```
 
 Rows are split by `kind` (`commit`, `amend`, `squash`, `pr`) and capture provider, model, repo name, token counts, real LLM latency, and a snapshot of the active settings (language, style, emoji, temperature, prompt file).
+
+### DCO sign-off
+
+Projects that require Developer Certificate of Origin sign-off (Linux
+kernel, many CNCF projects) can have cai append the trailer
+automatically:
+
+```sh
+git cai --signoff                # one-off
+git cai -o -A                    # short flag, with amend
+git cai -S signoff=true          # enable persistently in the repo config
+```
+
+The trailer is built from your git `user.name` and `user.email`. When
+the message already ends in a trailer block (e.g. an existing
+`Co-authored-by:` or another `Signed-off-by:` line), the new sign-off
+is appended to that block without an extra blank line. Re-running with
+`--signoff` on a message that already carries the same trailer is a
+no-op.
+
+### Print-only output (no commit)
+
+`--print` generates the commit message and writes it to stdout instead
+of opening the editor or committing. Useful for scripting:
+
+```sh
+MSG=$(git cai --print)
+git cai --print --conventional --signoff
+```
+
+Diagnostic output (spinner, `--time`, `--debug`) goes to stderr, so the
+command substitution above captures only the message. Limited to commit
+and amend modes. Mutually exclusive with `-c` / `--crazy` (which
+commits immediately).
 
 ### Changing configuration from the CLI
 
