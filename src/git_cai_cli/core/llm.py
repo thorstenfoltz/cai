@@ -1148,7 +1148,14 @@ class CommitMessageGenerator:
             getattr(usage, "completion_tokens", None),
         )
 
-        return completion.choices[0].message.content.strip()
+        # Some models (e.g. reasoning models that hit a stop/refusal) return
+        # ``None`` content; ``.strip()`` on that would raise AttributeError.
+        # Surface a clean ValueError that ``_validate_llm_call`` can classify.
+        content_out = completion.choices[0].message.content
+        if not content_out:
+            raise ValueError(f"{provider_name} returned an empty response.")
+
+        return content_out.strip()
 
     def generate_xai(
         self,

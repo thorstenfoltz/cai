@@ -179,6 +179,27 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         "--print",
         help="Generate the commit message, print it to stdout, and exit without committing.",
     ),
+    temperature: float = typer.Option(
+        None,
+        "-e",
+        "--temperature",
+        help="Override the active provider's sampling temperature for this invocation.",
+    ),
+    style: str = typer.Option(
+        None,
+        "--style",
+        help="Override the commit message style for this invocation (e.g. funny, neutral, none).",
+    ),
+    language: str = typer.Option(
+        None,
+        "--language",
+        help="Override the commit message language code for this invocation (e.g. de, fr, none).",
+    ),
+    emoji: bool | None = typer.Option(
+        None,
+        "--emoji/--no-emoji",
+        help="Override emoji usage for this invocation. Use --no-emoji to disable when config enables it.",
+    ),
 ):
     """
     CLI entry point for git-cai-cli.
@@ -311,6 +332,10 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         stats_reset=stats_reset,
         signoff=signoff,
         print_only=print_only,
+        temperature_override=temperature,
+        style_override=style,
+        language_override=language,
+        emoji_override=emoji,
     )
 
 

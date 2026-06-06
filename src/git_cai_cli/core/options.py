@@ -364,6 +364,7 @@ git cai -l style
         self,
         provider_override: str | None = None,
         model_override: str | None = None,
+        temperature_override: float | None = None,
         time_flag: bool = False,
         squash_arg: str | None = None,
         context: str | None = None,
@@ -376,6 +377,7 @@ git cai -l style
         return squash_branch(
             provider_override=provider_override,
             model_override=model_override,
+            temperature_override=temperature_override,
             time_flag=time_flag,
             squash_arg=squash_arg,
             context=context,

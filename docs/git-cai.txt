@@ -12,6 +12,7 @@ SYNOPSIS
 [verse]
 `git cai` [-A | --amend] [-a | --all] [-C | --conventional]
         [-b | --branch] [-c | --crazy] [-d | --debug]
+        [-e TEMPERATURE | --temperature TEMPERATURE]
         [-F | --full-files | --no-full-files] [-f PATH | --files PATH]
         [-g | --generate-config]
         [-H KEY=VALUE | --set-home KEY=VALUE] [-h | --help]
@@ -27,6 +28,7 @@ SYNOPSIS
         [-S KEY=VALUE | --set KEY=VALUE]
         [-s [N|HASH] | --squash [N|HASH]]
         [-q true|false | --sql true|false]
+        [--style STYLE] [--language CODE] [--emoji | --no-emoji]
         [-T SECONDS | --timeout SECONDS]
         [-t | --time] [-u | --update] [-v | --version]
         [-x CONTEXT | --context CONTEXT]
@@ -179,6 +181,17 @@ Cannot be combined with `--help` or `--version`.
 +
 ----
 git cai -d
+----
+
+-e, --temperature TEMPERATURE::
+Override the sampling temperature of the active provider for this invocation
+only. Higher values produce more varied wording; lower values are more
+deterministic. The override is provider-scoped, mirroring `--model`, and does
+not change the persisted `cai_config.yml`.
++
+----
+git cai -e 0.7
+git cai -P anthropic -e 0.2
 ----
 
 -F, --full-files::
@@ -486,6 +499,42 @@ git-cai will prompt before executing the force push.
 git cai -s
 git cai -s 3
 git cai -s a1b2c3d
+----
+
+--style STYLE::
+Override the commit message tone style for this invocation only (e.g.
+`professional`, `neutral`, `friendly`, `funny`, `excited`, `sarcastic`,
+`apologetic`, `academic`, or `none` to let the model choose). Run
+`git cai -l style` to see all styles with examples. An invalid value is
+rejected with an error. To change the style permanently, set `style:` in
+`cai_config.yml`.
++
+----
+git cai --style funny
+git cai --style none
+----
+
+--language CODE::
+Override the commit message language for this invocation only, using a
+supported language code (e.g. `de`, `fr`, `es`), or `none` to omit the
+language instruction. Run `git cai -l language` to list supported codes. An
+unsupported code is rejected with an error. To change it permanently, set
+`language:` in `cai_config.yml`.
++
+----
+git cai --language de
+git cai --language none
+----
+
+--emoji / --no-emoji::
+Override emoji usage for this invocation only. `--emoji` instructs the model
+to use relevant emojis; `--no-emoji` disables them even when the persisted
+config enables emoji. To change the default permanently, set `emoji:` in
+`cai_config.yml`.
++
+----
+git cai --no-emoji
+git cai --emoji
 ----
 
 -T, --timeout SECONDS::
@@ -824,6 +873,10 @@ Available configuration keys:
 - `timeout` -- HTTP timeout in seconds for remote LLM calls (default `30`)
 - `full_files` -- send full working-tree contents of staged files alongside
   the diff (`true`/`false`, default `false`)
+- `max_diff_bytes` -- maximum size (in UTF-8 bytes) of the diff/commit-log
+  sent to the LLM. When the input exceeds this, it is truncated and a marker
+  line is appended so the model knows it was cut. `0` (the default) means no
+  limit. Useful to avoid context-window errors on very large staged changes.
 - `pr_to_file` -- when running `--PR`, write the generated PR description
   to a Markdown file in the repository root instead of printing it to
   stdout (`true`/`false`, default `false`)

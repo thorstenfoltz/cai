@@ -60,6 +60,8 @@ Currently supported providers:
 - Token usage logging for API calls
 - Branch name as LLM context
 - Extra context for the LLM
+- Per-invocation overrides for temperature, style, language, and emoji
+- Optional large-diff guard (`max_diff_bytes`) that truncates oversized diffs before sending
 - Generation time measurement
 - Local-only usage analytics (per-provider commits, tokens, latency) with opt-in SQLite storage
 - Shell completion for bash, zsh, and fish
@@ -217,6 +219,7 @@ git cai -g
 - `squash_prompt_file` - path to the file where the prompt for the squash is stored
 - `full_files_prompt_file` - path to the prompt used when `-F` / `--full-files` attaches full file contents
 - `full_files` – attach always the full working-tree contents of affected files alongside the diff
+- `max_diff_bytes` – maximum size (in UTF-8 bytes) of the diff/commit-log sent to the LLM; oversized input is truncated with a marker. `0` (default) means no limit
 - `timeout` – HTTP timeout for LLM calls in seconds
 - `branch_context` – include current branch name as LLM context
 - `conventional` – use Conventional Commits format
@@ -241,6 +244,7 @@ In addition to `git cai`, the following options are available:
 - `-C`, `--conventional` – use Conventional Commits format (`type(scope): description`)
 - `-c`, `--crazy` – Trust the LLM and commit without checking
 - `-d`, `--debug` – enable debug logging
+- `-e`, `--temperature` `TEMPERATURE` – override the active provider's sampling temperature for this invocation (provider-scoped, like `-m`)
 - `-F`, `--full-files` – attach the full contents of affected files alongside the diff (uses `full_files_prompt.md`)
 - `-f`, `--files` `PATH` – limit the diff (and full-file content, if enabled) to PATH; repeat for multiple files
 - `-g`, `--generate-config` – generate the default `cai_config.yml` in the current directory
@@ -263,6 +267,9 @@ In addition to `git cai`, the following options are available:
 - `--base` `BRANCH` – explicit base branch for `--PR` (overrides auto-detection: `origin/HEAD` → `main` → `master`)
 - `-S`, `--set` – set a config value (`key=value`) in repo config (requires existing repo config)
 - `-s`, `--squash` `[N|HASH]` – squash commits on the current branch and summarize them. Without argument: squash all since branch checkout. With a number: squash the last N commits. With a commit hash: squash up to and including that commit
+- `--style` `STYLE` – override the commit message style for this invocation (e.g. `funny`, `neutral`, `none`); validated against the supported styles
+- `--language` `CODE` – override the commit message language for this invocation (e.g. `de`, `fr`, `none`); validated against supported codes
+- `--emoji` / `--no-emoji` – override emoji usage for this invocation (use `--no-emoji` to disable when config enables it)
 - `-T`, `--timeout` `SECONDS` – HTTP timeout for this invocation (overrides config)
 - `-t`, `--time` – measure and log commit message generation time
 - `-u`, `--update` – check for updates
