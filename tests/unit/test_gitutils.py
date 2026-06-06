@@ -25,7 +25,55 @@ from git_cai_cli.core.gitutils import (
     get_git_editor,
     git_diff_excluding,
     sha256_of_file,
+    truncate_diff,
 )
+
+# ------------------------------------------------------------------------------
+# truncate_diff
+# ------------------------------------------------------------------------------
+
+
+def test_truncate_diff_no_limit_returns_unchanged():
+    """max_bytes <= 0 means no limit."""
+    text = "a" * 1000
+    out, truncated = truncate_diff(text, 0)
+    assert out == text
+    assert truncated is False
+
+
+def test_truncate_diff_under_limit_returns_unchanged():
+    text = "hello"
+    out, truncated = truncate_diff(text, 100)
+    assert out == text
+    assert truncated is False
+
+
+def test_truncate_diff_equal_to_limit_returns_unchanged():
+    text = "abcde"  # 5 bytes
+    out, truncated = truncate_diff(text, 5)
+    assert out == text
+    assert truncated is False
+
+
+def test_truncate_diff_over_limit_truncates_with_marker():
+    text = "a" * 100
+    out, truncated = truncate_diff(text, 10)
+    assert truncated is True
+    assert out.startswith("a" * 10)
+    assert "diff truncated" in out
+    assert "max_diff_bytes=10" in out
+
+
+def test_truncate_diff_handles_multibyte_boundary():
+    """Cutting mid-multibyte-char must not raise and must drop the partial."""
+    # '€' is 3 bytes in UTF-8; 4 of them = 12 bytes. Limit at 10 lands mid-char.
+    text = "€" * 4
+    out, truncated = truncate_diff(text, 10)
+    assert truncated is True
+    # 10 bytes -> 3 full euro signs (9 bytes), partial 4th dropped.
+    assert out.startswith("€€€")
+    assert "diff truncated" in out
+
 
 # ------------------------------------------------------------------------------
 # find_git_root

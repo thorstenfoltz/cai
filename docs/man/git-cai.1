@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-05-25
+.\"      Date: 2026-06-04
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-05-25" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-06-04" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -34,6 +34,7 @@ git-cai \- AI\-powered commit message generator
 .nf
 \f(CRgit cai\fP [\-A | \-\-amend] [\-a | \-\-all] [\-C | \-\-conventional]
         [\-b | \-\-branch] [\-c | \-\-crazy] [\-d | \-\-debug]
+        [\-e TEMPERATURE | \-\-temperature TEMPERATURE]
         [\-F | \-\-full\-files | \-\-no\-full\-files] [\-f PATH | \-\-files PATH]
         [\-g | \-\-generate\-config]
         [\-H KEY=VALUE | \-\-set\-home KEY=VALUE] [\-h | \-\-help]
@@ -49,6 +50,7 @@ git-cai \- AI\-powered commit message generator
         [\-S KEY=VALUE | \-\-set KEY=VALUE]
         [\-s [N|HASH] | \-\-squash [N|HASH]]
         [\-q true|false | \-\-sql true|false]
+        [\-\-style STYLE] [\-\-language CODE] [\-\-emoji | \-\-no\-emoji]
         [\-T SECONDS | \-\-timeout SECONDS]
         [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
         [\-x CONTEXT | \-\-context CONTEXT]
@@ -345,6 +347,23 @@ Cannot be combined with \f(CR\-\-help\fP or \f(CR\-\-version\fP.
 .nf
 .fam C
 git cai \-d
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-e, \-\-temperature TEMPERATURE
+.RS 4
+Override the sampling temperature of the active provider for this invocation
+only. Higher values produce more varied wording; lower values are more
+deterministic. The override is provider\-scoped, mirroring \f(CR\-\-model\fP, and does
+not change the persisted \f(CRcai_config.yml\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-e 0.7
+git cai \-P anthropic \-e 0.2
 .fam
 .fi
 .if n .RE
@@ -768,6 +787,60 @@ git\-cai will prompt before executing the force push.
 git cai \-s
 git cai \-s 3
 git cai \-s a1b2c3d
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-\-style STYLE
+.RS 4
+Override the commit message tone style for this invocation only (e.g.
+\f(CRprofessional\fP, \f(CRneutral\fP, \f(CRfriendly\fP, \f(CRfunny\fP, \f(CRexcited\fP, \f(CRsarcastic\fP,
+\f(CRapologetic\fP, \f(CRacademic\fP, or \f(CRnone\fP to let the model choose). Run
+\f(CRgit cai \-l style\fP to see all styles with examples. An invalid value is
+rejected with an error. To change the style permanently, set \f(CRstyle:\fP in
+\f(CRcai_config.yml\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-style funny
+git cai \-\-style none
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-\-language CODE
+.RS 4
+Override the commit message language for this invocation only, using a
+supported language code (e.g. \f(CRde\fP, \f(CRfr\fP, \f(CRes\fP), or \f(CRnone\fP to omit the
+language instruction. Run \f(CRgit cai \-l language\fP to list supported codes. An
+unsupported code is rejected with an error. To change it permanently, set
+\f(CRlanguage:\fP in \f(CRcai_config.yml\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-language de
+git cai \-\-language none
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-\-emoji / \-\-no\-emoji
+.RS 4
+Override emoji usage for this invocation only. \f(CR\-\-emoji\fP instructs the model
+to use relevant emojis; \f(CR\-\-no\-emoji\fP disables them even when the persisted
+config enables emoji. To change the default permanently, set \f(CRemoji:\fP in
+\f(CRcai_config.yml\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-no\-emoji
+git cai \-\-emoji
 .fam
 .fi
 .if n .RE
@@ -1384,6 +1457,20 @@ Available configuration keys:
 .\}
 \f(CRfull_files\fP \(em send full working\-tree contents of staged files alongside
 the diff (\f(CRtrue\fP/\f(CRfalse\fP, default \f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRmax_diff_bytes\fP \(em maximum size (in UTF\-8 bytes) of the diff/commit\-log
+sent to the LLM. When the input exceeds this, it is truncated and a marker
+line is appended so the model knows it was cut. \f(CR0\fP (the default) means no
+limit. Useful to avoid context\-window errors on very large staged changes.
 .RE
 .sp
 .RS 4

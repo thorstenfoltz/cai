@@ -95,6 +95,33 @@ def test_aborts_on_unstaged_changes(mock_repo_root) -> None:
         squash_branch()
 
 
+def test_squash_classifies_auth_error(mock_repo_root, clean_git_state, caplog) -> None:
+    """A 401 from the provider during history summarization must surface as a
+    friendly message + clean exit, not an uncaught requests.HTTPError."""
+    import requests
+
+    resp = MagicMock()
+    resp.status_code = 401
+    resp.json.return_value = {"error": {"message": "bad key"}}
+
+    gen = MagicMock()
+    gen.summarize_commit_history.side_effect = requests.HTTPError(response=resp)
+
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("subprocess.check_output", side_effect=clean_git_state),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+        patch("git_cai_cli.core.squash.CommitMessageGenerator", return_value=gen),
+        pytest.raises(SystemExit),
+    ):
+        squash_branch()
+
+    assert "invalid or not authorized" in caplog.text
+
+
 def test_commits_staged_changes_first(mock_repo_root, mock_generator) -> None:
     """
     Test that squash_branch commits staged changes before squashing.

@@ -60,6 +60,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "measure_time": False,
     "timeout": 30,
     "full_files": False,
+    "max_diff_bytes": 0,
     "pr_to_file": False,
     "pr_file_name": "PR_DESCRIPTION.md",
     "pr_prompt_file": "",
@@ -74,6 +75,7 @@ TOKENLESS_PROVIDERS: set[str] = {
 
 TOKEN_TEMPLATE = {
     "anthropic": "PUT-YOUR-ANTHROPIC-TOKEN-HERE",
+    "deepseek": "PUT-YOUR-DEEPSEEK-TOKEN-HERE",
     "gemini": "PUT-YOUR-GEMINI-TOKEN-HERE",
     "groq": "PUT-YOUR-GROQ-TOKEN-HERE",
     "openai": "PUT-YOUR-OPENAI-TOKEN-HERE",
@@ -460,6 +462,7 @@ def ordered_default_config(
         "measure_time",
         "timeout",
         "full_files",
+        "max_diff_bytes",
         "pr_to_file",
         "pr_file_name",
         "pr_prompt_file",
@@ -592,6 +595,9 @@ def apply_cli_overrides(
     timeout_override: int | None = None,
     full_files_override: bool | None = None,
     sql_override: bool | None = None,
+    style_override: str | None = None,
+    language_override: str | None = None,
+    emoji_override: bool | None = None,
 ) -> None:
     """Apply per-invocation CLI flag overrides to the config dict in-place.
 
@@ -602,6 +608,12 @@ def apply_cli_overrides(
 
     ``sql_override`` mirrors ``--sql true|false`` and overrides the
     top-level ``stats`` boolean.
+
+    ``style_override`` / ``language_override`` / ``emoji_override`` mirror
+    ``--style`` / ``--language`` / ``--emoji`` and override the top-level
+    generation knobs. Style and language are validated here (the normal
+    config validation already ran during ``load_config``, before these
+    overrides are applied); invalid values raise ``typer.Exit``.
     """
     if conventional is not None:
         config["conventional"] = conventional
@@ -613,15 +625,38 @@ def apply_cli_overrides(
         config["full_files"] = full_files_override
     if sql_override is not None:
         config["stats"] = sql_override
+    if style_override is not None:
+        try:
+            config["style"] = _validate_style(style_override)
+        except ValueError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    if language_override is not None:
+        normalized = language_override.strip().lower()
+        if normalized != "none" and normalized not in ALLOWED_LANGUAGES:
+            typer.echo(
+                f"Error: unknown language '{language_override}'. "
+                "Run 'git cai -l language' to see supported codes.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        config["language"] = normalized
+    if emoji_override is not None:
+        config["emoji"] = emoji_override
 
 
 def apply_provider_overrides(
     config: dict,
     provider_override: str | None,
     model_override: str | None,
+    temperature_override: float | None = None,
 ) -> None:
     """
-    Apply --provider and --model overrides to the config dict in-place.
+    Apply --provider, --model and --temperature overrides to the config
+    dict in-place.
+
+    ``temperature_override`` is provider-scoped (like ``--model``): it
+    sets ``config[<active provider>]["temperature"]`` for this run only.
 
     Raises typer.Exit on validation errors.
     """
@@ -662,5 +697,17 @@ def apply_provider_overrides(
         log.info(
             "Model overridden to '%s' for provider '%s'.",
             model_override,
+            provider,
+        )
+
+    if temperature_override is not None:
+        provider = config["default"]
+        if provider not in config or not isinstance(config[provider], dict):
+            config[provider] = {"temperature": temperature_override}
+        else:
+            config[provider]["temperature"] = temperature_override
+        log.info(
+            "Temperature overridden to %s for provider '%s'.",
+            temperature_override,
             provider,
         )

@@ -564,6 +564,157 @@ def test_generated_config_yaml_contains_stats(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# A2: deepseek must be present in the generated tokens.yml template
+# ---------------------------------------------------------------------------
+
+
+def test_token_template_includes_deepseek():
+    """deepseek requires a key (not tokenless), so the template must seed it."""
+    assert "deepseek" in TOKEN_TEMPLATE
+    assert TOKEN_TEMPLATE["deepseek"]
+
+
+def test_load_token_template_lists_deepseek(tmp_path):
+    """The tokens.yml created on first run must include a deepseek line."""
+    tokens_file = tmp_path / "tokens.yml"
+    config = {"default": "deepseek", "load_tokens_from": str(tokens_file)}
+
+    load_token(config=config)
+
+    loaded = yaml.safe_load(tokens_file.read_text())
+    assert "deepseek" in loaded
+
+
+# ---------------------------------------------------------------------------
+# B1: max_diff_bytes config key
+# ---------------------------------------------------------------------------
+
+
+def test_default_config_contains_max_diff_bytes():
+    assert "max_diff_bytes" in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG["max_diff_bytes"] == 0
+
+
+def test_set_config_value_round_trip_max_diff_bytes(tmp_path, monkeypatch):
+    """set_config_value should persist max_diff_bytes and load_config read it back."""
+    from git_cai_cli.core import config as config_module
+
+    monkeypatch.setattr(config_module, "FALLBACK_CONFIG_FILE", tmp_path / "cai.yml")
+    monkeypatch.setattr(config_module, "_find_repo_config", lambda: None)
+
+    (tmp_path / "cai.yml").write_text(
+        yaml.safe_dump(
+            {
+                "default": "openai",
+                "language": "en",
+                "style": "professional",
+                "emoji": True,
+                "openai": {"model": "gpt", "temperature": 0},
+                "load_tokens_from": "/tmp/tokens.yml",
+                "prompt_file": "",
+                "squash_prompt_file": "",
+            }
+        )
+    )
+
+    set_config_value("max_diff_bytes", "5000", force_home=True)
+
+    cfg = load_config(
+        fallback_config_file=tmp_path / "cai.yml",
+        allowed_languages={"en"},
+    )
+    assert cfg["max_diff_bytes"] == 5000
+
+
+# ---------------------------------------------------------------------------
+# B2: apply_provider_overrides temperature
+# ---------------------------------------------------------------------------
+
+
+def test_apply_provider_overrides_temperature_sets_active_provider():
+    from git_cai_cli.core.config import apply_provider_overrides
+
+    cfg = {"default": "openai", "openai": {"model": "gpt", "temperature": 0}}
+    apply_provider_overrides(cfg, None, None, 0.7)
+    assert cfg["openai"]["temperature"] == 0.7
+
+
+def test_apply_provider_overrides_temperature_none_preserves():
+    from git_cai_cli.core.config import apply_provider_overrides
+
+    cfg = {"default": "openai", "openai": {"model": "gpt", "temperature": 0.3}}
+    apply_provider_overrides(cfg, None, None, None)
+    assert cfg["openai"]["temperature"] == 0.3
+
+
+def test_apply_provider_overrides_temperature_creates_missing_block():
+    from git_cai_cli.core.config import apply_provider_overrides
+
+    cfg: dict = {"default": "openai"}
+    apply_provider_overrides(cfg, None, None, 1.0)
+    assert cfg["openai"]["temperature"] == 1.0
+
+
+# ---------------------------------------------------------------------------
+# B4: apply_cli_overrides style / language / emoji
+# ---------------------------------------------------------------------------
+
+
+def test_apply_cli_overrides_style_sets_value():
+    cfg = {"style": "professional"}
+    apply_cli_overrides(cfg, style_override="funny")
+    assert cfg["style"] == "funny"
+
+
+def test_apply_cli_overrides_style_invalid_exits():
+    import typer
+
+    cfg = {"style": "professional"}
+    try:
+        apply_cli_overrides(cfg, style_override="bogus")
+    except typer.Exit as exc:
+        assert exc.exit_code == 1
+    else:  # pragma: no cover
+        raise AssertionError("expected typer.Exit for invalid style")
+
+
+def test_apply_cli_overrides_language_sets_value():
+    cfg = {"language": "en"}
+    apply_cli_overrides(cfg, language_override="DE")
+    assert cfg["language"] == "de"
+
+
+def test_apply_cli_overrides_language_none_keyword_disables():
+    cfg = {"language": "en"}
+    apply_cli_overrides(cfg, language_override="none")
+    assert cfg["language"] == "none"
+
+
+def test_apply_cli_overrides_language_invalid_exits():
+    import typer
+
+    cfg = {"language": "en"}
+    try:
+        apply_cli_overrides(cfg, language_override="zz")
+    except typer.Exit as exc:
+        assert exc.exit_code == 1
+    else:  # pragma: no cover
+        raise AssertionError("expected typer.Exit for invalid language")
+
+
+def test_apply_cli_overrides_emoji_false_overrides_true_config():
+    cfg = {"emoji": True}
+    apply_cli_overrides(cfg, emoji_override=False)
+    assert cfg["emoji"] is False
+
+
+def test_apply_cli_overrides_emoji_none_preserves():
+    cfg = {"emoji": True}
+    apply_cli_overrides(cfg, emoji_override=None)
+    assert cfg["emoji"] is True
+
+
+# ---------------------------------------------------------------------------
 # stats fallback chain: repo > home > hardcoded false
 # ---------------------------------------------------------------------------
 

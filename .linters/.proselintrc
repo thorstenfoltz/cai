@@ -48,7 +48,7 @@
         , "misc.whence": true
         , "mixed_metaphors.misc": true
         , "mondegreens.misc": true
-        , "needless_variants.misc": true
+        , "needless_variants.misc": false
         , "nonwords.misc": true
         , "oxymorons.misc": true
         , "psychology.misc": true

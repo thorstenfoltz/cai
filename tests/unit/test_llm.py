@@ -148,6 +148,22 @@ def test_generate_openai(generator):
     mock_instance.chat.completions.create.assert_called_once()
 
 
+def test_generate_openai_empty_content_raises(generator):
+    """A None message.content (empty/refused completion) must raise a clean
+    ValueError instead of an AttributeError on .strip()."""
+    mock_client = MagicMock()
+    mock_instance = MagicMock()
+    mock_instance.chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content=None))]
+    )
+    mock_client.return_value = mock_instance
+
+    with pytest.raises(ValueError, match="empty response"):
+        generator.generate_openai(
+            "diff", openai_cls=mock_client, system_prompt_override="sys"
+        )
+
+
 # test anthropic
 def test_generate_anthropic():
     """

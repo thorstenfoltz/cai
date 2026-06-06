@@ -289,6 +289,41 @@ def test_run_pr_uses_explicit_base_override(mock_repo_root, base_config, capsys)
     assert "develop" in seen_merge_base_args
 
 
+def test_run_pr_classifies_auth_error(mock_repo_root, base_config, caplog):
+    """A 401 from the provider must surface as a friendly message + clean exit,
+    not an uncaught requests.HTTPError traceback."""
+    import requests
+
+    def fake_check_output(cmd, text=True, **kwargs):
+        if cmd[:2] == ["git", "merge-base"]:
+            return "BASE"
+        if cmd[:3] == ["git", "--no-pager", "log"]:
+            return "feat: add thing"
+        if cmd[:3] == ["git", "diff", "--name-only"]:
+            return "src/foo.py"
+        raise AssertionError(f"unexpected cmd: {cmd}")
+
+    resp = MagicMock()
+    resp.status_code = 401
+    resp.json.return_value = {"error": {"message": "bad key"}}
+
+    gen = MagicMock()
+    gen.generate_pr_description.side_effect = requests.HTTPError(response=resp)
+
+    with (
+        patch("git_cai_cli.core.pr.find_git_root", return_value=mock_repo_root),
+        patch("git_cai_cli.core.pr.load_config", return_value=base_config),
+        patch("git_cai_cli.core.pr.load_token", return_value="token"),
+        patch("git_cai_cli.core.pr.detect_base_branch", return_value="main"),
+        patch("subprocess.check_output", side_effect=fake_check_output),
+        patch("git_cai_cli.core.pr.CommitMessageGenerator", return_value=gen),
+        pytest.raises(SystemExit),
+    ):
+        run_pr()
+
+    assert "invalid or not authorized" in caplog.text
+
+
 def test_run_pr_skips_when_no_commits(mock_repo_root, base_config, caplog):
     def fake_check_output(cmd, text=True, **kwargs):
         if cmd[:2] == ["git", "merge-base"]:

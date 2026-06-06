@@ -86,6 +86,10 @@ def run(
     stats_reset: bool = False,
     signoff: bool | None = None,
     print_only: bool = False,
+    temperature_override: float | None = None,
+    style_override: str | None = None,
+    language_override: str | None = None,
+    emoji_override: bool | None = None,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -109,6 +113,7 @@ def run(
         get_last_commit_diff,
         git_diff_excluding,
         repo_name_from_root,
+        truncate_diff,
     )
     from git_cai_cli.core.llm import CommitMessageGenerator
     from git_cai_cli.core.options import CliManager
@@ -146,6 +151,7 @@ def run(
         manager.squash_branch(
             provider_override=provider_override,
             model_override=model_override,
+            temperature_override=temperature_override,
             time_flag=time_flag,
             squash_arg=list_arg,
             context=context,
@@ -160,6 +166,7 @@ def run(
         run_pr(
             provider_override=provider_override,
             model_override=model_override,
+            temperature_override=temperature_override,
             time_flag=time_flag,
             base_override=base_override,
             context=context,
@@ -180,7 +187,9 @@ def run(
         raise typer.Exit(code=1)
 
     config = load_config()
-    apply_provider_overrides(config, provider_override, model_override)
+    apply_provider_overrides(
+        config, provider_override, model_override, temperature_override
+    )
     apply_cli_overrides(
         config,
         conventional=conventional,
@@ -188,6 +197,9 @@ def run(
         timeout_override=timeout_override,
         full_files_override=full_files_override,
         sql_override=sql_override,
+        style_override=style_override,
+        language_override=language_override,
+        emoji_override=emoji_override,
     )
 
     _log_stats_state(config)
@@ -225,6 +237,16 @@ def run(
             file_dump = collect_staged_file_contents(repo_root, files=files_override)
             if file_dump:
                 diff = f"{diff}\n\n--- Full file contents ---\n{file_dump}"
+
+    max_diff_bytes = int(config.get("max_diff_bytes", 0) or 0)
+    diff, was_truncated = truncate_diff(diff, max_diff_bytes)
+    if was_truncated:
+        log.warning(
+            "Diff exceeded max_diff_bytes=%d and was truncated before sending "
+            "to the LLM. Raise max_diff_bytes or use -f/--files to scope the "
+            "diff if you need the full context.",
+            max_diff_bytes,
+        )
 
     measure = time_flag or config.get("measure_time", False)
     start = time.perf_counter() if measure else None

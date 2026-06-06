@@ -192,6 +192,28 @@ def git_diff_excluding(
     return result.stdout
 
 
+def truncate_diff(diff: str, max_bytes: int) -> tuple[str, bool]:
+    """Truncate ``diff`` to at most ``max_bytes`` UTF-8 bytes.
+
+    A ``max_bytes`` of 0 (or negative) means "no limit" and the diff is
+    returned unchanged — preserving the default behavior. When truncation
+    occurs, a marker line is appended so both the LLM and the user know the
+    input was cut. Returns ``(possibly_truncated_diff, was_truncated)``.
+    """
+    if max_bytes <= 0:
+        return diff, False
+
+    encoded = diff.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return diff, False
+
+    # Cut on a UTF-8 safe boundary: decoding with errors="ignore" drops any
+    # partial trailing multibyte sequence left by the byte-level slice.
+    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
+    marker = f"\n\n[... diff truncated: exceeded max_diff_bytes={max_bytes} ...]"
+    return truncated + marker, True
+
+
 def _matches_caiignore(path: str, patterns: Sequence[str]) -> bool:
     """Return True if `path` matches any of the `.caiignore` patterns.
 

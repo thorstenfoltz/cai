@@ -24,9 +24,11 @@ from git_cai_cli.core.gitutils import (
     detect_base_branch,
     find_git_root,
     repo_name_from_root,
+    truncate_diff,
 )
 from git_cai_cli.core.llm import CommitMessageGenerator
 from git_cai_cli.core.spinner import Spinner
+from git_cai_cli.core.validate import _validate_llm_call
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +64,7 @@ def _changed_files(merge_base: str) -> str:
 def run_pr(
     provider_override: str | None = None,
     model_override: str | None = None,
+    temperature_override: float | None = None,
     time_flag: bool = False,
     base_override: str | None = None,
     context: str | None = None,
@@ -83,7 +86,9 @@ def run_pr(
         raise typer.Exit(code=1)
 
     config = load_config()
-    apply_provider_overrides(config, provider_override, model_override)
+    apply_provider_overrides(
+        config, provider_override, model_override, temperature_override
+    )
 
     from git_cai_cli.core import stats as stats_module
     from git_cai_cli.core.config import apply_cli_overrides
@@ -125,6 +130,15 @@ def run_pr(
         log.info("No commits between %s and HEAD — nothing to describe.", base_branch)
         return
 
+    max_diff_bytes = int(config.get("max_diff_bytes", 0) or 0)
+    commit_log, was_truncated = truncate_diff(commit_log, max_diff_bytes)
+    if was_truncated:
+        log.warning(
+            "Commit log exceeded max_diff_bytes=%d and was truncated before "
+            "sending to the LLM.",
+            max_diff_bytes,
+        )
+
     changed_files = _changed_files(merge_base)
 
     measure = time_flag or config.get("measure_time", False)
@@ -136,8 +150,13 @@ def run_pr(
     try:
         try:
             with Spinner("Generating PR description"):
-                description = generator.generate_pr_description(
-                    commit_log, changed_files, context=context
+                description = _validate_llm_call(
+                    generator.generate_pr_description,
+                    commit_log,
+                    changed_files,
+                    context=context,
+                    token=token,
+                    requires_token=provider not in TOKENLESS_PROVIDERS,
                 )
         except ValueError as e:
             log.error("%s", e)

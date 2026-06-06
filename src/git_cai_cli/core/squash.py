@@ -26,11 +26,26 @@ from git_cai_cli.core.gitutils import (
     git_diff_excluding,
     repo_name_from_root,
     sha256_of_file,
+    truncate_diff,
 )
 from git_cai_cli.core.llm import CommitMessageGenerator
 from git_cai_cli.core.spinner import Spinner
+from git_cai_cli.core.validate import _validate_llm_call
 
 log = logging.getLogger(__name__)
+
+
+def _apply_diff_limit(text: str, config: dict) -> str:
+    """Truncate ``text`` per the ``max_diff_bytes`` config, logging a warning."""
+    max_diff_bytes = int(config.get("max_diff_bytes", 0) or 0)
+    text, was_truncated = truncate_diff(text, max_diff_bytes)
+    if was_truncated:
+        log.warning(
+            "Input exceeded max_diff_bytes=%d and was truncated before sending "
+            "to the LLM.",
+            max_diff_bytes,
+        )
+    return text
 
 
 def _get_branch_base() -> str:
@@ -201,6 +216,7 @@ def _has_commits() -> bool:
 def squash_branch(
     provider_override: str | None = None,
     model_override: str | None = None,
+    temperature_override: float | None = None,
     time_flag: bool = False,
     squash_arg: str | None = None,
     context: str | None = None,
@@ -239,8 +255,10 @@ def squash_branch(
 
     config = load_config()
 
-    # Apply provider/model overrides
-    apply_provider_overrides(config, provider_override, model_override)
+    # Apply provider/model/temperature overrides
+    apply_provider_overrides(
+        config, provider_override, model_override, temperature_override
+    )
 
     # `--sql true|false` honored in squash mode too: stats writing
     # must behave consistently across `git cai`, `git cai -s`, and
@@ -282,12 +300,19 @@ def squash_branch(
                 log.error("Staged changes detected, but diff is empty. Aborting.")
                 return
 
+            diff = _apply_diff_limit(diff, config)
+
             start = time.perf_counter() if measure else None
 
             generator.kind = "commit"
             try:
                 with Spinner("Generating commit message for staged changes"):
-                    msg = generator.generate(diff)
+                    msg = _validate_llm_call(
+                        generator.generate,
+                        diff,
+                        token=token,
+                        requires_token=provider not in TOKENLESS_PROVIDERS,
+                    )
             except ValueError as e:
                 log.error("%s", e)
                 sys.exit(1)
@@ -349,6 +374,8 @@ def squash_branch(
             log.info("Nothing to squash — branch contains only one commit.")
             return
 
+        commit_log = _apply_diff_limit(commit_log, config)
+
         log.info("Summarizing commit history using LLM...")
 
         start = time.perf_counter() if measure else None
@@ -356,8 +383,12 @@ def squash_branch(
         generator.kind = "squash"
         try:
             with Spinner("Summarizing commit history"):
-                summary_message = generator.summarize_commit_history(
-                    commit_log, context=context
+                summary_message = _validate_llm_call(
+                    generator.summarize_commit_history,
+                    commit_log,
+                    context=context,
+                    token=token,
+                    requires_token=provider not in TOKENLESS_PROVIDERS,
                 )
         except ValueError as e:
             log.error("%s", e)
