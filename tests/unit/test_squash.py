@@ -114,9 +114,7 @@ def test_squash_classifies_auth_error(mock_repo_root, clean_git_state, caplog) -
             "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
         ),
         patch("git_cai_cli.core.squash.load_token", return_value="token"),
-        patch(
-            "git_cai_cli.core.squash.CommitMessageGenerator", return_value=gen
-        ),
+        patch("git_cai_cli.core.squash.CommitMessageGenerator", return_value=gen),
         pytest.raises(SystemExit),
     ):
         squash_branch()

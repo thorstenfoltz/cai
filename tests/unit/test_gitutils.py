@@ -28,7 +28,6 @@ from git_cai_cli.core.gitutils import (
     truncate_diff,
 )
 
-
 # ------------------------------------------------------------------------------
 # truncate_diff
 # ------------------------------------------------------------------------------
@@ -74,6 +73,7 @@ def test_truncate_diff_handles_multibyte_boundary():
     # 10 bytes -> 3 full euro signs (9 bytes), partial 4th dropped.
     assert out.startswith("€€€")
     assert "diff truncated" in out
+
 
 # ------------------------------------------------------------------------------
 # find_git_root

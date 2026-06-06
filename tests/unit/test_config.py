@@ -650,7 +650,7 @@ def test_apply_provider_overrides_temperature_none_preserves():
 def test_apply_provider_overrides_temperature_creates_missing_block():
     from git_cai_cli.core.config import apply_provider_overrides
 
-    cfg = {"default": "openai"}
+    cfg: dict = {"default": "openai"}
     apply_provider_overrides(cfg, None, None, 1.0)
     assert cfg["openai"]["temperature"] == 1.0
 
