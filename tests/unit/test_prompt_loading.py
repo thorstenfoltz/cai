@@ -2,6 +2,7 @@
 Unit tests for prompt loading, custom prompt files, and 'none' config values.
 """
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -217,6 +218,30 @@ class TestLoadPromptFileHardcoded:
             )
 
         assert result == HARDCODED_SQUASH_PROMPT
+
+    def test_hardcoded_commit_prompt_is_tone_neutral(self):
+        """
+        The hardcoded base prompts must not bake in a tone word, so the style
+        instruction is the single source of tone (and an override wins cleanly).
+        """
+        assert "professional" not in HARDCODED_COMMIT_PROMPT
+        assert "professional" not in HARDCODED_FULL_FILES_PROMPT
+
+    def test_style_override_is_authoritative_in_fallback(self, base_config):
+        """
+        With the hardcoded fallback (no config files) and style overridden to
+        'funny', the built prompt carries only the chosen style — not the old
+        hardcoded 'professional' tone.
+        """
+        base_config["style"] = "funny"
+        gen = CommitMessageGenerator("tok", base_config, "openai")
+
+        empty_dir = Path("/nonexistent-cai-config-dir")
+        with patch("git_cai_cli.core.llm.CONFIG_DIR", empty_dir):
+            prompt = gen._build_commit_prompt()
+
+        assert "funny" in prompt
+        assert "professional" not in prompt
 
 
 # ---------------------------------------------------------------------------

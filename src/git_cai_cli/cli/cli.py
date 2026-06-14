@@ -181,22 +181,25 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     ),
     temperature: float = typer.Option(
         None,
-        "-e",
+        "-E",
         "--temperature",
         help="Override the active provider's sampling temperature for this invocation.",
     ),
     style: str = typer.Option(
         None,
+        "-y",
         "--style",
         help="Override the commit message style for this invocation (e.g. funny, neutral, none).",
     ),
     language: str = typer.Option(
         None,
+        "-L",
         "--language",
         help="Override the commit message language code for this invocation (e.g. de, fr, none).",
     ),
     emoji: bool | None = typer.Option(
         None,
+        "-e",
         "--emoji/--no-emoji",
         help="Override emoji usage for this invocation. Use --no-emoji to disable when config enables it.",
     ),
