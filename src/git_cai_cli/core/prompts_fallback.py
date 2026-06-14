@@ -7,7 +7,7 @@ Both modules can safely import from here without creating import cycles.
 
 HARDCODED_COMMIT_PROMPT = (
     "You are an expert software engineer assistant.\n"
-    "Your task is to generate a concise, professional git commit message\n"
+    "Your task is to generate a concise git commit message\n"
     "from the provided git diff.\n"
     "\n"
     "Follow the seven rules of a great git commit message:\n"
@@ -44,7 +44,7 @@ HARDCODED_COMMIT_PROMPT = (
 
 HARDCODED_FULL_FILES_PROMPT = (
     "You are an expert software engineer assistant.\n"
-    "Your task is to generate a concise, professional git commit message\n"
+    "Your task is to generate a concise git commit message\n"
     "from the provided git diff AND the full contents of the affected files.\n"
     "\n"
     "The input is structured as follows:\n"

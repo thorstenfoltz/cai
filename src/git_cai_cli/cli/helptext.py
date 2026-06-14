@@ -21,6 +21,8 @@ Flags:
   -C, --conventional       Use Conventional Commits format (type(scope): description)
   -c, --crazy              Commit immediately without opening editor (trust LLM output)
   -d, --debug              Enable debug logging
+  -E, --temperature FLOAT  Override the active provider's sampling temperature for this invocation
+  -e, --emoji              Toggle emoji prefixes (use --no-emoji to disable)
   -F, --full-files         Send the full contents of affected files alongside the diff
   -f, --files PATH         Limit the diff (and full files) to PATH; repeat the flag for multiple files
   -g, --generate-config    Generate default cai_config.yml in the current directory
@@ -28,6 +30,7 @@ Flags:
   -h, --help               Show this help message or opens manual
   -I, --init               Interactive setup wizard (writes home config and tokens.yml)
   -i, --install-completion Install shell completion for git-cai
+  -L, --language CODE      Override the commit message language (e.g. de, fr, none)
   -l, --list [TYPE]        List information. TYPE: config, editor, language,
                            model, path, provider, style
   -m, --model NAME         Override model for this invocation (requires --provider)
@@ -48,6 +51,7 @@ Flags:
   -u, --update             Check for updates
   -v, --version            Show installed version
   -x, --context TEXT       Provide extra context for the LLM (e.g. ticket number, reason)
+  -y, --style NAME         Override the commit message style (e.g. funny, neutral, none)
   -z, --stats              Show local-only usage analytics (commits, tokens, latency)
       --since YYYY-MM-DD   Filter --stats to events on or after this date
       --json               Render --stats output as JSON instead of text
