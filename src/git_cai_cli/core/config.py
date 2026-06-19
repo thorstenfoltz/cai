@@ -66,6 +66,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "pr_prompt_file": "",
     "stats": False,
     "signoff": False,
+    "secret_scan": True,
 }
 
 # Providers that do not require an API token in tokens.yml

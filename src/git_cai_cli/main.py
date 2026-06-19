@@ -90,6 +90,8 @@ def run(
     style_override: str | None = None,
     language_override: str | None = None,
     emoji_override: bool | None = None,
+    live_check: bool = False,
+    allow_secrets: bool = False,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -111,6 +113,7 @@ def run(
         commit_with_edit_template,
         find_git_root,
         get_last_commit_diff,
+        get_last_commit_message,
         git_diff_excluding,
         repo_name_from_root,
         truncate_diff,
@@ -136,6 +139,11 @@ def run(
         manager.handle_list(list_arg)
         return
 
+    if mode is Mode.CHECK:
+        from git_cai_cli.core.doctor import run_check
+
+        raise typer.Exit(code=run_check(live=live_check))
+
     if mode is Mode.STATS:
         from git_cai_cli.core import stats
 
@@ -157,6 +165,7 @@ def run(
             context=context,
             sql_override=sql_override,
             signoff=signoff,
+            allow_secrets=allow_secrets,
         )
         return
 
@@ -171,6 +180,7 @@ def run(
             base_override=base_override,
             context=context,
             sql_override=sql_override,
+            allow_secrets=allow_secrets,
         )
         return
 
@@ -213,11 +223,13 @@ def run(
     provider = config["default"]
     token = load_token(config=config)
 
+    previous_message: str | None = None
     if is_amend:
         diff = get_last_commit_diff(repo_root)
         if not diff.strip():
             log.error("No previous commit found or commit has no diff.")
             raise typer.Exit(code=1)
+        previous_message = get_last_commit_message(repo_root) or None
     else:
         if files_override:
             log.info(
@@ -251,27 +263,46 @@ def run(
     measure = time_flag or config.get("measure_time", False)
     start = time.perf_counter() if measure else None
 
+    from git_cai_cli.core.secrets import SecretLeakError, format_findings
+
     generator = CommitMessageGenerator(token, config, provider, branch_name=branch_name)
     generator.kind = "amend" if is_amend else "commit"
     generator.repo = repo_name_from_root(repo_root)
+    generator.allow_secrets = allow_secrets
+    spinner_text = (
+        "Regenerating commit message" if is_amend else "Generating commit message"
+    )
     try:
-        try:
-            spinner_text = (
-                "Regenerating commit message"
-                if is_amend
-                else "Generating commit message"
-            )
-            with Spinner(spinner_text):
-                commit_message = _validate_llm_call(
-                    generator.generate,
-                    diff,
-                    context=context,
-                    token=token,
-                    requires_token=provider not in TOKENLESS_PROVIDERS,
-                )
-        except ValueError as e:
-            typer.echo(f"Error: {e}", err=True)
-            raise typer.Exit(code=1)
+        while True:
+            try:
+                with Spinner(spinner_text):
+                    commit_message = _validate_llm_call(
+                        generator.generate,
+                        diff,
+                        context=context,
+                        previous_message=previous_message,
+                        token=token,
+                        requires_token=provider not in TOKENLESS_PROVIDERS,
+                    )
+                break
+            except SecretLeakError as leak:
+                typer.echo(format_findings(leak.findings), err=True)
+                if crazy or not sys.stdin.isatty():
+                    typer.echo(
+                        "Aborting: potential secret(s) in the diff. "
+                        "Re-run with --allow-secrets to override.",
+                        err=True,
+                    )
+                    raise typer.Exit(code=1)
+                if not typer.confirm(
+                    "Send this content to the provider anyway?", default=False
+                ):
+                    typer.echo("Aborted. Nothing was sent.", err=True)
+                    raise typer.Exit(code=1)
+                generator.allow_secrets = True
+            except ValueError as e:
+                typer.echo(f"Error: {e}", err=True)
+                raise typer.Exit(code=1)
     finally:
         generator.close()
 

@@ -13,6 +13,7 @@ class Mode(Enum):
     """
 
     AMEND = auto()
+    CHECK = auto()
     COMMIT = auto()
     INIT = auto()
     LIST = auto()
@@ -25,6 +26,7 @@ class Mode(Enum):
 def resolve_mode(
     *,
     amend: bool,
+    check: bool = False,
     init: bool = False,
     list_flag: bool,
     pr: bool,
@@ -35,17 +37,19 @@ def resolve_mode(
     """
     Resolves the operational mode based on the provided flags.
     """
-    flags = [amend, init, list_flag, pr, squash, stats, update]
+    flags = [amend, check, init, list_flag, pr, squash, stats, update]
     if sum(flags) > 1:
         typer.echo(
-            "Error: --amend, --init, --list, --PR, --squash, --stats, and --update "
-            "cannot be used together.",
+            "Error: --amend, --check, --init, --list, --PR, --squash, --stats, and "
+            "--update cannot be used together.",
             err=True,
         )
         raise typer.Exit(code=1)
 
     if amend:
         return Mode.AMEND
+    if check:
+        return Mode.CHECK
     if init:
         return Mode.INIT
     if list_flag:

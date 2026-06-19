@@ -27,6 +27,7 @@ from git_cai_cli.core.gitutils import (
     truncate_diff,
 )
 from git_cai_cli.core.llm import CommitMessageGenerator
+from git_cai_cli.core.secrets import SecretLeakError, format_findings
 from git_cai_cli.core.spinner import Spinner
 from git_cai_cli.core.validate import _validate_llm_call
 
@@ -69,6 +70,7 @@ def run_pr(
     base_override: str | None = None,
     context: str | None = None,
     sql_override: bool | None = None,
+    allow_secrets: bool = False,
 ) -> None:
     """
     Generate a PR description for the current branch.
@@ -147,6 +149,7 @@ def run_pr(
     generator = CommitMessageGenerator(token, config, provider)
     generator.kind = "pr"
     generator.repo = repo_name_from_root(repo_root)
+    generator.allow_secrets = allow_secrets
     try:
         try:
             with Spinner("Generating PR description"):
@@ -158,6 +161,10 @@ def run_pr(
                     token=token,
                     requires_token=provider not in TOKENLESS_PROVIDERS,
                 )
+        except SecretLeakError as leak:
+            log.error("%s", format_findings(leak.findings))
+            log.error("Aborting PR generation. Re-run with --allow-secrets to override.")
+            sys.exit(1)
         except ValueError as e:
             log.error("%s", e)
             sys.exit(1)

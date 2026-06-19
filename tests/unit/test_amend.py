@@ -8,7 +8,12 @@ import pytest
 import typer
 from git_cai_cli.cli import modes
 from git_cai_cli.cli.modes import Mode
-from git_cai_cli.core.gitutils import commit_direct, get_last_commit_diff
+from git_cai_cli.core.gitutils import (
+    commit_direct,
+    get_last_commit_diff,
+    get_last_commit_message,
+)
+from git_cai_cli.core.llm import CommitMessageGenerator
 
 # ----------------------
 # resolve_mode with amend
@@ -116,3 +121,58 @@ def test_commit_direct_no_amend_by_default():
         commit_direct("test message")
         cmd = mock_run.call_args[0][0]
         assert "--amend" not in cmd
+
+
+# ----------------------
+# get_last_commit_message + amend refines existing message (#15)
+# ----------------------
+
+
+def _amend_gen():
+    config = {
+        "openai": {"model": "x", "temperature": 0},
+        "default": "openai",
+        "language": "none",
+        "style": "none",
+        "emoji": None,
+    }
+    return CommitMessageGenerator(token="fake", config=config, default_model="openai")
+
+
+def test_get_last_commit_message_success(tmp_path):
+    """get_last_commit_message returns the full stripped commit body."""
+    mock_proc = MagicMock()
+    mock_proc.returncode = 0
+    mock_proc.stdout = "Old subject\n\nOld body line\n"
+
+    result = get_last_commit_message(tmp_path, run_cmd=lambda *a, **kw: mock_proc)
+    assert result == "Old subject\n\nOld body line"
+
+
+def test_get_last_commit_message_no_commit(tmp_path):
+    """get_last_commit_message returns '' when there is no commit."""
+    mock_proc = MagicMock()
+    mock_proc.returncode = 128
+    mock_proc.stdout = ""
+    mock_proc.stderr = "fatal: your current branch does not have any commits yet"
+
+    result = get_last_commit_message(tmp_path, run_cmd=lambda *a, **kw: mock_proc)
+    assert result == ""
+
+
+def test_amend_prompt_includes_previous_message():
+    """In amend mode the previous message and a refine instruction are appended."""
+    gen = _amend_gen()
+    gen.kind = "amend"
+    out = gen._build_commit_prompt(previous_message="Fix login bug")
+    assert "Existing commit message" in out
+    assert "Fix login bug" in out
+    assert "do not discard information" in out.lower()
+
+
+def test_commit_prompt_excludes_previous_message():
+    """A normal commit never embeds the previous message, even if one is passed."""
+    gen = _amend_gen()
+    gen.kind = "commit"
+    out = gen._build_commit_prompt(previous_message="Fix login bug")
+    assert "Fix login bug" not in out

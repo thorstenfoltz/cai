@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 import requests
+from git_cai_cli.core.secrets import SecretLeakError
 
 log = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
         "stats",
         "stats_db_path",
         "signoff",
+        "secret_scan",
     }
     # Internal escape-hatch keys: accepted if a user sets them, but never
     # reported as "missing" — they aren't part of the documented surface.
@@ -192,6 +194,11 @@ def _validate_llm_call(
 
     try:
         return fn(*args, **kwargs)
+
+    except SecretLeakError:
+        # A local secret-scan block is a user-facing decision, not an LLM
+        # failure — let the caller handle the confirm/abort flow.
+        raise
 
     except requests.HTTPError as exc:
         response = exc.response

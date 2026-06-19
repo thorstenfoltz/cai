@@ -203,6 +203,24 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         "--emoji/--no-emoji",
         help="Override emoji usage for this invocation. Use --no-emoji to disable when config enables it.",
     ),
+    check: bool = typer.Option(
+        False,
+        "-k",
+        "--check",
+        help="Run configuration diagnostics (offline). Add --ping for a live provider probe.",
+    ),
+    ping: bool = typer.Option(
+        False,
+        "-n",
+        "--ping",
+        help="With --check, also send a tiny request to the active provider to confirm reachability.",
+    ),
+    allow_secrets: bool = typer.Option(
+        False,
+        "-B",
+        "--allow-secrets",
+        help="Bypass the local secret scan and send the diff even if a likely secret is detected.",
+    ),
 ):
     """
     CLI entry point for git-cai-cli.
@@ -224,6 +242,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
 
     mode = resolve_mode(
         amend=amend,
+        check=check,
         init=init,
         list_flag=list_flag,
         pr=pr,
@@ -231,6 +250,10 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         stats=stats,
         update=update,
     )
+
+    if ping and not check:
+        typer.echo("Error: --ping is only valid together with --check.", err=True)
+        raise typer.Exit(code=1)
 
     sql_override: bool | None = None
     if sql is not None:
@@ -339,6 +362,8 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         style_override=style,
         language_override=language,
         emoji_override=emoji,
+        live_check=ping,
+        allow_secrets=allow_secrets,
     )
 
 
