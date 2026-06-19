@@ -21,11 +21,16 @@ def _gen():
 
 
 def test_classify_changed_paths_counts():
-    assert classify_changed_paths(["src/a.py", "docs/x.md", "README.md", "b.js"]) == (2, 2)
+    assert classify_changed_paths(["src/a.py", "docs/x.md", "README.md", "b.js"]) == (
+        2,
+        2,
+    )
 
 
 def test_paths_from_diff_reads_diff_git_headers():
-    diff = "diff --git a/src/a.py b/src/a.py\n+x\ndiff --git a/docs/y.md b/docs/y.md\n+y"
+    diff = (
+        "diff --git a/src/a.py b/src/a.py\n+x\ndiff --git a/docs/y.md b/docs/y.md\n+y"
+    )
     assert paths_from_diff(diff) == ["src/a.py", "docs/y.md"]
 
 

@@ -27,7 +27,9 @@ def _gen(default_model="openai", **cfg):
         "secret_scan": True,
     }
     config.update(cfg)
-    return CommitMessageGenerator(token="fake", config=config, default_model=default_model)
+    return CommitMessageGenerator(
+        token="fake", config=config, default_model=default_model
+    )
 
 
 # ---- scan_for_secrets ----

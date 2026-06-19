@@ -13,7 +13,6 @@ import stat
 import time
 
 import typer
-
 from git_cai_cli.core.config import (
     DEFAULT_CONFIG,
     FALLBACK_CONFIG_FILE,
@@ -115,12 +114,20 @@ def _run_check_impl(*, live: bool = False) -> int:
     prompt_specs = [
         ("commit", "prompt_file", "commit_prompt.md", HARDCODED_COMMIT_PROMPT),
         ("squash", "squash_prompt_file", "squash_prompt.md", HARDCODED_SQUASH_PROMPT),
-        ("full-files", "full_files_prompt_file", "full_files_prompt.md", HARDCODED_FULL_FILES_PROMPT),
+        (
+            "full-files",
+            "full_files_prompt_file",
+            "full_files_prompt.md",
+            HARDCODED_FULL_FILES_PROMPT,
+        ),
         ("pr", "pr_prompt_file", "pr_prompt.md", HARDCODED_PR_PROMPT),
     ]
     for label, key, fname, fallback in prompt_specs:
         text = load_prompt_file(
-            config_key=key, config=config, default_filename=fname, hardcoded_fallback=fallback
+            config_key=key,
+            config=config,
+            default_filename=fname,
+            hardcoded_fallback=fallback,
         )
         if text and text.strip():
             _line(_OK, f"Prompt '{label}' resolves ({len(text)} chars)")
@@ -145,7 +152,7 @@ def _run_check_impl(*, live: bool = False) -> int:
         _line(_FAIL, f"Style invalid: {exc}")
         ok = False
 
-    if live:
+    if live and provider:
         typer.echo("")
         ok = _live_probe(config, provider) and ok
 

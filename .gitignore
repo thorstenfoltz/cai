@@ -7,6 +7,8 @@ src/git_cai_cli.egg-info/
 megalinter-reports/
 __pycache__/
 .ruff_cache/
+.pytest_cache/
+.mypy_cache/
 .venv/
 
 # files

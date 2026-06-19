@@ -20,7 +20,6 @@ from git_cai_cli.core.config import (
 from git_cai_cli.core.gitutils import (
     _has_upstream,
     append_signoff,
-    classify_changed_paths,
     commit_with_edit_template,
     find_git_root,
     get_git_editor,
@@ -391,7 +390,7 @@ def squash_branch(
         changed = subprocess.check_output(
             ["git", "diff", "--name-only", f"{merge_base}..HEAD"], text=True
         ).splitlines()
-        generator._classification_counts = classify_changed_paths(changed)
+        generator.set_changed_files(changed)
 
         start = time.perf_counter() if measure else None
 

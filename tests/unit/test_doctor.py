@@ -20,7 +20,13 @@ class _NoFile:
         return False
 
 
-def _patch_offline(monkeypatch, *, token="sk-realtoken1234567890", config=None, editor="vi"):
+def _patch_offline(
+    monkeypatch,
+    *,
+    token: str | None = "sk-realtoken1234567890",
+    config=None,
+    editor="vi",
+):
     monkeypatch.setattr(doctor, "load_config", lambda: dict(config or GOOD_CONFIG))
     monkeypatch.setattr(doctor, "_find_repo_config", lambda: None)
     monkeypatch.setattr(doctor, "load_token", lambda config=None: token)
@@ -36,7 +42,12 @@ def _patch_offline(monkeypatch, *, token="sk-realtoken1234567890", config=None, 
 def test_resolve_mode_check():
     assert (
         modes.resolve_mode(
-            amend=False, check=True, list_flag=False, pr=False, squash=False, update=False
+            amend=False,
+            check=True,
+            list_flag=False,
+            pr=False,
+            squash=False,
+            update=False,
         )
         == Mode.CHECK
     )
@@ -45,7 +56,12 @@ def test_resolve_mode_check():
 def test_resolve_mode_check_conflicts(capsys):
     with pytest.raises(typer.Exit):
         modes.resolve_mode(
-            amend=True, check=True, list_flag=False, pr=False, squash=False, update=False
+            amend=True,
+            check=True,
+            list_flag=False,
+            pr=False,
+            squash=False,
+            update=False,
         )
 
 

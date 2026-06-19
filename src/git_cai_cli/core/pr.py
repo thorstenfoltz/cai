@@ -163,7 +163,9 @@ def run_pr(
                 )
         except SecretLeakError as leak:
             log.error("%s", format_findings(leak.findings))
-            log.error("Aborting PR generation. Re-run with --allow-secrets to override.")
+            log.error(
+                "Aborting PR generation. Re-run with --allow-secrets to override."
+            )
             sys.exit(1)
         except ValueError as e:
             log.error("%s", e)

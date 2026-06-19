@@ -329,6 +329,14 @@ class CommitMessageGenerator:
         except (ImportError, AttributeError, TypeError, KeyError) as exc:
             log.debug("stats.set_time_ms failed (non-fatal): %s", exc)
 
+    def set_changed_files(self, paths: list[str]) -> None:
+        """Record changed paths so the mixed code/docs instruction uses real counts.
+
+        Public so squash/PR callers (which know the changed file set from a commit
+        range) can supply it without poking at internal state.
+        """
+        self._classification_counts = classify_changed_paths(paths)
+
     def generate(
         self,
         git_diff: str,
@@ -341,7 +349,7 @@ class CommitMessageGenerator:
         ``previous_message`` is used in amend mode so the model refines the
         existing message instead of regenerating from scratch.
         """
-        self._classification_counts = classify_changed_paths(paths_from_diff(git_diff))
+        self.set_changed_files(paths_from_diff(git_diff))
         prompt = self._build_commit_prompt(previous_message=previous_message)
         log.debug("Commit system prompt preview: %r", prompt[:400])
 
@@ -382,7 +390,7 @@ class CommitMessageGenerator:
         Generate a Markdown Pull Request description from the commit log and
         changed-files list of a feature branch.
         """
-        self._classification_counts = classify_changed_paths(changed_files.splitlines())
+        self.set_changed_files(changed_files.splitlines())
         prompt = self._build_pr_prompt()
         log.debug("PR system prompt preview: %r", prompt[:400])
 

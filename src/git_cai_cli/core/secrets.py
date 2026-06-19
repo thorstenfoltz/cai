@@ -41,7 +41,10 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("AWS access key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("OpenAI-style key", re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9]{20,}\b")),
     ("GitHub token", re.compile(r"\bgh[opsur]_[A-Za-z0-9]{20,}\b")),
-    ("Slack token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b|\bxapp-[A-Za-z0-9-]{10,}\b")),
+    (
+        "Slack token",
+        re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b|\bxapp-[A-Za-z0-9-]{10,}\b"),
+    ),
     ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b")),
 ]
 
