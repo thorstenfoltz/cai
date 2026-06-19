@@ -17,6 +17,7 @@ Usage:
 Flags:
   -A, --amend              Regenerate and amend the last commit message
   -a, --all                Stage all modified and deleted files that are already tracked by Git
+  -B, --allow-secrets      Bypass the local secret scan and send even if a secret is detected
   -b, --branch             Include current branch name as context for the LLM
   -C, --conventional       Use Conventional Commits format (type(scope): description)
   -c, --crazy              Commit immediately without opening editor (trust LLM output)
@@ -30,10 +31,12 @@ Flags:
   -h, --help               Show this help message or opens manual
   -I, --init               Interactive setup wizard (writes home config and tokens.yml)
   -i, --install-completion Install shell completion for git-cai
+  -k, --check              Run configuration diagnostics (offline; add --ping for a live probe)
   -L, --language CODE      Override the commit message language (e.g. de, fr, none)
   -l, --list [TYPE]        List information. TYPE: config, editor, language,
                            model, path, provider, style
   -m, --model NAME         Override model for this invocation (requires --provider)
+  -n, --ping               With --check, probe the active provider for reachability
   -o, --signoff            Append a `Signed-off-by:` trailer (git user.name / user.email)
   -P, --provider NAME      Override LLM provider for this invocation
   -p, --generate-prompts   Generate default commit/squash/full_files/pr prompt files

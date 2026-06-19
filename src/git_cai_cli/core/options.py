@@ -370,6 +370,7 @@ git cai -l style
         context: str | None = None,
         sql_override: bool | None = None,
         signoff: bool | None = None,
+        allow_secrets: bool = False,
     ) -> None:
         """
         Squash commits on the current branch and summarize them.
@@ -383,6 +384,7 @@ git cai -l style
             context=context,
             sql_override=sql_override,
             signoff=signoff,
+            allow_secrets=allow_secrets,
         )
 
     def stage_tracked_files(self) -> None:

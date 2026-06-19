@@ -1,5 +1,1 @@
-# files
-*.lock
-*.ipynb
-
-# directories
+tests/unit/test_secrets.py

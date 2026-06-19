@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 
 import requests
 from git_cai_cli.core.config import CONFIG_DIR
+from git_cai_cli.core.gitutils import classify_changed_paths, paths_from_diff
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.prompts_fallback import (
     HARDCODED_COMMIT_PROMPT,
@@ -176,6 +177,14 @@ class CommitMessageGenerator:
         self.kind: str = "commit"
         self.repo: str | None = None
 
+        # Per-run secret-scan bypass: set true by --allow-secrets or after the
+        # user confirms an interactive "send anyway".
+        self.allow_secrets: bool = False
+        # (non_doc, doc) file counts for the active generation, used by
+        # ``_classification_instruction``. Set by ``generate`` /
+        # ``generate_pr_description`` or by the squash caller.
+        self._classification_counts: tuple[int, int] | None = None
+
         # Set by the provider methods around each HTTP call so
         # ``_log_token_usage`` can persist real latency data.
         # ``_last_event_id`` is the row id from the most recent
@@ -320,11 +329,28 @@ class CommitMessageGenerator:
         except (ImportError, AttributeError, TypeError, KeyError) as exc:
             log.debug("stats.set_time_ms failed (non-fatal): %s", exc)
 
-    def generate(self, git_diff: str, context: str | None = None) -> str:
+    def set_changed_files(self, paths: list[str]) -> None:
+        """Record changed paths so the mixed code/docs instruction uses real counts.
+
+        Public so squash/PR callers (which know the changed file set from a commit
+        range) can supply it without poking at internal state.
+        """
+        self._classification_counts = classify_changed_paths(paths)
+
+    def generate(
+        self,
+        git_diff: str,
+        context: str | None = None,
+        previous_message: str | None = None,
+    ) -> str:
         """
         Generate a commit message from a diff.
+
+        ``previous_message`` is used in amend mode so the model refines the
+        existing message instead of regenerating from scratch.
         """
-        prompt = self._build_commit_prompt()
+        self.set_changed_files(paths_from_diff(git_diff))
+        prompt = self._build_commit_prompt(previous_message=previous_message)
         log.debug("Commit system prompt preview: %r", prompt[:400])
 
         content = git_diff
@@ -364,6 +390,7 @@ class CommitMessageGenerator:
         Generate a Markdown Pull Request description from the commit log and
         changed-files list of a feature branch.
         """
+        self.set_changed_files(changed_files.splitlines())
         prompt = self._build_pr_prompt()
         log.debug("PR system prompt preview: %r", prompt[:400])
 
@@ -484,6 +511,39 @@ class CommitMessageGenerator:
             "and scope of the changes — but do not include the branch name in the message."
         )
 
+    def _classification_instruction(self) -> str:
+        """Guidance for mixed code+docs diffs so they are not labelled as docs.
+
+        Emitted only for the genuinely mixed case (both code and doc files
+        changed); docs-only relies on the existing hardcoded rule and code-only
+        needs nothing. The live file counts cannot live in a static prompt, so
+        this is injected at build time like the other instructions.
+        """
+        counts = self._classification_counts
+        if not counts:
+            return ""
+        non_doc, doc = counts
+        if non_doc > 0 and doc > 0:
+            return (
+                f"This change touches {non_doc} non-documentation file(s) and "
+                f"{doc} documentation file(s). Classify by the functional change "
+                "(feat/fix/refactor and similar), not the documentation. Lead the "
+                "subject with the code change and mention documentation updates "
+                "only secondarily in the body."
+            )
+        return ""
+
+    def _amend_instruction(self, previous_message: str) -> str:
+        """Instruct the model to refine the existing commit message, not replace it."""
+        return (
+            "An existing commit message is shown below. Improve its clarity and "
+            "accuracy against the diff while preserving its original intent and any "
+            "deliberate references (issue IDs, `Co-authored-by`, other trailers). "
+            "Refine the wording; do not discard information.\n\n"
+            "--- Existing commit message ---\n"
+            f"{previous_message.strip()}"
+        )
+
     def _config_instructions(self) -> str:
         """
         Build the config-driven instruction suffix (language, style, emoji, conventional).
@@ -495,6 +555,7 @@ class CommitMessageGenerator:
             self._emoji_instruction(),
             self._conventional_instruction(),
             self._branch_instruction(),
+            self._classification_instruction(),
         ]
         return " ".join(p for p in parts if p)
 
@@ -502,7 +563,7 @@ class CommitMessageGenerator:
     # PROMPTS
     # ---------------------------
 
-    def _build_commit_prompt(self) -> str:
+    def _build_commit_prompt(self, previous_message: str | None = None) -> str:
         """
         Build the full commit prompt by loading the base prompt from file
         (with fallback) and appending config-driven instructions.
@@ -510,6 +571,9 @@ class CommitMessageGenerator:
         When `full_files` is enabled in the config, the full-files prompt
         is used instead of the regular commit prompt so the LLM knows it
         receives complete file contents alongside the diff.
+
+        In amend mode, ``previous_message`` is appended so the model refines
+        the existing message rather than regenerating it.
         """
         if self.config.get("full_files", False):
             base = load_prompt_file(
@@ -526,11 +590,13 @@ class CommitMessageGenerator:
                 hardcoded_fallback=HARDCODED_COMMIT_PROMPT,
             )
 
+        parts = [base.rstrip()]
         suffix = self._config_instructions()
         if suffix:
-            prompt = "\n\n".join([base.rstrip(), suffix.lstrip()])
-        else:
-            prompt = base
+            parts.append(suffix.lstrip())
+        if self.kind == "amend" and previous_message and previous_message.strip():
+            parts.append(self._amend_instruction(previous_message))
+        prompt = "\n\n".join(parts)
 
         log.debug("Final commit prompt (%d characters).", len(prompt))
         return prompt
@@ -577,6 +643,7 @@ class CommitMessageGenerator:
             self._language_instruction(),
             self._style_instruction(),
             self._emoji_instruction(),
+            self._classification_instruction(),
         ]
         suffix = " ".join(p for p in parts if p)
         prompt = "\n\n".join([base.rstrip(), suffix.lstrip()]) if suffix else base
@@ -603,12 +670,36 @@ class CommitMessageGenerator:
     # DISPATCH
     # ---------------------------
 
+    def _scan_for_secrets(self, content: str) -> None:
+        """Block the send if the exact payload contains likely secrets.
+
+        Skipped when the user bypassed (``--allow-secrets`` / confirmed), when
+        scanning is disabled in config, or for tokenless providers where nothing
+        leaves the machine.
+        """
+        if self.allow_secrets:
+            return
+        if not self.config.get("secret_scan", True):
+            return
+        from git_cai_cli.core.config import TOKENLESS_PROVIDERS
+
+        if self.default_model in TOKENLESS_PROVIDERS:
+            return
+
+        from git_cai_cli.core.secrets import SecretLeakError, scan_for_secrets
+
+        findings = scan_for_secrets(content)
+        if findings:
+            raise SecretLeakError(findings)
+
     def _dispatch_generate(self, content: str, system_prompt: str) -> str:
         """
         Route to correct model with the right prompt. System prompt is
         _system_prompt or _summary_prompt depending on use case.
         Content is output of git diff.
         """
+        self._scan_for_secrets(content)
+
         model_dispatch: Dict[str, Callable[..., str]] = {
             "openai": self.generate_openai,
             "gemini": self.generate_gemini,

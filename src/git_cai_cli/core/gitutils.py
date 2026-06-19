@@ -53,6 +53,60 @@ def get_last_commit_diff(
     return result.stdout
 
 
+def get_last_commit_message(
+    repo_root: Path,
+    run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+) -> str:
+    """Get the full message (subject + body + trailers) of the most recent commit."""
+    result = run_cmd(
+        ["git", "log", "-1", "--pretty=%B"],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=repo_root,
+    )
+    if result.returncode != 0:
+        log.debug("Failed to get last commit message: %s", result.stderr.strip())
+        return ""
+    return result.stdout.strip()
+
+
+_DIFF_GIT_RE = re.compile(r"^diff --git a/.+ b/(.+)$")
+
+
+def paths_from_diff(diff: str) -> list[str]:
+    """Extract the changed file paths from a unified ``git diff``.
+
+    Reads the ``diff --git a/<path> b/<path>`` headers, which are unambiguous
+    (unlike ``+++``/``---`` lines that can appear inside full-file dumps).
+    """
+    paths: list[str] = []
+    for line in diff.splitlines():
+        match = _DIFF_GIT_RE.match(line)
+        if match:
+            paths.append(match.group(1).strip())
+    return paths
+
+
+def _is_doc_path(path: str) -> bool:
+    """A doc file is a ``*.md`` file or anything under a ``docs/`` directory."""
+    p = path.strip().lower()
+    return p.endswith(".md") or p.startswith("docs/") or "/docs/" in p
+
+
+def classify_changed_paths(paths: Sequence[str]) -> tuple[int, int]:
+    """Return ``(non_doc_count, doc_count)`` for the given changed paths."""
+    non_doc = doc = 0
+    for path in paths:
+        if not path or not path.strip():
+            continue
+        if _is_doc_path(path):
+            doc += 1
+        else:
+            non_doc += 1
+    return non_doc, doc
+
+
 def _editor_executable(argv: list[str]) -> str:
     """
     Extract the executable name from an argv list.

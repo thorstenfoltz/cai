@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-06-14
+.\"      Date: 2026-06-19
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-06-14" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-06-19" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -34,6 +34,7 @@ git-cai \- AI\-powered commit message generator
 .nf
 \f(CRgit cai\fP [\-A | \-\-amend] [\-a | \-\-all] [\-C | \-\-conventional]
         [\-b | \-\-branch] [\-c | \-\-crazy] [\-d | \-\-debug]
+        [\-B | \-\-allow\-secrets] [\-k | \-\-check] [\-n | \-\-ping]
         [\-e TEMPERATURE | \-\-temperature TEMPERATURE]
         [\-F | \-\-full\-files | \-\-no\-full\-files] [\-f PATH | \-\-files PATH]
         [\-g | \-\-generate\-config]
@@ -219,6 +220,10 @@ so you can review or adjust the message before amending. This is useful when
 the original commit message was poorly worded or when you want the LLM to
 produce a better summary.
 .sp
+git\-cai also sends the existing commit message to the LLM, so it refines and
+improves the current wording instead of starting over, preserving issue
+references and trailers such as \f(CRCo\-authored\-by\fP.
+.sp
 Combine with \f(CR\-c\fP to skip the editor and amend immediately.
 .sp
 Cannot be combined with \f(CR\-\-squash\fP or \f(CR\-\-list\fP.
@@ -245,6 +250,24 @@ Cannot be combined with \f(CR\-\-list\fP, \f(CR\-\-update\fP, or \f(CR\-\-squash
 .nf
 .fam C
 git cai \-a
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-B, \-\-allow\-secrets
+.RS 4
+Bypass the local secret scan for this invocation and send the diff to the LLM
+even if a likely secret (API key, token, private key) is detected. By default
+git\-cai scans the exact content it is about to send and blocks on a match; use
+this flag in non\-interactive contexts where you have confirmed the match is a
+false positive. See also the \f(CRsecret_scan\fP config key.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-B
+git cai \-A \-\-allow\-secrets
 .fam
 .fi
 .if n .RE
@@ -522,6 +545,43 @@ file for the completions to take effect.
 .nf
 .fam C
 git cai \-i
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-k, \-\-check
+.RS 4
+Run configuration diagnostics and exit. The check is offline by default: it
+reports which config is authoritative (repository, home, or built\-in), validates
+the config keys, confirms the default provider has a model/temperature and a
+usable token, that the commit/squash/full\-files/PR prompts resolve, and that the
+configured editor is on \f(CRPATH\fP. Exits non\-zero if any check fails. Add \f(CR\-\-ping\fP
+to also probe the active provider with a tiny live request.
+.sp
+Cannot be combined with other mode flags (\f(CR\-\-amend\fP, \f(CR\-\-squash\fP, \f(CR\-\-PR\fP,
+\f(CR\-\-list\fP, \f(CR\-\-stats\fP, \f(CR\-\-init\fP, \f(CR\-\-update\fP).
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-check
+git cai \-\-check \-\-ping
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-n, \-\-ping
+.RS 4
+Only meaningful together with \f(CR\-\-check\fP. After the offline checks, send one
+small request to the active provider and report whether it is reachable and how
+long it took. Useful to confirm an API key and network path end to end.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-check \-\-ping
 .fam
 .fi
 .if n .RE
@@ -1379,6 +1439,24 @@ Available configuration keys:
 .  IP \(bu 2.3
 .\}
 \f(CRconventional\fP \(em use Conventional Commits format (\f(CRtrue\fP/\f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRsecret_scan\fP \(em scan the diff (and any full\-file contents) for likely
+secrets before sending to the LLM (\f(CRtrue\fP/\f(CRfalse\fP, default \f(CRtrue\fP). On a
+match the send is blocked and you are asked to confirm (or pass
+\f(CR\-\-allow\-secrets\fP); each finding reports the file and line. Only distinctive
+credential formats are flagged (private keys, AWS/GitHub/Slack/Google/OpenAI
+keys); obvious placeholders (values containing \f(CRexample\fP, \f(CRsample\fP, \f(CRdummy\fP,
+and repeated\-character filler) are ignored. Local providers (Ollama) skip the
+scan, since nothing leaves the machine.
 .RE
 .sp
 .RS 4

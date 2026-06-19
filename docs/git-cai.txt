@@ -12,6 +12,7 @@ SYNOPSIS
 [verse]
 `git cai` [-A | --amend] [-a | --all] [-C | --conventional]
         [-b | --branch] [-c | --crazy] [-d | --debug]
+        [-B | --allow-secrets] [-k | --check] [-n | --ping]
         [-e TEMPERATURE | --temperature TEMPERATURE]
         [-F | --full-files | --no-full-files] [-f PATH | --files PATH]
         [-g | --generate-config]
@@ -93,6 +94,10 @@ so you can review or adjust the message before amending. This is useful when
 the original commit message was poorly worded or when you want the LLM to
 produce a better summary.
 +
+git-cai also sends the existing commit message to the LLM, so it refines and
+improves the current wording instead of starting over, preserving issue
+references and trailers such as `Co-authored-by`.
++
 Combine with `-c` to skip the editor and amend immediately.
 +
 Cannot be combined with `--squash` or `--list`.
@@ -111,6 +116,18 @@ Cannot be combined with `--list`, `--update`, or `--squash`.
 +
 ----
 git cai -a
+----
+
+-B, --allow-secrets::
+Bypass the local secret scan for this invocation and send the diff to the LLM
+even if a likely secret (API key, token, private key) is detected. By default
+git-cai scans the exact content it is about to send and blocks on a match; use
+this flag in non-interactive contexts where you have confirmed the match is a
+false positive. See also the `secret_scan` config key.
++
+----
+git cai -B
+git cai -A --allow-secrets
 ----
 
 -b, --branch / --no-branch::
@@ -304,6 +321,31 @@ file for the completions to take effect.
 +
 ----
 git cai -i
+----
+
+-k, --check::
+Run configuration diagnostics and exit. The check is offline by default: it
+reports which config is authoritative (repository, home, or built-in), validates
+the config keys, confirms the default provider has a model/temperature and a
+usable token, that the commit/squash/full-files/PR prompts resolve, and that the
+configured editor is on `PATH`. Exits non-zero if any check fails. Add `--ping`
+to also probe the active provider with a tiny live request.
++
+Cannot be combined with other mode flags (`--amend`, `--squash`, `--PR`,
+`--list`, `--stats`, `--init`, `--update`).
++
+----
+git cai --check
+git cai --check --ping
+----
+
+-n, --ping::
+Only meaningful together with `--check`. After the offline checks, send one
+small request to the active provider and report whether it is reachable and how
+long it took. Useful to confirm an API key and network path end to end.
++
+----
+git cai --check --ping
 ----
 
 -l, --list [config|editor|language|model|path|provider|style]::
@@ -865,6 +907,14 @@ Available configuration keys:
 - `emoji` -- enable or disable emojis in commit messages (`true`/`false`)
 - `branch_context` -- include current branch name as LLM context (`true`/`false`)
 - `conventional` -- use Conventional Commits format (`true`/`false`)
+- `secret_scan` -- scan the diff (and any full-file contents) for likely
+  secrets before sending to the LLM (`true`/`false`, default `true`). On a
+  match the send is blocked and you are asked to confirm (or pass
+  `--allow-secrets`); each finding reports the file and line. Only distinctive
+  credential formats are flagged (private keys, AWS/GitHub/Slack/Google/OpenAI
+  keys); obvious placeholders (values containing `example`, `sample`, `dummy`,
+  and repeated-character filler) are ignored. Local providers (Ollama) skip the
+  scan, since nothing leaves the machine.
 - `load_tokens_from` -- path to the tokens file
 - `prompt_file` -- path to the commit prompt Markdown file
 - `squash_prompt_file` -- path to the squash prompt Markdown file

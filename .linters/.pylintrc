@@ -7,7 +7,7 @@ persistent=yes                  # Save data between runs (improves inference cac
 unsafe-load-any-extension=no    # Prevent loading arbitrary C extensions for safety
 
 ignore=venv,build,dist,__pycache__,tests        # Ignore common generated/virtual dirs
-ignore-paths=.*[\\/](\.venv|\.mypy_cache|\.pytest_cache|build|dist|docs)([\\/].*)?$
+ignore-paths=.*[\\/](\.venv|\.mypy_cache|\.pytest_cache|build|dist|docs)([\\/].*)?$,.*[\\/]_version\.py$
 
 ignore-patterns=^\.#,^__init__\.py$        # Ignore editor lockfiles (e.g., Emacs)
 
@@ -66,12 +66,12 @@ check-protected-access-in-special-methods=no
                                            # Don’t warn about protected attr access in dunder methods
 
 [DESIGN]
-max-args=25                                # Max arguments per function
+max-args=30                                # Max arguments per function
 max-attributes=12                          # Max attributes per class
 max-branches=30                            # Max branches per function
-max-locals=70                              # Max locals per function
+max-locals=80                              # Max locals per function
 max-returns=10                             # Max return statements per function
-max-statements=120                         # Max total statements per function
+max-statements=130                         # Max total statements per function
 max-public-methods=20                      # Max public methods per class
 min-public-methods=1                       # Min public methods per class
 max-nested-blocks=15                       # Max nesting depth

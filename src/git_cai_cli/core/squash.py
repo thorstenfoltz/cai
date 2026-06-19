@@ -29,6 +29,7 @@ from git_cai_cli.core.gitutils import (
     truncate_diff,
 )
 from git_cai_cli.core.llm import CommitMessageGenerator
+from git_cai_cli.core.secrets import SecretLeakError, format_findings
 from git_cai_cli.core.spinner import Spinner
 from git_cai_cli.core.validate import _validate_llm_call
 
@@ -222,6 +223,7 @@ def squash_branch(
     context: str | None = None,
     sql_override: bool | None = None,
     signoff: bool | None = None,
+    allow_secrets: bool = False,
 ) -> None:
     """
     Squash commits in the current branch into a single commit with an LLM-generated message.
@@ -285,6 +287,7 @@ def squash_branch(
         sys.exit(1)
     generator = CommitMessageGenerator(token, config, provider)
     generator.repo = repo_name_from_root(repo_root)
+    generator.allow_secrets = allow_secrets
 
     measure = time_flag or config.get("measure_time", False)
 
@@ -313,6 +316,10 @@ def squash_branch(
                         token=token,
                         requires_token=provider not in TOKENLESS_PROVIDERS,
                     )
+            except SecretLeakError as leak:
+                log.error("%s", format_findings(leak.findings))
+                log.error("Aborting squash. Re-run with --allow-secrets to override.")
+                sys.exit(1)
             except ValueError as e:
                 log.error("%s", e)
                 sys.exit(1)
@@ -378,6 +385,13 @@ def squash_branch(
 
         log.info("Summarizing commit history using LLM...")
 
+        # File counts across the squashed range, so a mixed code+docs squash is
+        # classified by the functional change rather than as docs.
+        changed = subprocess.check_output(
+            ["git", "diff", "--name-only", f"{merge_base}..HEAD"], text=True
+        ).splitlines()
+        generator.set_changed_files(changed)
+
         start = time.perf_counter() if measure else None
 
         generator.kind = "squash"
@@ -390,6 +404,10 @@ def squash_branch(
                     token=token,
                     requires_token=provider not in TOKENLESS_PROVIDERS,
                 )
+        except SecretLeakError as leak:
+            log.error("%s", format_findings(leak.findings))
+            log.error("Aborting squash. Re-run with --allow-secrets to override.")
+            sys.exit(1)
         except ValueError as e:
             log.error("%s", e)
             sys.exit(1)
