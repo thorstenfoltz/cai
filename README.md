@@ -49,7 +49,7 @@ Currently supported providers:
 - Global configuration with per-repository overrides
 - Interactive `--init` wizard for first-time setup (provider, token, language, style)
 - Repository-specific language, style, and model selection
-- Amend the last commit message with a regenerated one
+- Amend mode refines the existing commit message instead of regenerating it from scratch, preserving trailers and intent
 - Conventional Commits format support
 - `Signed-off-by:` (DCO) trailer support via `--signoff`
 - `--print` mode that emits the generated message to stdout for scripting
@@ -65,6 +65,9 @@ Currently supported providers:
 - Generation time measurement
 - Local-only usage analytics (per-provider commits, tokens, latency) with opt-in SQLite storage
 - Shell completion for bash, zsh, and fish
+- Local secret scan that blocks the diff before it reaches the provider when likely credentials are detected
+- Configuration doctor (`--check`) that validates your setup offline, with an optional live provider probe (`--ping`)
+- Mixed code and documentation diffs are classified by the functional change rather than mislabelled as docs
 
 ---
 
@@ -231,6 +234,7 @@ git cai -g
 - `stats` – opt in to local-only usage analytics (per-run row in a SQLite DB at `~/.local/share/git-cai/stats.db`); default `false`.
 No diff content, commit messages, or file paths are stored — only metadata (provider, model, kind, repo name, token counts, latency, settings)
 - `signoff` – append a `Signed-off-by:` trailer (built from git `user.name` / `user.email`) to every commit message; default `false`
+- `secret_scan` – scan the outgoing diff for likely secrets and ask before sending; default `true`. Bypass once with `-B` / `--allow-secrets`, or disable entirely by setting it to `false`. Skipped for tokenless providers (Ollama), where nothing leaves the machine
 
 ---
 
@@ -238,8 +242,9 @@ No diff content, commit messages, or file paths are stored — only metadata (pr
 
 In addition to `git cai`, the following options are available:
 
-- `-A`, `--amend` – regenerate and amend the last commit message
+- `-A`, `--amend` – refine the last commit message against its diff and amend it (preserves trailers and original intent)
 - `-a`, `--all` – stage all tracked modified and deleted files
+- `-B`, `--allow-secrets` – bypass the local secret scan and send the diff even if a likely secret is detected
 - `-b`, `--branch` – include current branch name as context for the LLM
 - `-C`, `--conventional` – use Conventional Commits format (`type(scope): description`)
 - `-c`, `--crazy` – Trust the LLM and commit without checking
@@ -252,8 +257,10 @@ In addition to `git cai`, the following options are available:
 - `-h`, `--help` – show help and available commands
 - `-I`, `--init` – interactive setup wizard (writes home config and tokens.yml)
 - `-i`, `--install-completion` – install shell completion for bash, zsh, or fish
+- `-k`, `--check` – run configuration diagnostics offline (config source, provider, token, prompts, editor, style)
 - `-l`, `--list` – list available information. Valid types: `config`, `editor`, `language`, `model`, `path`, `provider`, `style`
 - `-m`, `--model` – override the model for this invocation (requires `-P`)
+- `-n`, `--ping` – with `--check`, also send a tiny request to the active provider to confirm reachability
 - `-o`, `--signoff` / `--no-signoff` – append a `Signed-off-by:` trailer (uses git `user.name` / `user.email`); applies to commit, amend, and squash modes
 - `-P`, `--provider` – override the LLM provider for this invocation
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
@@ -280,14 +287,17 @@ In addition to `git cai`, the following options are available:
 
 ### Amend
 
-To regenerate the last commit message and amend it:
+To refine the last commit message and amend it:
 
 ```sh
 git cai -A
 ```
 
-This reads the diff from the most recent commit, sends it to the LLM, and opens the editor for review.
-Use with `-c` to amend immediately without the editor: `git cai -A -c`.
+This reads the diff from the most recent commit and sends both the diff and the
+existing message to the LLM, which improves the wording while keeping the
+original intent and any trailers (issue IDs, `Co-authored-by`). The result opens
+in the editor for review. Use with `-c` to amend immediately without the editor:
+`git cai -A -c`.
 
 ### Conventional Commits
 
@@ -435,6 +445,45 @@ If no repo config exists, an error is shown. Use `git cai -g` to create one firs
 git cai -H language=de
 git cai -H emoji=false
 ```
+
+### Configuration check (doctor)
+
+`-k` / `--check` runs a set of offline diagnostics so you can confirm cai is
+set up correctly without contacting any provider. It reports the authoritative
+config source, validates the config keys, checks the active provider block, the
+token and `tokens.yml` permissions, prompt resolution, the editor on your PATH,
+and the configured style.
+
+```sh
+git cai -k                       # offline diagnostics only
+git cai --check                  # long form
+git cai -k -n                    # also probe the provider for reachability
+git cai --check --ping           # long form
+```
+
+Add `-n` / `--ping` to send one tiny synthetic diff to the active provider and
+confirm it is reachable (this consumes a minimal request). The command exits
+non-zero if any check fails, so it works in scripts and CI.
+
+### Secret scanning
+
+Before any diff leaves your machine, cai scans it for likely credentials
+(private keys, AWS, OpenAI, GitHub, Slack, and Google keys). When something is
+found, the location is shown as `path:line` with a masked value and you are
+asked to confirm before anything is sent.
+
+```sh
+git cai                          # scan runs automatically, prompts on a hit
+git cai -B                       # bypass the scan for this run
+git cai --allow-secrets          # long form
+git cai -S secret_scan=false     # disable the scan persistently
+```
+
+Obvious placeholders (`example`, `dummy`, repeated filler, and similar) are
+ignored to keep the noise down, and the scan is skipped entirely for tokenless
+providers such as Ollama, where nothing leaves the machine. In non-interactive
+runs (`-c` / `--crazy`, or no TTY) a detection aborts the send instead of
+prompting; re-run with `-B` to override.
 
 ---
 
