@@ -234,7 +234,8 @@ git cai -g
 - `stats` – opt in to local-only usage analytics (per-run row in a SQLite DB at `~/.local/share/git-cai/stats.db`); default `false`.
 No diff content, commit messages, or file paths are stored — only metadata (provider, model, kind, repo name, token counts, latency, settings)
 - `signoff` – append a `Signed-off-by:` trailer (built from git `user.name` / `user.email`) to every commit message; default `false`
-- `secret_scan` – scan the outgoing diff for likely secrets and ask before sending; default `true`. Bypass once with `-B` / `--allow-secrets`, or disable entirely by setting it to `false`. Skipped for tokenless providers (Ollama), where nothing leaves the machine
+- `secret_scan` – scan the outgoing diff for likely secrets and ask before sending; default `true`. Bypass once with `-B` / `--allow-secrets`,
+or disable entirely by setting it to `false`. Skipped for tokenless providers (Ollama), where nothing leaves the machine
 
 ---
 
