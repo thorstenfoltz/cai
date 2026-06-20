@@ -1,5 +1,6 @@
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -15,7 +16,7 @@ def temp_git_repo():
     Create a temporary Git repository with a staged file.
     The repo is fully isolated and safe.
     """
-    with runner.isolated_filesystem() as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
 
         # Initialize a git repository
