@@ -9,7 +9,7 @@ ceiling. Swap in gitleaks/detect-secrets only if the FP rate becomes a problem.
 """
 
 import re
-from typing import NamedTuple
+from typing import Callable, NamedTuple
 
 
 class Finding(NamedTuple):
@@ -142,6 +142,18 @@ def scan_for_secrets(text: str) -> list[Finding]:
             seen.add(key)
             findings.append(Finding(rule, current_file, report_line, _mask(value)))
     return findings
+
+
+def drop_excluded(
+    findings: list[Finding], is_excluded: Callable[[str], bool]
+) -> list[Finding]:
+    """Drop findings whose file path is excluded from secret scanning.
+
+    ``is_excluded`` is a predicate over a path (the caller supplies the
+    matching semantics — see ``secret_scan_exclude``). Findings with no path
+    (``path is None``) are unattributable and never excluded.
+    """
+    return [f for f in findings if f.path is None or not is_excluded(f.path)]
 
 
 def format_findings(findings: list[Finding]) -> str:

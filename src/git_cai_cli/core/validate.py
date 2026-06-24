@@ -73,10 +73,11 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
         "stats_db_path",
         "signoff",
         "secret_scan",
+        "secret_scan_exclude",
     }
     # Internal escape-hatch keys: accepted if a user sets them, but never
     # reported as "missing" — they aren't part of the documented surface.
-    internal_only_keys = {"stats_db_path"}
+    internal_only_keys = {"stats_db_path", "secret_scan_exclude"}
     allowed_provider_keys = set(reference.keys()) - allowed_global_keys
 
     config_keys = set(config.keys())

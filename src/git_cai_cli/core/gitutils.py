@@ -222,6 +222,25 @@ def _load_caiignore_patterns(repo_root: Path) -> list[str]:
     return patterns
 
 
+def append_to_caiignore(repo_root: Path, path: str) -> Path:
+    """Append ``path`` as a line to ``<repo>/.caiignore`` if not already present.
+
+    Idempotent; creates the file if missing. Returns the ignore-file path.
+    """
+    ignore_file = repo_root / ".caiignore"
+    lines: list[str] = []
+    if ignore_file.exists():
+        lines = ignore_file.read_text(encoding="utf-8").splitlines()
+
+    if path in (line.strip() for line in lines):
+        return ignore_file
+
+    lines.append(path)
+    ignore_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    log.info("Added %s to %s", path, ignore_file)
+    return ignore_file
+
+
 def git_diff_excluding(
     repo_root: Path,
     run_cmd: Callable[..., subprocess.CompletedProcess] = subprocess.run,

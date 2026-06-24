@@ -31,6 +31,15 @@ def mock_generator() -> MagicMock:
     Fixture that simulates a commit message generator.
     """
     gen = MagicMock()
+    # New API: callers build the request before the spinner, then `send` it.
+    # Dispatch the mocked result by content so both flows (staged-commit
+    # message and squash summary) return the right thing regardless of order.
+    gen.build_commit_request.return_value = ("commit-content", "commit-prompt")
+    gen.build_squash_request.return_value = ("squash-content", "squash-prompt")
+    gen.send.side_effect = lambda content, _prompt: (
+        "commit message" if content == "commit-content" else "squash summary"
+    )
+    # Legacy methods kept for any test that calls them directly.
     gen.generate.return_value = "commit message"
     gen.summarize_commit_history.return_value = "squash summary"
     return gen
@@ -105,7 +114,9 @@ def test_squash_classifies_auth_error(mock_repo_root, clean_git_state, caplog) -
     resp.json.return_value = {"error": {"message": "bad key"}}
 
     gen = MagicMock()
-    gen.summarize_commit_history.side_effect = requests.HTTPError(response=resp)
+    gen.build_commit_request.return_value = ("content", "prompt")
+    gen.build_squash_request.return_value = ("content", "prompt")
+    gen.send.side_effect = requests.HTTPError(response=resp)
 
     with (
         patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
@@ -443,7 +454,7 @@ def test_squash_branch_passes_context_to_generator(
     ):
         squash_branch(context="Closes #42")
 
-    call_args = mock_generator.summarize_commit_history.call_args
+    call_args = mock_generator.build_squash_request.call_args
     assert call_args[1].get("context") == "Closes #42"
 
 

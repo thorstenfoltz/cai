@@ -67,6 +67,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "stats": False,
     "signoff": False,
     "secret_scan": True,
+    "secret_scan_exclude": [],
 }
 
 # Providers that do not require an API token in tokens.yml
@@ -585,6 +586,43 @@ def set_config_value(key: str, raw_value: str, *, force_home: bool = False) -> P
     with target.open("w", encoding="utf-8") as f:
         yaml.safe_dump(_serialize_config(config), f, sort_keys=False)
 
+    return target
+
+
+def add_to_secret_scan_exclude(path: str, *, force_home: bool = False) -> Path:
+    """Append ``path`` to ``secret_scan_exclude`` in the active config file.
+
+    Targets the repo ``cai_config.yml`` if one exists, otherwise the home
+    config. Unlike :func:`set_config_value`, this never errors when no repo
+    config is present — it falls back to home, matching the "local if exists,
+    otherwise global" rule. The append is idempotent (dedup).
+
+    Returns the path to the config file that was written.
+    """
+    repo_config = None if force_home else _find_repo_config()
+    target = repo_config if repo_config else FALLBACK_CONFIG_FILE
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() and target.stat().st_size > 0:
+        try:
+            with target.open("r", encoding="utf-8") as f:
+                config = cast(dict[str, Any], yaml.safe_load(f) or {})
+        except yaml.YAMLError as e:
+            raise ValueError(f"Failed to parse config file {target}: {e}") from e
+    else:
+        config = {}
+
+    existing = config.get("secret_scan_exclude")
+    if not isinstance(existing, list):
+        existing = []
+    if path not in existing:
+        existing.append(path)
+    config["secret_scan_exclude"] = existing
+
+    with target.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(_serialize_config(config), f, sort_keys=False)
+
+    log.info("Added %s to secret_scan_exclude in %s", path, target)
     return target
 
 

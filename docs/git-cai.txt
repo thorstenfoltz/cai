@@ -914,7 +914,18 @@ Available configuration keys:
   credential formats are flagged (private keys, AWS/GitHub/Slack/Google/OpenAI
   keys); obvious placeholders (values containing `example`, `sample`, `dummy`,
   and repeated-character filler) are ignored. Local providers (Ollama) skip the
-  scan, since nothing leaves the machine.
+  scan, since nothing leaves the machine. When you confirm a flagged send in an
+  interactive commit (a false alarm), git-cai offers, per flagged file, to
+  remember the decision: add the file to `.caiignore` (drop it from git-cai
+  entirely), add it to `secret_scan_exclude` (keep sending it but skip its
+  scan), or skip (remember nothing).
+- `secret_scan_exclude` -- list of repo-relative paths whose contents are
+  exempt from the secret scan while still being sent to the LLM (default empty).
+  Use this for files that keep tripping a false positive (such as test fixtures)
+  but that you still want git-cai to see. Paths are matched with gitignore
+  semantics, like `.caiignore`, so directory patterns work too. The
+  false-alarm prompt writes here when you choose "keep, skip scan", targeting
+  the repository `cai_config.yml` if one exists, otherwise the home config.
 - `load_tokens_from` -- path to the tokens file
 - `prompt_file` -- path to the commit prompt Markdown file
 - `squash_prompt_file` -- path to the squash prompt Markdown file

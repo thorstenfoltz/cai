@@ -205,9 +205,8 @@ def test_run_pr_writes_to_stdout_by_default(mock_repo_root, base_config, capsys)
         raise AssertionError(f"unexpected cmd: {cmd}")
 
     gen = MagicMock()
-    gen.generate_pr_description.return_value = (
-        "## Summary\n- did stuff\n\n## Test plan\n- [ ] check"
-    )
+    gen.build_pr_request.return_value = ("content", "prompt")
+    gen.send.return_value = "## Summary\n- did stuff\n\n## Test plan\n- [ ] check"
 
     with (
         patch("git_cai_cli.core.pr.find_git_root", return_value=mock_repo_root),
@@ -240,7 +239,8 @@ def test_run_pr_writes_to_file_when_configured(mock_repo_root, base_config):
         raise AssertionError(f"unexpected cmd: {cmd}")
 
     gen = MagicMock()
-    gen.generate_pr_description.return_value = "## Summary\n- ok"
+    gen.build_pr_request.return_value = ("content", "prompt")
+    gen.send.return_value = "## Summary\n- ok"
 
     with (
         patch("git_cai_cli.core.pr.find_git_root", return_value=mock_repo_root),
@@ -271,7 +271,8 @@ def test_run_pr_uses_explicit_base_override(mock_repo_root, base_config, capsys)
         raise AssertionError(f"unexpected cmd: {cmd}")
 
     gen = MagicMock()
-    gen.generate_pr_description.return_value = "BODY"
+    gen.build_pr_request.return_value = ("content", "prompt")
+    gen.send.return_value = "BODY"
 
     with (
         patch("git_cai_cli.core.pr.find_git_root", return_value=mock_repo_root),
@@ -308,7 +309,8 @@ def test_run_pr_classifies_auth_error(mock_repo_root, base_config, caplog):
     resp.json.return_value = {"error": {"message": "bad key"}}
 
     gen = MagicMock()
-    gen.generate_pr_description.side_effect = requests.HTTPError(response=resp)
+    gen.build_pr_request.return_value = ("content", "prompt")
+    gen.send.side_effect = requests.HTTPError(response=resp)
 
     with (
         patch("git_cai_cli.core.pr.find_git_root", return_value=mock_repo_root),

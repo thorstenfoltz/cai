@@ -71,7 +71,7 @@ def test_pr_writes_to_stdout_by_default(feature_branch_repo, capsys):
         patch("git_cai_cli.core.pr.load_config", return_value=cfg),
         patch("git_cai_cli.core.pr.load_token", return_value="token"),
         patch(
-            "git_cai_cli.core.llm.CommitMessageGenerator.generate_pr_description",
+            "git_cai_cli.core.llm.CommitMessageGenerator.send",
             return_value="## Summary\n- added src\n\n## Test plan\n- [ ] run",
         ),
     ):
@@ -90,7 +90,7 @@ def test_pr_writes_to_file_when_pr_to_file_true(feature_branch_repo):
         patch("git_cai_cli.core.pr.load_config", return_value=cfg),
         patch("git_cai_cli.core.pr.load_token", return_value="token"),
         patch(
-            "git_cai_cli.core.llm.CommitMessageGenerator.generate_pr_description",
+            "git_cai_cli.core.llm.CommitMessageGenerator.send",
             return_value="## Summary\n- added src",
         ),
     ):
@@ -108,7 +108,7 @@ def test_pr_respects_custom_pr_file_name(feature_branch_repo):
         patch("git_cai_cli.core.pr.load_config", return_value=cfg),
         patch("git_cai_cli.core.pr.load_token", return_value="token"),
         patch(
-            "git_cai_cli.core.llm.CommitMessageGenerator.generate_pr_description",
+            "git_cai_cli.core.llm.CommitMessageGenerator.send",
             return_value="BODY",
         ),
     ):
@@ -129,7 +129,7 @@ def test_pr_no_commits_does_nothing(feature_branch_repo, capsys, caplog):
         patch("git_cai_cli.core.pr.load_config", return_value=cfg),
         patch("git_cai_cli.core.pr.load_token", return_value="token"),
         patch(
-            "git_cai_cli.core.llm.CommitMessageGenerator.generate_pr_description",
+            "git_cai_cli.core.llm.CommitMessageGenerator.send",
             side_effect=AssertionError("should not be called"),
         ),
     ):
