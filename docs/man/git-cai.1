@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-06-19
+.\"      Date: 2026-06-24
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-06-19" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-06-24" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -1456,7 +1456,28 @@ match the send is blocked and you are asked to confirm (or pass
 credential formats are flagged (private keys, AWS/GitHub/Slack/Google/OpenAI
 keys); obvious placeholders (values containing \f(CRexample\fP, \f(CRsample\fP, \f(CRdummy\fP,
 and repeated\-character filler) are ignored. Local providers (Ollama) skip the
-scan, since nothing leaves the machine.
+scan, since nothing leaves the machine. When you confirm a flagged send in an
+interactive commit (a false alarm), git\-cai offers, per flagged file, to
+remember the decision: add the file to \f(CR.caiignore\fP (drop it from git\-cai
+entirely), add it to \f(CRsecret_scan_exclude\fP (keep sending it but skip its
+scan), or skip (remember nothing).
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRsecret_scan_exclude\fP \(em list of repo\-relative paths whose contents are
+exempt from the secret scan while still being sent to the LLM (default empty).
+Use this for files that keep tripping a false positive (such as test fixtures)
+but that you still want git\-cai to see. Paths are matched with gitignore
+semantics, like \f(CR.caiignore\fP, so directory patterns work too. The
+false\-alarm prompt writes here when you choose "keep, skip scan", targeting
+the repository \f(CRcai_config.yml\fP if one exists, otherwise the home config.
 .RE
 .sp
 .RS 4

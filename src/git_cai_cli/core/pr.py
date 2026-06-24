@@ -150,14 +150,16 @@ def run_pr(
     generator.kind = "pr"
     generator.repo = repo_name_from_root(repo_root)
     generator.allow_secrets = allow_secrets
+    content, system_prompt = generator.build_pr_request(
+        commit_log, changed_files, context=context
+    )
     try:
         try:
             with Spinner("Generating PR description"):
                 description = _validate_llm_call(
-                    generator.generate_pr_description,
-                    commit_log,
-                    changed_files,
-                    context=context,
+                    generator.send,
+                    content,
+                    system_prompt,
                     token=token,
                     requires_token=provider not in TOKENLESS_PROVIDERS,
                 )

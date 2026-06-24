@@ -63,6 +63,50 @@ def _log_stats_state(config: dict) -> None:
     stats_module.log_state(config)
 
 
+def _route_false_alarm(findings: list, repo_root: Path | None) -> None:
+    """After a confirmed false alarm, offer to remember each flagged file.
+
+    For each distinct flagged path, prompt whether to add it to ``.caiignore``
+    (drop the file from git-cai), to ``secret_scan_exclude`` in the active
+    config (keep the file but skip its scan), or skip (remember nothing).
+    Findings without a path are unattributable and skipped.
+    """
+    from git_cai_cli.core.config import add_to_secret_scan_exclude
+    from git_cai_cli.core.gitutils import append_to_caiignore
+
+    seen: set[str] = set()
+    for finding in findings:
+        path = finding.path
+        if not path or path in seen:
+            continue
+        seen.add(path)
+
+        typer.echo(f"\nFalse alarm for: {path}", err=True)
+        typer.echo("How should git-cai remember this file?", err=True)
+        typer.echo(
+            "  1) .caiignore — drop the file from git-cai entirely "
+            "(it is never sent to the LLM again)",
+            err=True,
+        )
+        typer.echo(
+            "  2) config — keep sending the file, but skip its secret scan "
+            "from now on (added to secret_scan_exclude)",
+            err=True,
+        )
+        typer.echo("  3) skip — send it this once; remember nothing", err=True)
+        choice = typer.prompt("Choose", default="3").strip()
+
+        if choice == "1":
+            if repo_root is None:
+                typer.echo("Not in a git repo; cannot write .caiignore.", err=True)
+                continue
+            target = append_to_caiignore(repo_root, path)
+            typer.echo(f"Added {path} to {target}", err=True)
+        elif choice == "2":
+            target = add_to_secret_scan_exclude(path)
+            typer.echo(f"Added {path} to secret_scan_exclude in {target}", err=True)
+
+
 def run(
     *,
     mode: Mode,
@@ -272,15 +316,19 @@ def run(
     spinner_text = (
         "Regenerating commit message" if is_amend else "Generating commit message"
     )
+    # Build the prompt (and emit its config logging) before the spinner starts,
+    # so that routine info does not interleave with the live spinner frames.
+    content, system_prompt = generator.build_commit_request(
+        diff, context=context, previous_message=previous_message
+    )
     try:
         while True:
             try:
                 with Spinner(spinner_text):
                     commit_message = _validate_llm_call(
-                        generator.generate,
-                        diff,
-                        context=context,
-                        previous_message=previous_message,
+                        generator.send,
+                        content,
+                        system_prompt,
                         token=token,
                         requires_token=provider not in TOKENLESS_PROVIDERS,
                     )
@@ -299,6 +347,7 @@ def run(
                 ):
                     typer.echo("Aborted. Nothing was sent.", err=True)
                     raise typer.Exit(code=1)
+                _route_false_alarm(leak.findings, repo_root)
                 generator.allow_secrets = True
             except ValueError as e:
                 typer.echo(f"Error: {e}", err=True)

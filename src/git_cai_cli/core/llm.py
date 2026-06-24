@@ -337,6 +337,51 @@ class CommitMessageGenerator:
         """
         self._classification_counts = classify_changed_paths(paths)
 
+    def _log_target(self) -> None:
+        """Log the active provider and model once, up front.
+
+        Call sites run this *before* starting the spinner so this routine
+        config noise does not interleave with the spinner's live frames —
+        interleaving would break the spinner line and make a single
+        generation look like two. The per-provider methods log the same
+        detail at DEBUG.
+        """
+        model = (self.config.get(self.default_model) or {}).get("model")
+        log.info("Using provider '%s' (model '%s').", self.default_model, model)
+
+    def send(self, content: str, system_prompt: str) -> str:
+        """Run the secret scan and dispatch a prebuilt request to the LLM.
+
+        This is the network-bound half of generation — the part worth
+        wrapping in a spinner. Prompt building (and its logging) happens
+        earlier in the matching ``build_*_request`` method.
+        """
+        return self._dispatch_generate(content=content, system_prompt=system_prompt)
+
+    def build_commit_request(
+        self,
+        git_diff: str,
+        context: str | None = None,
+        previous_message: str | None = None,
+    ) -> tuple[str, str]:
+        """Build the ``(content, system_prompt)`` pair for a commit message.
+
+        Split out from :meth:`generate` so prompt building runs before the
+        spinner starts. ``previous_message`` is used in amend mode.
+        """
+        self._log_target()
+        self.set_changed_files(paths_from_diff(git_diff))
+        prompt = self._build_commit_prompt(previous_message=previous_message)
+        log.debug("Commit system prompt preview: %r", prompt[:400])
+
+        content = git_diff
+        if context:
+            content = (
+                f"{git_diff}\n\n"
+                f"--- Additional context from the author ---\n{context}"
+            )
+        return content, prompt
+
     def generate(
         self,
         git_diff: str,
@@ -349,25 +394,16 @@ class CommitMessageGenerator:
         ``previous_message`` is used in amend mode so the model refines the
         existing message instead of regenerating from scratch.
         """
-        self.set_changed_files(paths_from_diff(git_diff))
-        prompt = self._build_commit_prompt(previous_message=previous_message)
-        log.debug("Commit system prompt preview: %r", prompt[:400])
+        content, prompt = self.build_commit_request(
+            git_diff, context=context, previous_message=previous_message
+        )
+        return self.send(content, prompt)
 
-        content = git_diff
-        if context:
-            content = (
-                f"{git_diff}\n\n"
-                f"--- Additional context from the author ---\n{context}"
-            )
-
-        return self._dispatch_generate(content=content, system_prompt=prompt)
-
-    def summarize_commit_history(
+    def build_squash_request(
         self, commit_messages: str, context: str | None = None
-    ) -> str:
-        """
-        Summarize multiple commit messages into one high-level commit message.
-        """
+    ) -> tuple[str, str]:
+        """Build the ``(content, system_prompt)`` pair for a squash summary."""
+        self._log_target()
         prompt = self._build_squash_prompt()
         log.debug("Squash system prompt preview: %r", prompt[:400])
 
@@ -377,19 +413,25 @@ class CommitMessageGenerator:
                 f"{commit_messages}\n\n"
                 f"--- Additional context from the author ---\n{context}"
             )
+        return content, prompt
 
-        return self._dispatch_generate(content=content, system_prompt=prompt)
+    def summarize_commit_history(
+        self, commit_messages: str, context: str | None = None
+    ) -> str:
+        """
+        Summarize multiple commit messages into one high-level commit message.
+        """
+        content, prompt = self.build_squash_request(commit_messages, context=context)
+        return self.send(content, prompt)
 
-    def generate_pr_description(
+    def build_pr_request(
         self,
         commit_log: str,
         changed_files: str,
         context: str | None = None,
-    ) -> str:
-        """
-        Generate a Markdown Pull Request description from the commit log and
-        changed-files list of a feature branch.
-        """
+    ) -> tuple[str, str]:
+        """Build the ``(content, system_prompt)`` pair for a PR description."""
+        self._log_target()
         self.set_changed_files(changed_files.splitlines())
         prompt = self._build_pr_prompt()
         log.debug("PR system prompt preview: %r", prompt[:400])
@@ -402,14 +444,27 @@ class CommitMessageGenerator:
             changed_files.strip() or "(no files)",
         ]
         content = "\n".join(sections)
-
         if context:
             content = (
                 f"{content}\n\n"
                 f"--- Additional context from the author ---\n{context}"
             )
+        return content, prompt
 
-        return self._dispatch_generate(content=content, system_prompt=prompt)
+    def generate_pr_description(
+        self,
+        commit_log: str,
+        changed_files: str,
+        context: str | None = None,
+    ) -> str:
+        """
+        Generate a Markdown Pull Request description from the commit log and
+        changed-files list of a feature branch.
+        """
+        content, prompt = self.build_pr_request(
+            commit_log, changed_files, context=context
+        )
+        return self.send(content, prompt)
 
     def _emoji_instruction(self) -> str:
         """
@@ -686,9 +741,24 @@ class CommitMessageGenerator:
         if self.default_model in TOKENLESS_PROVIDERS:
             return
 
-        from git_cai_cli.core.secrets import SecretLeakError, scan_for_secrets
+        from git_cai_cli.core.secrets import (
+            SecretLeakError,
+            drop_excluded,
+            scan_for_secrets,
+        )
 
         findings = scan_for_secrets(content)
+
+        # Files listed in `secret_scan_exclude` stay part of the payload but
+        # are exempt from the scan (false alarms the user already vetted).
+        # Matched with gitignore semantics for parity with `.caiignore`.
+        excludes = self.config.get("secret_scan_exclude") or []
+        if findings and excludes:
+            import pathspec
+
+            spec = pathspec.GitIgnoreSpec.from_lines(excludes)
+            findings = drop_excluded(findings, spec.match_file)
+
         if findings:
             raise SecretLeakError(findings)
 
@@ -714,7 +784,7 @@ class CommitMessageGenerator:
         if self.default_model not in model_dispatch:
             raise ValueError(f"Unknown model type: '{self.default_model}'")
 
-        log.info("Using provider '%s' for generation.", self.default_model)
+        log.debug("Using provider '%s' for generation.", self.default_model)
 
         return model_dispatch[self.default_model](
             content, system_prompt_override=system_prompt
@@ -751,7 +821,7 @@ class CommitMessageGenerator:
             or anthropic_cfg.get("max_tokens", 32768)
         )
 
-        log.info("Using anthropic model '%s'.", model)
+        log.debug("Using anthropic model '%s'.", model)
 
         # Anthropic Messages API expects system prompt via the top-level "system" field.
         messages = [{"role": "user", "content": content}]
@@ -817,7 +887,7 @@ class CommitMessageGenerator:
         model = self.config["gemini"]["model"]
         temperature = self.config["gemini"]["temperature"]
 
-        log.info("Using gemini model '%s'.", model)
+        log.debug("Using gemini model '%s'.", model)
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
@@ -874,7 +944,7 @@ class CommitMessageGenerator:
         model = self.config["groq"]["model"]
         temperature = self.config["groq"]["temperature"]
 
-        log.info("Using groq model '%s'.", model)
+        log.debug("Using groq model '%s'.", model)
 
         messages = []
 
@@ -934,7 +1004,7 @@ class CommitMessageGenerator:
         model = self.config["mistral"]["model"]
         temperature = self.config["mistral"]["temperature"]
 
-        log.info("Using mistral model '%s'.", model)
+        log.debug("Using mistral model '%s'.", model)
 
         messages = []
 
@@ -1119,7 +1189,7 @@ class CommitMessageGenerator:
         model = self.config["ollama"]["model"]
         temperature = self.config["ollama"]["temperature"]
 
-        log.info("Using ollama model '%s'.", model)
+        log.debug("Using ollama model '%s'.", model)
 
         url = f"{self._ollama_base_url()}/api/chat"
 
@@ -1214,7 +1284,7 @@ class CommitMessageGenerator:
             else self.config["openai"]["temperature"]
         )
 
-        log.info("Using %s model '%s'.", provider_name, model)
+        log.debug("Using %s model '%s'.", provider_name, model)
 
         messages = []
 
@@ -1265,7 +1335,7 @@ class CommitMessageGenerator:
         model = self.config["xai"]["model"]
         temperature = self.config["xai"]["temperature"]
 
-        log.info("Using xai model '%s'.", model)
+        log.debug("Using xai model '%s'.", model)
 
         messages = []
 

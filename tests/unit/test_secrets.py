@@ -5,7 +5,9 @@ from unittest.mock import patch
 import pytest
 from git_cai_cli.core.llm import CommitMessageGenerator
 from git_cai_cli.core.secrets import (
+    Finding,
     SecretLeakError,
+    drop_excluded,
     format_findings,
     scan_for_secrets,
 )
@@ -117,4 +119,69 @@ def test_tokenless_provider_skips_gate():
     gen = _gen(default_model="ollama")
     with patch.object(gen, "generate_ollama", return_value="ok") as mock_fn:
         assert gen._dispatch_generate(SECRET_DIFF, "prompt") == "ok"
+    mock_fn.assert_called_once()
+
+
+# ---- drop_excluded ----
+
+
+def test_drop_excluded_removes_matching_paths():
+    f = Finding("AWS access key", "tests/fixtures/fake.py", 1, "AK…VD")
+    assert drop_excluded([f], lambda p: p == "tests/fixtures/fake.py") == []
+
+
+def test_drop_excluded_keeps_non_matching():
+    f = Finding("AWS access key", "src/real.py", 1, "AK…VD")
+    assert drop_excluded([f], lambda p: p == "other") == [f]
+
+
+def test_drop_excluded_never_drops_pathless_findings():
+    f = Finding("AWS access key", None, None, "AK…VD")
+    assert drop_excluded([f], lambda p: True) == [f]
+
+
+# ---- secret_scan_exclude gating ----
+
+
+def test_excluded_file_lets_send_through():
+    # SECRET_DIFF is for file "x"; excluding it should unblock the send.
+    gen = _gen(secret_scan_exclude=["x"])
+    with patch.object(gen, "generate_openai", return_value="ok") as mock_fn:
+        assert gen._dispatch_generate(SECRET_DIFF, "prompt") == "ok"
+    mock_fn.assert_called_once()
+
+
+def test_exclude_honors_gitignore_directory_pattern():
+    diff = f"diff --git a/tests/f.py b/tests/f.py\n+{REAL_AWS}\n"
+    gen = _gen(secret_scan_exclude=["tests/"])
+    with patch.object(gen, "generate_openai", return_value="ok") as mock_fn:
+        assert gen._dispatch_generate(diff, "prompt") == "ok"
+    mock_fn.assert_called_once()
+
+
+def test_exclude_for_other_file_still_blocks():
+    gen = _gen(secret_scan_exclude=["other.py"])
+    with patch.object(gen, "generate_openai") as mock_fn:
+        with pytest.raises(SecretLeakError):
+            gen._dispatch_generate(SECRET_DIFF, "prompt")
+    mock_fn.assert_not_called()
+
+
+# ---- build/send split (logging happens before the spinner) ----
+
+
+def test_build_commit_request_logs_target_before_send(caplog):
+    gen = _gen()
+    with caplog.at_level("INFO"):
+        content, prompt = gen.build_commit_request("diff --git a/x b/x\n+ok\n")
+
+    assert isinstance(content, str) and isinstance(prompt, str)
+    # The provider/model line must be emitted by build (pre-spinner), not send.
+    assert "Using provider 'openai'" in caplog.text
+
+
+def test_send_delegates_to_dispatch():
+    gen = _gen()
+    with patch.object(gen, "generate_openai", return_value="ok") as mock_fn:
+        assert gen.send("clean content", "prompt") == "ok"
     mock_fn.assert_called_once()

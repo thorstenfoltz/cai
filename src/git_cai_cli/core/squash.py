@@ -308,11 +308,13 @@ def squash_branch(
             start = time.perf_counter() if measure else None
 
             generator.kind = "commit"
+            content, system_prompt = generator.build_commit_request(diff)
             try:
                 with Spinner("Generating commit message for staged changes"):
                     msg = _validate_llm_call(
-                        generator.generate,
-                        diff,
+                        generator.send,
+                        content,
+                        system_prompt,
                         token=token,
                         requires_token=provider not in TOKENLESS_PROVIDERS,
                     )
@@ -395,12 +397,15 @@ def squash_branch(
         start = time.perf_counter() if measure else None
 
         generator.kind = "squash"
+        content, system_prompt = generator.build_squash_request(
+            commit_log, context=context
+        )
         try:
             with Spinner("Summarizing commit history"):
                 summary_message = _validate_llm_call(
-                    generator.summarize_commit_history,
-                    commit_log,
-                    context=context,
+                    generator.send,
+                    content,
+                    system_prompt,
                     token=token,
                     requires_token=provider not in TOKENLESS_PROVIDERS,
                 )

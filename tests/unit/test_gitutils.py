@@ -18,6 +18,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from git_cai_cli.core.gitutils import (
+    append_to_caiignore,
     collect_staged_file_contents,
     commit_with_edit_template,
     find_git_root,
@@ -27,6 +28,32 @@ from git_cai_cli.core.gitutils import (
     sha256_of_file,
     truncate_diff,
 )
+
+# ------------------------------------------------------------------------------
+# append_to_caiignore
+# ------------------------------------------------------------------------------
+
+
+def test_append_to_caiignore_creates_file(tmp_path):
+    result = append_to_caiignore(tmp_path, "tests/f.py")
+    assert result == tmp_path / ".caiignore"
+    assert (tmp_path / ".caiignore").read_text().splitlines() == ["tests/f.py"]
+
+
+def test_append_to_caiignore_is_idempotent(tmp_path):
+    append_to_caiignore(tmp_path, "tests/f.py")
+    append_to_caiignore(tmp_path, "tests/f.py")
+    assert (tmp_path / ".caiignore").read_text().splitlines() == ["tests/f.py"]
+
+
+def test_append_to_caiignore_preserves_existing(tmp_path):
+    (tmp_path / ".caiignore").write_text("existing.py\n")
+    append_to_caiignore(tmp_path, "new.py")
+    assert (tmp_path / ".caiignore").read_text().splitlines() == [
+        "existing.py",
+        "new.py",
+    ]
+
 
 # ------------------------------------------------------------------------------
 # truncate_diff
