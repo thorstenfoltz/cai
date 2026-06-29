@@ -267,7 +267,48 @@ def test_force_push_prompt_and_execution(
     ):
         squash_branch()
 
-    run_mock.assert_any_call(["git", "push", "--force-with-lease"], check=True)
+    run_mock.assert_any_call(
+        ["git", "push", "--force-with-lease"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_force_push_failure_is_handled(
+    mock_repo_root, clean_git_state, mock_generator, caplog
+) -> None:
+    """
+    Test that a failed force push is reported gracefully without raising.
+    """
+
+    def run_side_effect(cmd, *args, **kwargs):
+        if cmd[:2] == ["git", "push"]:
+            return MagicMock(returncode=1, stderr="! [rejected] (stale info)")
+        return MagicMock(returncode=0)
+
+    run_mock = MagicMock(side_effect=run_side_effect)
+
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("subprocess.check_output", side_effect=clean_git_state),
+        patch(
+            "git_cai_cli.core.squash.load_config", return_value={"default": "openai"}
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+        patch(
+            "git_cai_cli.core.squash.CommitMessageGenerator",
+            return_value=mock_generator,
+        ),
+        patch("git_cai_cli.core.squash.get_git_editor", return_value="true"),
+        patch("git_cai_cli.core.squash.sha256_of_file", side_effect=["a", "b"]),
+        patch("subprocess.run", run_mock),
+        patch("git_cai_cli.core.squash._has_upstream", return_value=True),
+        patch.object(builtins, "input", return_value="yes"),
+    ):
+        squash_branch()
+
+    assert "Push failed" in caplog.text
 
 
 # --- Tests for new squash argument helpers ---

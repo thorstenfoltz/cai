@@ -484,8 +484,21 @@ def squash_branch(
             )
             choice = input("Shall I execute it for you now? [yes/no]: ").strip().lower()
             if choice in ("y", "yes"):
-                subprocess.run(["git", "push", "--force-with-lease"], check=True)
-                log.info("✅ Successfully pushed the squashed branch to remote.")
+                push_result = subprocess.run(
+                    ["git", "push", "--force-with-lease"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if push_result.returncode == 0:
+                    log.info("✅ Successfully pushed the squashed branch to remote.")
+                else:
+                    log.debug("git push failed:\n%s", push_result.stderr.strip())
+                    log.error(
+                        "❌ Push failed. The remote branch may have been merged and "
+                        "deleted.\nCheck whether the remote branch still exists "
+                        "(e.g. `git branch -r`), then push manually if needed."
+                    )
         else:
             log.info(
                 "No upstream branch detected. Normal `git push` will work as expected."
