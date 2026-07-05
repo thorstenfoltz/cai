@@ -204,7 +204,9 @@ git cai -d
 Override the sampling temperature of the active provider for this invocation
 only. Higher values produce more varied wording; lower values are more
 deterministic. The override is provider-scoped, mirroring `--model`, and does
-not change the persisted `cai_config.yml`.
+not change the persisted `cai_config.yml`. Some models no longer accept a
+temperature (for example OpenAI GPT-5 models and Anthropic Opus 4.7 and newer);
+for those the value is ignored and a warning is logged.
 +
 ----
 git cai -e 0.7
@@ -326,7 +328,7 @@ git cai -i
 -k, --check::
 Run configuration diagnostics and exit. The check is offline by default: it
 reports which config is authoritative (repository, home, or built-in), validates
-the config keys, confirms the default provider has a model/temperature and a
+the config keys, confirms the default provider has a model and a
 usable token, that the commit/squash/full-files/PR prompts resolve, and that the
 configured editor is on `PATH`. Exits non-zero if any check fails. Add `--ping`
 to also probe the active provider with a tiny live request.
@@ -734,7 +736,7 @@ Active configuration:
   style: professional
   emoji: true
   groq:
-    model: moonshotai/kimi-k2-instruct
+    model: openai/gpt-oss-20b
     temperature: 0
   ...
 ----
@@ -786,12 +788,12 @@ Default models:
 
   anthropic    → claude-haiku-4-5
   deepseek     → deepseek-chat
-  gemini       → gemini-2.5-flash
-  groq         → moonshotai/kimi-k2-instruct
+  gemini       → gemini-3.1-flash-lite
+  groq         → openai/gpt-oss-20b
   mistral      → codestral-2508
   ollama       → llama3.1
-  openai       → gpt-5.2
-  xai          → grok-4-1-fast-reasoning
+  openai       → gpt-5.4-mini
+  xai          → grok-4.3
 ----
 
 path::
@@ -849,12 +851,12 @@ Supported providers:
 
   anthropic    model: claude-haiku-4-5                    (token required)
   deepseek     model: deepseek-chat                      (token required)
-  gemini       model: gemini-2.5-flash                   (token required)
-  groq         model: moonshotai/kimi-k2-instruct        (token required)
+  gemini       model: gemini-3.1-flash-lite              (token required)
+  groq         model: openai/gpt-oss-20b                 (token required)
   mistral      model: codestral-2508                     (token required)
   ollama       model: llama3.1                           (no token required)
-  openai       model: gpt-5.2                            (token required)
-  xai          model: grok-4-1-fast-reasoning            (token required)
+  openai       model: gpt-5.4-mini                       (token required)
+  xai          model: grok-4.3                           (token required)
 ----
 
 style::

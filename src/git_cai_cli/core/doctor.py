@@ -81,8 +81,8 @@ def _run_check_impl(*, live: bool = False) -> int:
     if not provider:
         _line(_FAIL, "No default provider set")
         ok = False
-    elif not isinstance(block, dict) or not {"model", "temperature"} <= set(block):
-        _line(_FAIL, f"Provider '{provider}' block missing model/temperature")
+    elif not isinstance(block, dict) or "model" not in block:
+        _line(_FAIL, f"Provider '{provider}' block missing model")
         ok = False
     else:
         _line(_OK, f"Default provider: {provider} (model {block.get('model')})")

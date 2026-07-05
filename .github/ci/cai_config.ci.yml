@@ -13,10 +13,10 @@ deepseek:
   model: deepseek-chat
   temperature: 0
 gemini:
-  model: gemini-2.5-flash
+  model: gemini-3.1-flash-lite
   temperature: 0
 groq:
-  model: moonshotai/kimi-k2-instruct
+  model: openai/gpt-oss-20b
   temperature: 0
 mistral:
   model: codestral-2508
@@ -26,8 +26,7 @@ ollama:
   temperature: 0
   timeout: 300
 openai:
-  model: gpt-5.1
-  temperature: 0
+  model: gpt-5.4-mini
 xai:
-  model: grok-4-1-fast-reasoning
+  model: grok-4.3
   temperature: 0

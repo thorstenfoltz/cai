@@ -207,14 +207,32 @@ def test_validate_config_keys_provider_missing_fields():
     }
 
     config = {
-        "openai": {"model": "gpt"},
+        "openai": {"temperature": 0},
         "language": "en",
     }
 
     with pytest.raises(KeyError) as exc:
         _validate_config_keys(config, reference)
 
-    assert "missing required keys: temperature" in str(exc.value)
+    assert "missing required keys: model" in str(exc.value)
+
+
+def test_provider_block_without_temperature_is_valid():
+    """``temperature`` is optional — a provider block only needs 'model'."""
+    reference = {
+        "openai": {},
+        "language": "en",
+        "default": "openai",
+    }
+
+    config = {
+        "default": "openai",
+        "language": "en",
+        "openai": {"model": "gpt-5.4-mini"},  # no temperature key
+    }
+
+    # Should not raise.
+    _validate_config_keys(config, reference)
 
 
 def test_validate_language_valid(caplog):
