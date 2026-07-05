@@ -45,7 +45,7 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
     Rules:
     - Only global keys (language, default, style, emoji) are validated explicitly
     - At least one provider block must be present
-    - Each provider block must define 'model' and 'temperature'
+    - Each provider block must define 'model' ('temperature' is optional)
     - Unknown top-level keys are rejected
     """
     log.debug("Validating configuration keys")
@@ -110,7 +110,7 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
             log.error("Provider '%s' configuration must be a mapping", provider)
             raise KeyError("Provider '" + provider + "' must be a mapping")
 
-        missing_provider_keys = {"model", "temperature"} - provider_block.keys()
+        missing_provider_keys = {"model"} - provider_block.keys()
         if missing_provider_keys:
             log.error(
                 "Provider '%s' missing required keys: %s",

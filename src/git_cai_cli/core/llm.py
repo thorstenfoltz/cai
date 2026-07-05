@@ -5,6 +5,7 @@ Use LLMs to generate git commit messages from diffs or multiple commits.
 import functools
 import logging
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -30,6 +31,40 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 log = logging.getLogger(__name__)
+
+
+# Models that reject any non-default ``temperature`` (return HTTP 400).
+# Extend this list as new restricted models appear.
+_TEMPERATURE_UNSUPPORTED_PATTERNS = [
+    re.compile(r"^gpt-5", re.IGNORECASE),  # OpenAI GPT-5 family (incl. mini/nano)
+    re.compile(r"^o[134](-|$)", re.IGNORECASE),  # OpenAI o1/o3/o4 reasoning series
+    re.compile(r"opus-4-[7-9]", re.IGNORECASE),  # Anthropic Opus 4.7 / 4.8 / 4.9
+    re.compile(r"opus-[5-9]", re.IGNORECASE),  # Anthropic Opus 5+
+]
+
+
+def _model_rejects_temperature(model: str) -> bool:
+    """Return True if ``model`` rejects a non-default temperature."""
+    return any(pattern.search(model) for pattern in _TEMPERATURE_UNSUPPORTED_PATTERNS)
+
+
+def _resolve_temperature(model: str, temperature: float | int | None) -> float | None:
+    """Resolve the temperature to send for ``model``.
+
+    Returns ``None`` (send no temperature) when unset or when the model
+    rejects it, warning in the latter case. Otherwise returns the float.
+    """
+    if temperature is None:
+        return None
+    if _model_rejects_temperature(model):
+        log.warning(
+            "Model '%s' does not support temperature; "
+            "ignoring configured temperature=%s.",
+            model,
+            temperature,
+        )
+        return None
+    return float(temperature)
 
 
 _RETRY_STATUS_CODES = (429, 500, 502, 503, 504)
@@ -242,7 +277,8 @@ class CommitMessageGenerator:
         if isinstance(block, dict):
             temp = block.get("temperature")
             if isinstance(temp, (int, float)):
-                temperature_val = float(temp)
+                model_name = block.get("model", "")
+                temperature_val = _resolve_temperature(str(model_name), temp)
 
         # Full-files mode swaps the commit prompt file for a dedicated
         # one — surface that when active, regardless of kind.
@@ -811,7 +847,9 @@ class CommitMessageGenerator:
         }
 
         model = self.config["anthropic"]["model"]
-        temperature = self.config["anthropic"]["temperature"]
+        temperature = _resolve_temperature(
+            model, self.config["anthropic"].get("temperature")
+        )
         # ``max_output_tokens`` is the canonical config key (consistent
         # naming across providers); ``max_tokens`` is kept for backwards
         # compatibility with existing user configs.
@@ -829,9 +867,10 @@ class CommitMessageGenerator:
         request: dict[str, Any] = {
             "model": model,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "messages": messages,
         }
+        if temperature is not None:
+            request["temperature"] = temperature
 
         if system_prompt_override:
             request["system"] = system_prompt_override
@@ -865,7 +904,7 @@ class CommitMessageGenerator:
         """
         url = "https://api.deepseek.com"
         model = self.config["deepseek"]["model"]
-        temperature = self.config["deepseek"]["temperature"]
+        temperature = self.config["deepseek"].get("temperature")
         return self.generate_openai(
             content=content,
             system_prompt_override=system_prompt_override,
@@ -885,7 +924,9 @@ class CommitMessageGenerator:
         Uses direct HTTP API instead of the Google SDK.
         """
         model = self.config["gemini"]["model"]
-        temperature = self.config["gemini"]["temperature"]
+        temperature = _resolve_temperature(
+            model, self.config["gemini"].get("temperature")
+        )
 
         log.debug("Using gemini model '%s'.", model)
 
@@ -900,11 +941,12 @@ class CommitMessageGenerator:
         if system_prompt_override:
             text = f"{system_prompt_override}\n\n{text}"
 
+        generation_config: dict[str, Any] = {}
+        if temperature is not None:
+            generation_config["temperature"] = temperature
         request = {
             "contents": [{"parts": [{"text": text}]}],
-            "generationConfig": {
-                "temperature": temperature,
-            },
+            "generationConfig": generation_config,
         }
 
         start = time.perf_counter()
@@ -942,7 +984,9 @@ class CommitMessageGenerator:
         }
 
         model = self.config["groq"]["model"]
-        temperature = self.config["groq"]["temperature"]
+        temperature = _resolve_temperature(
+            model, self.config["groq"].get("temperature")
+        )
 
         log.debug("Using groq model '%s'.", model)
 
@@ -966,8 +1010,9 @@ class CommitMessageGenerator:
         request = {
             "model": model,
             "messages": messages,
-            "temperature": temperature,
         }
+        if temperature is not None:
+            request["temperature"] = temperature
 
         start = time.perf_counter()
         response = _http_post(  # nosec B113
@@ -1002,7 +1047,9 @@ class CommitMessageGenerator:
         }
 
         model = self.config["mistral"]["model"]
-        temperature = self.config["mistral"]["temperature"]
+        temperature = _resolve_temperature(
+            model, self.config["mistral"].get("temperature")
+        )
 
         log.debug("Using mistral model '%s'.", model)
 
@@ -1026,8 +1073,9 @@ class CommitMessageGenerator:
         request = {
             "model": model,
             "messages": messages,
-            "temperature": temperature,
         }
+        if temperature is not None:
+            request["temperature"] = temperature
 
         start = time.perf_counter()
         response = _http_post(  # nosec B113
@@ -1187,7 +1235,9 @@ class CommitMessageGenerator:
         self._start_ollama_server_if_needed()
 
         model = self.config["ollama"]["model"]
-        temperature = self.config["ollama"]["temperature"]
+        temperature = _resolve_temperature(
+            model, self.config["ollama"].get("temperature")
+        )
 
         log.debug("Using ollama model '%s'.", model)
 
@@ -1198,13 +1248,14 @@ class CommitMessageGenerator:
             messages.append({"role": "system", "content": system_prompt_override})
         messages.append({"role": "user", "content": content})
 
+        options: dict[str, Any] = {}
+        if temperature is not None:
+            options["temperature"] = temperature
         request: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "stream": False,
-            "options": {
-                "temperature": temperature,
-            },
+            "options": options,
         }
 
         start = time.perf_counter()
@@ -1278,11 +1329,12 @@ class CommitMessageGenerator:
             if model_override is not None
             else self.config["openai"]["model"]
         )
-        temperature = (
+        raw_temperature = (
             temperature_override
             if temperature_override is not None
-            else self.config["openai"]["temperature"]
+            else self.config.get(provider_name, {}).get("temperature")
         )
+        temperature = _resolve_temperature(model, raw_temperature)
 
         log.debug("Using %s model '%s'.", provider_name, model)
 
@@ -1293,13 +1345,16 @@ class CommitMessageGenerator:
 
         messages.append({"role": "user", "content": content})
 
+        create_kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+        }
+        if temperature is not None:
+            create_kwargs["temperature"] = temperature
+
         start = time.perf_counter()
-        completion = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            stream=False,
-        )
+        completion = client.chat.completions.create(**create_kwargs)
         self._last_latency_ms = int((time.perf_counter() - start) * 1000)
 
         usage = completion.usage
@@ -1333,7 +1388,7 @@ class CommitMessageGenerator:
         }
 
         model = self.config["xai"]["model"]
-        temperature = self.config["xai"]["temperature"]
+        temperature = _resolve_temperature(model, self.config["xai"].get("temperature"))
 
         log.debug("Using xai model '%s'.", model)
 
@@ -1357,8 +1412,9 @@ class CommitMessageGenerator:
         request = {
             "model": model,
             "messages": messages,
-            "temperature": temperature,
         }
+        if temperature is not None:
+            request["temperature"] = temperature
         start = time.perf_counter()
         response = _http_post(  # nosec B113
             url, json=request, headers=headers, timeout=self._timeout("xai")

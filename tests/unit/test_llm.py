@@ -6,7 +6,11 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
-from git_cai_cli.core.llm import CommitMessageGenerator
+from git_cai_cli.core.llm import (
+    CommitMessageGenerator,
+    _model_rejects_temperature,
+    _resolve_temperature,
+)
 
 
 # fixtures
@@ -17,10 +21,10 @@ def config():
     """
     return {
         "openai": {"model": "gpt-5.1", "temperature": 0},
-        "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
+        "gemini": {"model": "gemini-3.1-flash-lite", "temperature": 0},
         "anthropic": {"model": "claude-haiku-4-5", "temperature": 0},
-        "groq": {"model": "moonshotai/kimi-k2-instruct", "temperature": 0},
-        "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
+        "groq": {"model": "openai/gpt-oss-20b", "temperature": 0},
+        "xai": {"model": "grok-4.3", "temperature": 0},
         "ollama": {"model": "llama3.1", "temperature": 0},
         "language": "en",
         "default": "groq",
@@ -228,7 +232,7 @@ def test_generate_gemini():
     """
     config = {
         "gemini": {
-            "model": "gemini-2.5-flash",
+            "model": "gemini-3.1-flash-lite",
             "temperature": 0.6,
         }
     }
@@ -256,7 +260,7 @@ def test_generate_gemini():
 
     assert args[0] == (
         "https://generativelanguage.googleapis.com/v1beta/"
-        "models/gemini-2.5-flash:generateContent"
+        "models/gemini-3.1-flash-lite:generateContent"
     )
 
     assert kwargs["timeout"] == 30
@@ -333,7 +337,7 @@ def test_generate_xai():
     """
     config = {
         "xai": {
-            "model": "grok-4-1-fast-reasoning",
+            "model": "grok-4.3",
             "temperature": 0.7,
         }
     }
@@ -372,7 +376,7 @@ def test_generate_xai():
     }
 
     assert kwargs["json"] == {
-        "model": "grok-4-1-fast-reasoning",
+        "model": "grok-4.3",
         "temperature": 0.7,
         "messages": [
             {"role": "system", "content": "sys"},
@@ -542,7 +546,7 @@ def test_token_usage_logged_anthropic(caplog):
 def test_token_usage_logged_gemini(caplog):
     """Verify token usage is logged for Gemini with usageMetadata format."""
     config = {
-        "gemini": {"model": "gemini-2.5-flash", "temperature": 0},
+        "gemini": {"model": "gemini-3.1-flash-lite", "temperature": 0},
         "token_logging": True,
     }
 
@@ -833,6 +837,66 @@ def test_generate_deepseek():
     )
 
 
+def test_generate_deepseek_missing_temperature_does_not_raise(monkeypatch):
+    """Regression: a deepseek config without a temperature key (now optional
+    per validation/doctor) must not KeyError, and since no temperature is
+    configured, the OpenAI SDK create() call must omit the kwarg entirely."""
+    import git_cai_cli.core.llm as llm_module
+
+    config = {"deepseek": {"model": "deepseek-chat"}}
+    gen = CommitMessageGenerator(
+        token="fake-token", config=config, default_model="deepseek"
+    )
+
+    fake_chat = MagicMock()
+    fake_chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="ok"))],
+        usage=MagicMock(prompt_tokens=1, completion_tokens=1),
+    )
+
+    def fake_init(self, **kwargs):
+        self.chat = fake_chat
+
+    monkeypatch.setattr(llm_module.OpenAI, "__init__", fake_init)
+
+    result = gen.generate_deepseek("diff content")
+
+    assert result == "ok"
+    _, create_kwargs = fake_chat.completions.create.call_args
+    assert "temperature" not in create_kwargs
+
+
+def test_generate_deepseek_does_not_leak_openai_temperature(monkeypatch):
+    """Regression: generate_openai's fallback must key off provider_name
+    (not hardcode 'openai'), otherwise a deepseek call with no temperature
+    of its own wrongly picks up the openai block's configured temperature."""
+    import git_cai_cli.core.llm as llm_module
+
+    config = {
+        "deepseek": {"model": "deepseek-chat"},
+        "openai": {"model": "gpt-5.4-mini", "temperature": 0.5},
+    }
+    gen = CommitMessageGenerator(
+        token="fake-token", config=config, default_model="deepseek"
+    )
+
+    fake_chat = MagicMock()
+    fake_chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="ok"))],
+        usage=MagicMock(prompt_tokens=1, completion_tokens=1),
+    )
+
+    def fake_init(self, **kwargs):
+        self.chat = fake_chat
+
+    monkeypatch.setattr(llm_module.OpenAI, "__init__", fake_init)
+
+    gen.generate_deepseek("diff content")
+
+    _, create_kwargs = fake_chat.completions.create.call_args
+    assert "temperature" not in create_kwargs
+
+
 # ------------------------------------------
 # Tests for None system_prompt_override guard
 # ------------------------------------------
@@ -887,7 +951,7 @@ def test_generate_mistral_none_system_prompt_omits_system_message():
 def test_generate_xai_none_system_prompt_omits_system_message():
     """xAI should not include system message when system_prompt_override is None."""
     config = {
-        "xai": {"model": "grok-4-1-fast-reasoning", "temperature": 0},
+        "xai": {"model": "grok-4.3", "temperature": 0},
     }
 
     gen = CommitMessageGenerator(token="fake", config=config, default_model="xai")
@@ -918,7 +982,7 @@ def test_generate_xai_raises_on_http_error():
 
     config = {
         "xai": {
-            "model": "grok-4-1-fast-reasoning",
+            "model": "grok-4.3",
             "temperature": 0.7,
         }
     }
@@ -1106,7 +1170,7 @@ def test_generate_anthropic_defaults_max_tokens_to_32768():
         ),
         (
             "gemini",
-            {"model": "gemini-2.5-flash", "temperature": 0},
+            {"model": "gemini-3.1-flash-lite", "temperature": 0},
             {"candidates": [{"content": {"parts": [{"text": "t"}]}}]},
             None,
         ),
@@ -1341,3 +1405,109 @@ def test_ollama_start_skips_start_new_session_on_windows(monkeypatch, generator)
 
     # Should not raise; running check returns True so Popen isn't called
     generator._start_ollama_server_if_needed()
+
+
+# ---------------------------------------------------------------------------
+# Task 1 — temperature detection + resolution helpers
+# ---------------------------------------------------------------------------
+
+
+def test_model_rejects_temperature_openai_gpt5():
+    assert _model_rejects_temperature("gpt-5.4-mini") is True
+    assert _model_rejects_temperature("gpt-5.2") is True
+    assert _model_rejects_temperature("o3-mini") is True
+
+
+def test_model_rejects_temperature_anthropic_opus_new():
+    assert _model_rejects_temperature("claude-opus-4-7") is True
+    assert _model_rejects_temperature("claude-opus-4-8") is True
+    assert _model_rejects_temperature("claude-opus-5-1") is True
+
+
+def test_model_accepts_temperature_kept_models():
+    for m in (
+        "claude-haiku-4-5",
+        "openai/gpt-oss-20b",
+        "gemini-3.1-flash-lite",
+        "grok-4.3",
+        "deepseek-chat",
+        "codestral-2508",
+        "llama3.1",
+    ):
+        assert _model_rejects_temperature(m) is False
+
+
+def test_resolve_temperature_none_stays_none():
+    assert _resolve_temperature("gpt-5.4-mini", None) is None
+
+
+def test_resolve_temperature_accepted_returns_float():
+    assert _resolve_temperature("gemini-3.1-flash-lite", 0) == 0.0
+
+
+def test_resolve_temperature_rejected_warns_and_drops(caplog):
+    with caplog.at_level(logging.WARNING):
+        result = _resolve_temperature("gpt-5.4-mini", 0.7)
+    assert result is None
+    assert "does not support temperature" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Task 3 — wiring _resolve_temperature into provider call sites
+# ---------------------------------------------------------------------------
+
+
+def test_groq_includes_temperature_for_accepting_model():
+    """Groq model that accepts temperature keeps it in the request body."""
+    config = {
+        "groq": {"model": "openai/gpt-oss-20b", "temperature": 0},
+    }
+
+    gen = CommitMessageGenerator(
+        token="fake-token",
+        config=config,
+        default_model="groq",
+    )
+
+    module_path = CommitMessageGenerator.__module__
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}],
+        "usage": {},
+    }
+
+    with patch(f"{module_path}._http_post", mock_post):
+        gen.generate_groq("diff")
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["json"]["temperature"] == 0
+
+
+def test_openai_omits_temperature_for_gpt5(caplog):
+    """gpt-5.4-mini rejects temperature -> create() is called without it,
+    and a warning is logged because a temperature was configured."""
+    config = {
+        "openai": {"model": "gpt-5.4-mini", "temperature": 0},
+    }
+
+    gen = CommitMessageGenerator(
+        token="fake-token",
+        config=config,
+        default_model="openai",
+    )
+
+    mock_client = MagicMock()
+    mock_instance = MagicMock()
+    mock_instance.chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="msg"))]
+    )
+    mock_client.return_value = mock_instance
+
+    with caplog.at_level(logging.WARNING):
+        gen.generate_openai("diff", openai_cls=mock_client)
+
+    _, kwargs = mock_instance.chat.completions.create.call_args
+    assert "temperature" not in kwargs
+    assert "does not support temperature" in caplog.text
+    assert "gpt-5.4-mini" in caplog.text
