@@ -37,7 +37,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "anthropic": {
         "model": "claude-haiku-4-5",
         "temperature": 0,
-        "max_tokens": 32768,
+        # ``max_tokens`` is still read as a legacy alias (see llm.py)
+        "max_output_tokens": 32768,
     },
     "openai": {"model": "gpt-5.4-mini"},
     "deepseek": {"model": "deepseek-chat", "temperature": 0},
@@ -45,7 +46,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "groq": {"model": "openai/gpt-oss-20b", "temperature": 0},
     "xai": {"model": "grok-4.3", "temperature": 0},
     "mistral": {"model": "codestral-2508", "temperature": 0},
-    "ollama": {"model": "llama3.1", "temperature": 0, "timeout": 300},
+    "ollama": {
+        "model": "llama3.1",
+        "temperature": 0,
+        "timeout": 300,
+        "startup_timeout": 8,
+    },
     "language": "en",
     "default": "groq",
     "style": "professional",
@@ -65,6 +71,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "pr_file_name": "PR_DESCRIPTION.md",
     "pr_prompt_file": "",
     "stats": False,
+    "stats_db_path": "",  # empty → XDG default (see stats.resolve_db_path)
     "signoff": False,
     "secret_scan": True,
     "secret_scan_exclude": [],
@@ -139,7 +146,8 @@ def _load_home_stats(home_config_file: Path) -> dict[str, Any] | None:
     out: dict[str, Any] = {}
     if "stats" in data:
         out["stats"] = data["stats"]
-    if "stats_db_path" in data:
+    # An empty stats_db_path means "no override" — don't propagate it.
+    if data.get("stats_db_path"):
         out["stats_db_path"] = data["stats_db_path"]
     return out or None
 
@@ -445,6 +453,11 @@ def ordered_default_config(
 ) -> dict[str, Any]:
     """
     Return DEFAULT_CONFIG ordered for human-readable YAML output.
+
+    Global keys come first (the curated order below, then any remaining
+    ones alphabetically), provider blocks last. Keeping the provider
+    blocks strictly at the end means a newly added global key can never
+    get buried between them.
     """
     if default_config is None:
         default_config = DEFAULT_CONFIG
@@ -471,6 +484,8 @@ def ordered_default_config(
         "stats",
         "stats_db_path",
         "signoff",
+        "secret_scan",
+        "secret_scan_exclude",
     ]
 
     ordered: dict[str, Any] = {}
@@ -479,7 +494,10 @@ def ordered_default_config(
         if key in default_config:
             ordered[key] = default_config[key]
 
-    for key in sorted(k for k in default_config if k not in priority_keys):
+    remaining = [k for k in default_config if k not in ordered]
+    for key in sorted(k for k in remaining if k not in KNOWN_PROVIDERS):
+        ordered[key] = default_config[key]
+    for key in sorted(k for k in remaining if k in KNOWN_PROVIDERS):
         ordered[key] = default_config[key]
 
     return ordered

@@ -5,13 +5,16 @@ from unittest.mock import patch
 import yaml
 from git_cai_cli.core.config import (
     DEFAULT_CONFIG,
+    KNOWN_PROVIDERS,
     TOKEN_TEMPLATE,
     _serialize_config,
     apply_cli_overrides,
     load_config,
     load_token,
+    ordered_default_config,
     set_config_value,
 )
+from git_cai_cli.core.validate import ALLOWED_GLOBAL_KEYS
 
 
 def test_load_config_creates_fallback(tmp_path, monkeypatch):
@@ -278,8 +281,27 @@ def test_default_config_contains_timeout_and_full_files():
 
 
 def test_default_config_anthropic_max_tokens():
-    """Anthropic block must default max_tokens to 32768."""
-    assert DEFAULT_CONFIG["anthropic"]["max_tokens"] == 32768
+    """Anthropic block must default max_output_tokens to 32768."""
+    assert DEFAULT_CONFIG["anthropic"]["max_output_tokens"] == 32768
+
+
+def test_generated_config_contains_every_global_key():
+    """`git cai -g` must write out every global key the code understands.
+
+    Guards against a new setting (secret_scan, stats_db_path, …) being
+    added to the reader but forgotten in the generated file.
+    """
+    generated = ordered_default_config()
+    missing = ALLOWED_GLOBAL_KEYS - generated.keys()
+    assert not missing, f"missing from generated config: {sorted(missing)}"
+
+
+def test_generated_config_lists_provider_blocks_last():
+    """Global keys come before provider blocks, so none get buried."""
+    keys = list(ordered_default_config())
+    first_provider = min(keys.index(p) for p in KNOWN_PROVIDERS)
+    globals_after = [k for k in keys[first_provider:] if k not in KNOWN_PROVIDERS]
+    assert not globals_after
 
 
 def test_default_config_ollama_timeout():
@@ -303,7 +325,7 @@ def test_fresh_config_contains_timeout_and_full_files(tmp_path, monkeypatch):
     data = yaml.safe_load(fallback.read_text())
     assert data["timeout"] == 30
     assert data["full_files"] is False
-    assert data["anthropic"]["max_tokens"] == 32768
+    assert data["anthropic"]["max_output_tokens"] == 32768
     assert data["ollama"]["timeout"] == 300
 
 

@@ -13,6 +13,37 @@ log = logging.getLogger(__name__)
 _AUTH_STATUS_CODES = frozenset({401, 403})
 _RATE_LIMIT_STATUS_CODES = frozenset({429})
 
+# Every top-level (non-provider) config key git-cai understands. Anything
+# here must also exist in ``DEFAULT_CONFIG`` so that ``git cai -g`` writes
+# it out; ``test_config.py`` asserts the two stay in sync.
+ALLOWED_GLOBAL_KEYS = frozenset(
+    {
+        "branch_context",
+        "conventional",
+        "language",
+        "default",
+        "style",
+        "emoji",
+        "load_tokens_from",
+        "prompt_file",
+        "squash_prompt_file",
+        "full_files_prompt_file",
+        "token_logging",
+        "measure_time",
+        "timeout",
+        "full_files",
+        "max_diff_bytes",
+        "pr_to_file",
+        "pr_file_name",
+        "pr_prompt_file",
+        "stats",
+        "stats_db_path",
+        "signoff",
+        "secret_scan",
+        "secret_scan_exclude",
+    }
+)
+
 
 def _extract_api_error_message(response: requests.Response | None) -> str:
     """Best-effort extraction of an upstream API error body's human message.
@@ -50,31 +81,7 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
     """
     log.debug("Validating configuration keys")
 
-    allowed_global_keys = {
-        "branch_context",
-        "conventional",
-        "language",
-        "default",
-        "style",
-        "emoji",
-        "load_tokens_from",
-        "prompt_file",
-        "squash_prompt_file",
-        "full_files_prompt_file",
-        "token_logging",
-        "measure_time",
-        "timeout",
-        "full_files",
-        "max_diff_bytes",
-        "pr_to_file",
-        "pr_file_name",
-        "pr_prompt_file",
-        "stats",
-        "stats_db_path",
-        "signoff",
-        "secret_scan",
-        "secret_scan_exclude",
-    }
+    allowed_global_keys = set(ALLOWED_GLOBAL_KEYS)
     # Internal escape-hatch keys: accepted if a user sets them, but never
     # reported as "missing" — they aren't part of the documented surface.
     internal_only_keys = {"stats_db_path", "secret_scan_exclude"}
