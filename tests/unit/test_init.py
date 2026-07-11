@@ -11,6 +11,8 @@ import stat
 
 import yaml
 from git_cai_cli.core import init as init_module
+from git_cai_cli.core.config import DEFAULT_CONFIG, KNOWN_PROVIDERS
+from git_cai_cli.core.validate import ALLOWED_GLOBAL_KEYS, _validate_config_keys
 
 
 class _InputDriver:
@@ -78,6 +80,40 @@ def test_wizard_writes_config_and_tokens_for_provider_requiring_key(
     # tokens.yml must be 0600
     mode = stat.S_IMODE(os.stat(tokens_path).st_mode)
     assert mode == 0o600
+
+
+def test_wizard_writes_every_global_key(tmp_path, monkeypatch):
+    """The wizard writes the full setting surface, not just what it asked."""
+    config_path = tmp_path / "cai_config.yml"
+    tokens_path = tmp_path / "tokens.yml"
+
+    driver = _InputDriver(
+        prompts=["ollama", "de", "funny"],
+        confirms=[False],
+        passwords=[],
+    )
+    _install(monkeypatch, driver)
+
+    assert (
+        init_module.run_init_wizard(config_path=config_path, tokens_path=tokens_path)
+        == 0
+    )
+
+    config = yaml.safe_load(config_path.read_text())
+    missing = ALLOWED_GLOBAL_KEYS - config.keys()
+    assert not missing, f"wizard did not write: {sorted(missing)}"
+
+    # Wizard answers still win over the defaults.
+    assert config["default"] == "ollama"
+    assert config["language"] == "de"
+    assert config["style"] == "funny"
+    assert config["emoji"] is False
+
+    # Every provider block is present, so `--provider x` works without edits.
+    assert KNOWN_PROVIDERS <= config.keys()
+
+    # And the result is a config git-cai accepts.
+    _validate_config_keys(config, DEFAULT_CONFIG)
 
 
 def test_wizard_skips_token_prompt_for_ollama(tmp_path, monkeypatch):

@@ -22,6 +22,8 @@ from git_cai_cli.core.config import (
     KNOWN_PROVIDERS,
     TOKENLESS_PROVIDERS,
     TOKENS_FILE,
+    _serialize_config,
+    ordered_default_config,
 )
 from git_cai_cli.core.languages import LANGUAGE_MAP
 
@@ -146,17 +148,19 @@ def _write_config_file(
     style: str,
     emoji: bool,
 ) -> None:
-    block = DEFAULT_CONFIG.get(provider, {})
-    provider_block = dict(block) if isinstance(block, dict) else {}
-
-    config: dict[str, Any] = {
-        "default": provider,
-        "language": language,
-        "style": style,
-        "emoji": emoji,
-        "load_tokens_from": str(TOKENS_FILE),
-        provider: provider_block,
-    }
+    # Same full surface as `git cai -g`: every setting is written out with
+    # its default, so users can see and edit what exists. The wizard's
+    # answers override the four keys it asked about.
+    config: dict[str, Any] = _serialize_config(ordered_default_config())
+    config.update(
+        {
+            "default": provider,
+            "language": language,
+            "style": style,
+            "emoji": emoji,
+            "load_tokens_from": str(TOKENS_FILE),
+        }
+    )
 
     config_path.parent.mkdir(parents=True, exist_ok=True)
     with config_path.open("w", encoding="utf-8") as f:
