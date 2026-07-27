@@ -998,3 +998,52 @@ class TestPromptBaseSuffixJoin:
 
         assert "PR base body.\n\n" in prompt
         assert "PR base body. " not in prompt
+
+
+# ------------------------------------------------------------------------------
+# New read-only generator modes (explain / split / changelog / tag)
+# ------------------------------------------------------------------------------
+
+
+def test_prompt_file_key_by_kind_covers_new_modes():
+    from git_cai_cli.core.llm import CommitMessageGenerator as _Gen
+
+    mapping = _Gen._PROMPT_FILE_KEY_BY_KIND
+    assert mapping["explain"] == "explain_prompt_file"
+    assert mapping["split"] == "split_prompt_file"
+    assert mapping["changelog"] == "changelog_prompt_file"
+    assert mapping["release"] == "release_prompt_file"
+
+
+def test_new_hardcoded_prompts_are_nonempty():
+    from git_cai_cli.core.prompts_fallback import (
+        HARDCODED_CHANGELOG_PROMPT,
+        HARDCODED_EXPLAIN_PROMPT,
+        HARDCODED_RELEASE_PROMPT,
+        HARDCODED_SPLIT_PROMPT,
+    )
+
+    for prompt in (
+        HARDCODED_EXPLAIN_PROMPT,
+        HARDCODED_SPLIT_PROMPT,
+        HARDCODED_CHANGELOG_PROMPT,
+        HARDCODED_RELEASE_PROMPT,
+    ):
+        assert isinstance(prompt, str) and len(prompt) > 40
+
+
+def test_new_prompt_config_keys_are_registered():
+    """The new prompt/changelog keys must be settable in a repo config."""
+    from git_cai_cli.core.config import DEFAULT_CONFIG
+    from git_cai_cli.core.validate import ALLOWED_GLOBAL_KEYS
+
+    for key in (
+        "changelog_file_name",
+        "changelog_prompt_file",
+        "changelog_to_file",
+        "explain_prompt_file",
+        "split_prompt_file",
+        "release_prompt_file",
+    ):
+        assert key in DEFAULT_CONFIG
+        assert key in ALLOWED_GLOBAL_KEYS

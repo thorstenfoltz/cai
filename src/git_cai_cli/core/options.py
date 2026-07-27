@@ -24,9 +24,29 @@ from git_cai_cli.core.config import (
     ordered_default_config,
 )
 from git_cai_cli.core.languages import LANGUAGE_MAP
-from git_cai_cli.core.squash import squash_branch
 
 log = logging.getLogger(__name__)
+
+
+def _parse_version(text: str) -> tuple[int, int, int]:
+    """Return ``(major, minor, patch)`` for a version string.
+
+    Missing or non-numeric components read as 0, so an unusual version
+    degrades to a sane comparison instead of raising. Handles a leading
+    ``v`` and trailing suffixes: ``v1.4`` -> ``(1, 4, 0)``,
+    ``0.1.2.dev8`` -> ``(0, 1, 2)``.
+    """
+    if not text:
+        return (0, 0, 0)
+
+    core = text[1:] if text[:1].lower() == "v" else text
+    numbers = []
+    for part in core.split(".")[:3]:
+        match = re.match(r"\d+", part)
+        numbers.append(int(match.group()) if match else 0)
+    while len(numbers) < 3:
+        numbers.append(0)
+    return (numbers[0], numbers[1], numbers[2])
 
 
 class CliManager:
@@ -41,23 +61,6 @@ class CliManager:
     ):
         self.package_name = package_name
         self.allowed_languages = allowed_languages or LANGUAGE_MAP
-
-    def _extract_numeric_version(self, v: str):
-        """
-        Extract major.minor.patch and return as tuple of integers.
-        Falls back safely if parts are missing.
-        Examples:
-            "0.1.2.dev8" -> (0, 1, 2)
-            "1.4" -> (1, 4, 0)
-        """
-        match = re.match(r"^(\d+)\.(\d+)\.(\d+)", v)
-        if match:
-            return tuple(int(x) for x in match.groups())
-        match = re.match(r"^(\d+)\.(\d+)", v)
-        if match:
-            major, minor = match.groups()
-            return (int(major), int(minor), 0)
-        return (0, 0, 0)
 
     def check_and_update(self, auto_confirm: bool = False) -> None:
         """
@@ -87,8 +90,8 @@ class CliManager:
             return
 
         # Compare only numeric parts
-        installed_base = self._extract_numeric_version(current_version)
-        latest_base = self._extract_numeric_version(latest_version)
+        installed_base = _parse_version(current_version)
+        latest_base = _parse_version(latest_version)
 
         if installed_base >= latest_base:
             print(
@@ -153,14 +156,6 @@ class CliManager:
             "Vim",  # Vim
             "VS Code",  # Visual Studio Code
         ]
-
-    def enable_debug(self) -> None:
-        """
-        Enable verbose/debug logging.
-        """
-        log.setLevel(logging.DEBUG)
-        logging.getLogger().setLevel(logging.DEBUG)
-        log.debug("Debug mode enabled.")
 
     def generate_config_here(self, filename: str = "cai_config.yml") -> None:
         """
@@ -359,33 +354,6 @@ git cai -l style
         ):
             lines.append(f"  - {name} → {code}")
         return "\n".join(lines)
-
-    def squash_branch(
-        self,
-        provider_override: str | None = None,
-        model_override: str | None = None,
-        temperature_override: float | None = None,
-        time_flag: bool = False,
-        squash_arg: str | None = None,
-        context: str | None = None,
-        sql_override: bool | None = None,
-        signoff: bool | None = None,
-        allow_secrets: bool = False,
-    ) -> None:
-        """
-        Squash commits on the current branch and summarize them.
-        """
-        return squash_branch(
-            provider_override=provider_override,
-            model_override=model_override,
-            temperature_override=temperature_override,
-            time_flag=time_flag,
-            squash_arg=squash_arg,
-            context=context,
-            sql_override=sql_override,
-            signoff=signoff,
-            allow_secrets=allow_secrets,
-        )
 
     def stage_tracked_files(self) -> None:
         """

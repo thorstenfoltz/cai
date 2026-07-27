@@ -207,3 +207,87 @@ def test_known_providers_set_is_complete():
         "ollama",
     }
     assert KNOWN_PROVIDERS == expected
+
+
+# ------------------------------------------
+# Dispatch of the read-only generator modes
+# ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "mode_name,module,func",
+    [
+        ("EXPLAIN", "git_cai_cli.core.explain", "run_explain"),
+        ("SPLIT", "git_cai_cli.core.split", "run_split"),
+        ("CHANGELOG", "git_cai_cli.core.changelog", "run_changelog"),
+        ("RELEASE", "git_cai_cli.core.release", "run_release"),
+    ],
+)
+def test_run_dispatches_read_only_modes(mode_name, module, func):
+    """Each new mode must reach its runner with the shared options."""
+    from git_cai_cli.cli.modes import Mode
+    from git_cai_cli.main import run
+
+    with (
+        patch("git_cai_cli.main.ensure_git_alias"),
+        patch(f"{module}.{func}") as runner,
+    ):
+        run(
+            mode=getattr(Mode, mode_name),
+            enable_debug=False,
+            list_arg=None,
+            stage_tracked=False,
+            crazy=False,
+            context="ticket-3",
+            provider_override="openai",
+            allow_secrets=True,
+        )
+
+    runner.assert_called_once()
+    kwargs = runner.call_args.kwargs
+    assert kwargs["context"] == "ticket-3"
+    assert kwargs["provider_override"] == "openai"
+    assert kwargs["allow_secrets"] is True
+
+
+def test_run_dispatches_squash():
+    """SQUASH routes straight to core.squash.squash_branch."""
+    from git_cai_cli.cli.modes import Mode
+    from git_cai_cli.main import run
+
+    with (
+        patch("git_cai_cli.main.ensure_git_alias"),
+        patch("git_cai_cli.core.squash.squash_branch") as runner,
+    ):
+        run(
+            mode=Mode.SQUASH,
+            enable_debug=False,
+            list_arg="3",
+            stage_tracked=False,
+            crazy=False,
+            context="ticket-3",
+        )
+
+    runner.assert_called_once()
+    assert runner.call_args.kwargs["squash_arg"] == "3"
+    assert runner.call_args.kwargs["context"] == "ticket-3"
+
+
+def test_run_explain_dispatch_forwards_positional_hash():
+    """`git cai --explain <HASH>` reuses the shared positional argument."""
+    from git_cai_cli.cli.modes import Mode
+    from git_cai_cli.main import run
+
+    with (
+        patch("git_cai_cli.main.ensure_git_alias"),
+        patch("git_cai_cli.core.explain.run_explain") as runner,
+    ):
+        run(
+            mode=Mode.EXPLAIN,
+            enable_debug=False,
+            list_arg="a1b2c3d",
+            stage_tracked=False,
+            crazy=False,
+        )
+
+    assert runner.call_args.kwargs["rev"] == "a1b2c3d"

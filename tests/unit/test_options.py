@@ -12,24 +12,6 @@ import requests
 from git_cai_cli.core.options import CliManager
 
 
-@pytest.mark.parametrize(
-    "input_version, expected",
-    [
-        ("0.1.2", (0, 1, 2)),
-        ("0.1.2.dev8", (0, 1, 2)),
-        ("1.4", (1, 4, 0)),
-        ("2", (0, 0, 0)),
-        ("invalid", (0, 0, 0)),
-    ],
-)
-def test_extract_numeric_version(input_version, expected) -> None:
-    """
-    Test extraction of numeric version from version string.
-    """
-    manager = CliManager()
-    assert manager._extract_numeric_version(input_version) == expected
-
-
 def test_check_and_update_package_not_installed(caplog):
     manager = CliManager()
 
@@ -149,17 +131,6 @@ def test_check_and_update_upgrade_failure(capsys) -> None:
     assert "Update failed" in out
 
 
-def test_enable_debug_sets_log_levels() -> None:
-    """
-    Test that enable_debug sets logging level to DEBUG.
-    """
-    manager = CliManager()
-
-    manager.enable_debug()
-
-    assert logging.getLogger().level == logging.DEBUG
-
-
 def test_list_output_contains_expected_text() -> None:
     """
     Test that list() method returns expected text.
@@ -194,18 +165,6 @@ def test_styles_returns_expected_keys() -> None:
 
     assert "professional" in styles
     assert "description" in styles["professional"]
-
-
-def test_squash_branch_delegates() -> None:
-    """
-    Test that squash_branch() delegates to the squash_branch function.
-    """
-    manager = CliManager()
-
-    with patch("git_cai_cli.core.options.squash_branch") as mock_squash:
-        manager.squash_branch()
-
-    mock_squash.assert_called_once()
 
 
 def test_stage_tracked_files_success() -> None:
@@ -492,3 +451,21 @@ def test_handle_list_unknown_raises_and_writes_stderr(capsys):
     assert exc.value.exit_code == 1
     err = capsys.readouterr().err
     assert "unknown list option 'nonsense'" in err
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("0.1.2", (0, 1, 2)),
+        ("0.1.2.dev8", (0, 1, 2)),
+        ("v1.4", (1, 4, 0)),
+        ("2", (2, 0, 0)),
+        ("invalid", (0, 0, 0)),
+        ("", (0, 0, 0)),
+    ],
+)
+def test_parse_version(text, expected):
+    """Drives the --update installed-vs-latest comparison."""
+    from git_cai_cli.core.options import _parse_version
+
+    assert _parse_version(text) == expected

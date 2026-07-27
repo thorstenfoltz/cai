@@ -36,6 +36,12 @@ ALLOWED_GLOBAL_KEYS = frozenset(
         "pr_to_file",
         "pr_file_name",
         "pr_prompt_file",
+        "explain_prompt_file",
+        "split_prompt_file",
+        "changelog_prompt_file",
+        "changelog_to_file",
+        "changelog_file_name",
+        "release_prompt_file",
         "stats",
         "stats_db_path",
         "signoff",
@@ -242,54 +248,10 @@ def _validate_llm_call(
         ) from None
 
     except Exception:
-        # Unexpected non-HTTP error — preserve the original traceback.
-        # OpenAI-SDK paths surface their own exception classes whose
-        # ``status_code`` attribute (when present) is checked by the
-        # SDK-aware caller. Here we just log and re-raise so debug mode
-        # users see the full stack.
-        sdk_status = _openai_sdk_status_code()
-        if sdk_status is not None:
-            # Re-raise as ValueError with classification consistent with
-            # the requests path so user-facing flow is uniform.
-            if sdk_status in _AUTH_STATUS_CODES:
-                log.error("LLM authentication failed (SDK status %s).", sdk_status)
-                raise ValueError(
-                    f"API token is invalid or not authorized (status {sdk_status}). "
-                    "Please check your API key and its permissions."
-                ) from None
-            if sdk_status in _RATE_LIMIT_STATUS_CODES:
-                log.error("LLM rate limit hit (SDK status %s).", sdk_status)
-                raise ValueError(
-                    f"Rate limit exceeded (status {sdk_status}). "
-                    "Please wait a minute and retry."
-                ) from None
+        # Unexpected non-HTTP error — log and re-raise so debug mode users
+        # see the full stack with its original traceback.
         log.exception("Unexpected error during LLM execution.")
         raise
-
-
-def _openai_sdk_status_code() -> int | None:
-    """Return the HTTP status code from the in-flight OpenAI SDK exception,
-    if one is currently being handled. Returns None otherwise.
-
-    Done lazily so importing ``openai`` is not required when only
-    ``requests``-based providers are used.
-    """
-    import sys
-
-    exc = sys.exc_info()[1]
-    if exc is None:
-        return None
-
-    status = getattr(exc, "status_code", None)
-    if isinstance(status, int):
-        return status
-
-    response = getattr(exc, "response", None)
-    if response is not None:
-        status = getattr(response, "status_code", None)
-        if isinstance(status, int):
-            return status
-    return None
 
 
 def _validate_style(style: str | None) -> str:

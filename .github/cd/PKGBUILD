@@ -10,7 +10,7 @@ license=('MIT')
 depends=(
   python
   python-yaml
-  python-openai
+  python-pathspec
   python-requests
   python-typer
   git

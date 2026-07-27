@@ -21,6 +21,7 @@ Flags:
   -b, --branch             Include current branch name as context for the LLM
   -C, --conventional       Use Conventional Commits format (type(scope): description)
   -c, --crazy              Commit immediately without opening editor (trust LLM output)
+  -D, --explain [HASH]     Explain the staged diff (or a commit HASH) in plain prose
   -d, --debug              Enable debug logging
   -E, --temperature FLOAT  Override the active provider's sampling temperature for this invocation
   -e, --emoji              Toggle emoji prefixes (use --no-emoji to disable)
@@ -36,12 +37,14 @@ Flags:
   -l, --list [TYPE]        List information. TYPE: config, editor, language,
                            model, path, provider, style
   -m, --model NAME         Override model for this invocation (requires --provider)
+  -N, --changelog          Generate a Keep a Changelog section from commits since the last tag
   -n, --ping               With --check, probe the active provider for reachability
   -o, --signoff            Append a `Signed-off-by:` trailer (git user.name / user.email)
   -P, --provider NAME      Override LLM provider for this invocation
   -p, --generate-prompts   Generate default commit/squash/full_files/pr prompt files
       --print              Print the generated commit message to stdout and exit (no commit)
   -q, --sql true|false     Override stats writing for this run (wins over config)
+  -R, --release            Print release notes grouped by change type (+ suggested version)
   -r, --PR                 Generate a Pull Request description from the commits on this branch
       --base BRANCH        Base branch for --PR (overrides auto-detection)
   -S, --set KEY=VALUE      Set a config value in repo config (requires existing repo config)
@@ -53,6 +56,7 @@ Flags:
   -t, --time               Measure and log commit message generation time
   -u, --update             Check for updates
   -v, --version            Show installed version
+  -w, --split              Suggest how to break the staged change into several commits
   -x, --context TEXT       Provide extra context for the LLM (e.g. ticket number, reason)
   -y, --style NAME         Override the commit message style (e.g. funny, neutral, none)
   -z, --stats              Show local-only usage analytics (commits, tokens, latency)

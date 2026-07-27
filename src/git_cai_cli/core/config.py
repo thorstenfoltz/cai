@@ -70,12 +70,32 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "pr_to_file": False,
     "pr_file_name": "PR_DESCRIPTION.md",
     "pr_prompt_file": "",
+    "explain_prompt_file": "",
+    "split_prompt_file": "",
+    "changelog_prompt_file": "",
+    "changelog_to_file": False,
+    "changelog_file_name": "CHANGELOG.md",
+    "release_prompt_file": "",
     "stats": False,
     "stats_db_path": "",  # empty → XDG default (see stats.resolve_db_path)
     "signoff": False,
     "secret_scan": True,
     "secret_scan_exclude": [],
 }
+
+# Config keys holding a path to a prompt file. They share the same handling:
+# ``null`` normalizes to "" and relative paths resolve against the config's
+# directory.
+_PROMPT_FILE_KEYS = (
+    "prompt_file",
+    "squash_prompt_file",
+    "full_files_prompt_file",
+    "pr_prompt_file",
+    "explain_prompt_file",
+    "split_prompt_file",
+    "changelog_prompt_file",
+    "release_prompt_file",
+)
 
 # Providers that do not require an API token in tokens.yml
 TOKENLESS_PROVIDERS: set[str] = {
@@ -192,12 +212,7 @@ def load_config(
             if isinstance(value, str) and value.strip().lower() in none_like:
                 config_dict[key] = "none"
 
-        for key in (
-            "prompt_file",
-            "squash_prompt_file",
-            "full_files_prompt_file",
-            "pr_prompt_file",
-        ):
+        for key in _PROMPT_FILE_KEYS:
             if key not in config_dict:
                 continue
             value = config_dict.get(key)
@@ -240,12 +255,7 @@ def load_config(
 
     def _normalize_prompt_paths(config_dict: dict[str, Any], base_dir: Path) -> None:
         """Normalize prompt file paths (expand ~/$VARS and resolve relative paths)."""
-        for key in (
-            "prompt_file",
-            "squash_prompt_file",
-            "full_files_prompt_file",
-            "pr_prompt_file",
-        ):
+        for key in _PROMPT_FILE_KEYS:
             raw = config_dict.get(key)
             if not isinstance(raw, str):
                 continue
@@ -481,6 +491,12 @@ def ordered_default_config(
         "pr_to_file",
         "pr_file_name",
         "pr_prompt_file",
+        "explain_prompt_file",
+        "split_prompt_file",
+        "changelog_prompt_file",
+        "changelog_to_file",
+        "changelog_file_name",
+        "release_prompt_file",
         "stats",
         "stats_db_path",
         "signoff",

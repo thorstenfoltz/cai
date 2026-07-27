@@ -51,18 +51,6 @@ def ensure_git_alias() -> None:
         raise typer.Exit(code=1)
 
 
-def _log_stats_state(config: dict) -> None:
-    """Backwards-compatible wrapper around ``stats.log_state``.
-
-    The implementation moved into ``core.stats`` to break a cyclic
-    import (``core.pr`` / ``core.squash`` used to import this from
-    ``main``). Kept here so existing test imports continue to work.
-    """
-    from git_cai_cli.core import stats as stats_module
-
-    stats_module.log_state(config)
-
-
 def _route_false_alarm(findings: list, repo_root: Path | None) -> None:
     """After a confirmed false alarm, offer to remember each flagged file.
 
@@ -153,6 +141,7 @@ def run(
         load_token,
     )
     from git_cai_cli.core.gitutils import (
+        apply_diff_limit,
         collect_staged_file_contents,
         commit_with_edit_template,
         find_git_root,
@@ -160,7 +149,6 @@ def run(
         get_last_commit_message,
         git_diff_excluding,
         repo_name_from_root,
-        truncate_diff,
     )
     from git_cai_cli.core.llm import CommitMessageGenerator
     from git_cai_cli.core.options import CliManager
@@ -200,7 +188,9 @@ def run(
         return
 
     if mode is Mode.SQUASH:
-        manager.squash_branch(
+        from git_cai_cli.core.squash import squash_branch
+
+        squash_branch(
             provider_override=provider_override,
             model_override=model_override,
             temperature_override=temperature_override,
@@ -222,6 +212,63 @@ def run(
             temperature_override=temperature_override,
             time_flag=time_flag,
             base_override=base_override,
+            context=context,
+            sql_override=sql_override,
+            allow_secrets=allow_secrets,
+        )
+        return
+
+    if mode is Mode.EXPLAIN:
+        from git_cai_cli.core.explain import run_explain
+
+        run_explain(
+            rev=list_arg,
+            provider_override=provider_override,
+            model_override=model_override,
+            temperature_override=temperature_override,
+            time_flag=time_flag,
+            context=context,
+            sql_override=sql_override,
+            allow_secrets=allow_secrets,
+        )
+        return
+
+    if mode is Mode.CHANGELOG:
+        from git_cai_cli.core.changelog import run_changelog
+
+        run_changelog(
+            provider_override=provider_override,
+            model_override=model_override,
+            temperature_override=temperature_override,
+            time_flag=time_flag,
+            context=context,
+            sql_override=sql_override,
+            allow_secrets=allow_secrets,
+        )
+        return
+
+    if mode is Mode.RELEASE:
+        from git_cai_cli.core.release import run_release
+
+        run_release(
+            provider_override=provider_override,
+            model_override=model_override,
+            temperature_override=temperature_override,
+            time_flag=time_flag,
+            context=context,
+            sql_override=sql_override,
+            allow_secrets=allow_secrets,
+        )
+        return
+
+    if mode is Mode.SPLIT:
+        from git_cai_cli.core.split import run_split
+
+        run_split(
+            provider_override=provider_override,
+            model_override=model_override,
+            temperature_override=temperature_override,
+            time_flag=time_flag,
             context=context,
             sql_override=sql_override,
             allow_secrets=allow_secrets,
@@ -256,7 +303,9 @@ def run(
         emoji_override=emoji_override,
     )
 
-    _log_stats_state(config)
+    from git_cai_cli.core import stats as stats_module
+
+    stats_module.log_state(config)
 
     branch_name: str | None = None
     if config.get("branch_context", False):
@@ -294,15 +343,7 @@ def run(
             if file_dump:
                 diff = f"{diff}\n\n--- Full file contents ---\n{file_dump}"
 
-    max_diff_bytes = int(config.get("max_diff_bytes", 0) or 0)
-    diff, was_truncated = truncate_diff(diff, max_diff_bytes)
-    if was_truncated:
-        log.warning(
-            "Diff exceeded max_diff_bytes=%d and was truncated before sending "
-            "to the LLM. Raise max_diff_bytes or use -f/--files to scope the "
-            "diff if you need the full context.",
-            max_diff_bytes,
-        )
+    diff = apply_diff_limit(diff, config, label="Diff")
 
     measure = time_flag or config.get("measure_time", False)
     start = time.perf_counter() if measure else None

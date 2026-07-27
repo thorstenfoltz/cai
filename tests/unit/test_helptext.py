@@ -11,3 +11,9 @@ def test_print_help_and_exit(capsys):
     # Capture printed output
     captured = capsys.readouterr()
     assert captured.out.strip() == HELP_TEXT.strip()
+
+
+def test_help_lists_read_only_modes():
+    """Help is hand-written, so new flags must be added there explicitly."""
+    for flag in ("--explain", "--split", "--changelog", "--release"):
+        assert flag in HELP_TEXT

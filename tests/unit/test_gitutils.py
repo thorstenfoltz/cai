@@ -19,13 +19,19 @@ from unittest.mock import MagicMock, patch
 
 from git_cai_cli.core.gitutils import (
     append_to_caiignore,
+    changed_files_range,
     collect_staged_file_contents,
+    commit_log_range,
     commit_with_edit_template,
     find_git_root,
+    get_commit_diff,
     get_current_branch,
     get_git_editor,
     git_diff_excluding,
+    last_git_tag,
+    merge_base,
     sha256_of_file,
+    staged_file_names,
     truncate_diff,
 )
 
@@ -625,3 +631,87 @@ def test_caiignore_unanchored_pattern_matches_anywhere():
 def test_caiignore_empty_patterns_no_match():
     """Empty pattern list never matches."""
     assert not _ci_matches("anything.txt", [])
+
+
+# ---------------------------------------------------------------------------
+# Shared git range helpers (lifted out of core.pr)
+# ---------------------------------------------------------------------------
+
+
+def test_merge_base_calls_git_merge_base():
+    with patch(
+        "git_cai_cli.core.gitutils.subprocess.check_output",
+        return_value="abc123\n",
+    ) as co:
+        assert merge_base("master") == "abc123"
+    assert co.call_args[0][0] == ["git", "merge-base", "master", "HEAD"]
+
+
+def test_commit_log_range_calls_git_log():
+    with patch(
+        "git_cai_cli.core.gitutils.subprocess.check_output",
+        return_value="msg body\n",
+    ) as co:
+        assert commit_log_range("v1.0.0..HEAD") == "msg body"
+    args = co.call_args[0][0]
+    assert args[:3] == ["git", "--no-pager", "log"]
+    assert "v1.0.0..HEAD" in args
+    assert "--pretty=format:%B" in args
+
+
+def test_changed_files_range_calls_git_diff():
+    with patch(
+        "git_cai_cli.core.gitutils.subprocess.check_output",
+        return_value="a.py\nb.py\n",
+    ) as co:
+        assert changed_files_range("v1.0.0..HEAD") == "a.py\nb.py"
+    assert co.call_args[0][0] == ["git", "diff", "--name-only", "v1.0.0..HEAD"]
+
+
+def test_last_git_tag_returns_tag():
+    with patch(
+        "git_cai_cli.core.gitutils.subprocess.check_output",
+        return_value="v2.3.0\n",
+    ):
+        assert last_git_tag() == "v2.3.0"
+
+
+def test_last_git_tag_returns_none_without_tags():
+    with patch(
+        "git_cai_cli.core.gitutils.subprocess.check_output",
+        side_effect=subprocess.CalledProcessError(128, "git"),
+    ):
+        assert last_git_tag() is None
+
+
+def test_get_commit_diff_shows_single_commit():
+    with patch(
+        "git_cai_cli.core.gitutils.subprocess.check_output",
+        return_value="patch text\n",
+    ) as co:
+        assert get_commit_diff(Path("/repo"), "abc123") == "patch text"
+    assert co.call_args[0][0] == [
+        "git",
+        "-C",
+        "/repo",
+        "show",
+        "abc123",
+        "--format=",
+        "--patch",
+    ]
+
+
+def test_staged_file_names_skips_blank_lines():
+    with patch(
+        "git_cai_cli.core.gitutils.subprocess.check_output",
+        return_value="a.py\n\nb.py\n",
+    ) as co:
+        assert staged_file_names(Path("/repo")) == ["a.py", "b.py"]
+    assert co.call_args[0][0] == [
+        "git",
+        "-C",
+        "/repo",
+        "diff",
+        "--cached",
+        "--name-only",
+    ]

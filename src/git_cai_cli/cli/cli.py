@@ -38,6 +38,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         "-b",
         help="Include current branch name as context for the LLM. Use --no-branch to explicitly disable when the persisted config has it enabled.",
     ),
+    changelog: bool = typer.Option(
+        False,
+        "-N",
+        "--changelog",
+        help="Generate a Keep a Changelog 'Unreleased' section from commits since the last tag.",
+    ),
     conventional: bool | None = typer.Option(
         None,
         "--conventional/--no-conventional",
@@ -49,6 +55,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     ),
     enable_debug: bool = typer.Option(
         False, "--debug", "-d", help="Enable debug logging"
+    ),
+    explain: bool = typer.Option(
+        False,
+        "-D",
+        "--explain",
+        help="Explain a staged diff (or a given commit hash) in plain prose. Read-only.",
     ),
     generate_config: bool = typer.Option(
         False,
@@ -75,6 +87,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
     stage_tracked: bool = typer.Option(
         False, "--all", "-a", help="Stage all tracked files"
     ),
+    split: bool = typer.Option(
+        False,
+        "-w",
+        "--split",
+        help="Suggest how to break the staged change into several logical commits (advisory).",
+    ),
     squash: bool = typer.Option(
         False, "--squash", "-s", help="Squash commits on this branch"
     ),
@@ -90,6 +108,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         help="Explicit base branch for --PR (overrides auto-detection)",
     ),
     update: bool = typer.Option(False, "--update", "-u", help="Check for updates"),
+    release: bool = typer.Option(
+        False,
+        "-R",
+        "--release",
+        help="Print release notes grouped by change type, plus a suggested version.",
+    ),
     set_config: str = typer.Option(
         None,
         "-S",
@@ -242,10 +266,14 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
 
     mode = resolve_mode(
         amend=amend,
+        changelog=changelog,
         check=check,
+        explain=explain,
         init=init,
         list_flag=list_flag,
         pr=pr,
+        release=release,
+        split=split,
         squash=squash,
         stats=stats,
         update=update,
