@@ -548,12 +548,12 @@ def test_apply_cli_overrides_sql_none_preserves_config():
 def test_log_stats_state_enabled_includes_db_path(caplog, tmp_path):
     """When stats are enabled, the run logs that fact AND the DB path
     so users always know where their analytics live."""
-    from git_cai_cli.main import _log_stats_state
+    from git_cai_cli.core.stats import log_state
 
     config = {"stats": True, "stats_db_path": str(tmp_path / "x.db")}
 
     caplog.set_level("INFO")
-    _log_stats_state(config)
+    log_state(config)
 
     assert "Stats writing enabled" in caplog.text
     assert str(tmp_path / "x.db") in caplog.text
@@ -561,10 +561,10 @@ def test_log_stats_state_enabled_includes_db_path(caplog, tmp_path):
 
 def test_log_stats_state_disabled_says_disabled(caplog):
     """When stats are off, the disabled state is also surfaced."""
-    from git_cai_cli.main import _log_stats_state
+    from git_cai_cli.core.stats import log_state
 
     caplog.set_level("INFO")
-    _log_stats_state({"stats": False})
+    log_state({"stats": False})
 
     assert "Stats writing disabled" in caplog.text
 
@@ -572,10 +572,10 @@ def test_log_stats_state_disabled_says_disabled(caplog):
 def test_log_stats_state_uses_default_path_when_unset(caplog, monkeypatch):
     """If stats are enabled but no path override is set, the default
     ``~/.local/share/git-cai/stats.db`` is logged."""
-    from git_cai_cli.main import _log_stats_state
+    from git_cai_cli.core.stats import log_state
 
     caplog.set_level("INFO")
-    _log_stats_state({"stats": True})
+    log_state({"stats": True})
 
     assert "Stats writing enabled" in caplog.text
     assert "stats.db" in caplog.text

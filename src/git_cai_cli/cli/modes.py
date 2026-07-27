@@ -13,23 +13,35 @@ class Mode(Enum):
     """
 
     AMEND = auto()
+    CHANGELOG = auto()
     CHECK = auto()
     COMMIT = auto()
+    EXPLAIN = auto()
     INIT = auto()
     LIST = auto()
     PR = auto()
+    RELEASE = auto()
+    SPLIT = auto()
     SQUASH = auto()
     STATS = auto()
     UPDATE = auto()
 
 
+# Read-only modes that generate advisory output and never touch git state.
+READ_ONLY_MODES = (Mode.EXPLAIN, Mode.SPLIT, Mode.CHANGELOG, Mode.RELEASE)
+
+
 def resolve_mode(
     *,
     amend: bool,
+    changelog: bool = False,
     check: bool = False,
+    explain: bool = False,
     init: bool = False,
     list_flag: bool,
     pr: bool,
+    release: bool = False,
+    split: bool = False,
     squash: bool,
     stats: bool = False,
     update: bool,
@@ -37,25 +49,47 @@ def resolve_mode(
     """
     Resolves the operational mode based on the provided flags.
     """
-    flags = [amend, check, init, list_flag, pr, squash, stats, update]
+    flags = [
+        amend,
+        changelog,
+        check,
+        explain,
+        init,
+        list_flag,
+        pr,
+        release,
+        split,
+        squash,
+        stats,
+        update,
+    ]
     if sum(flags) > 1:
         typer.echo(
-            "Error: --amend, --check, --init, --list, --PR, --squash, --stats, and "
-            "--update cannot be used together.",
+            "Error: mode flags (--amend, --changelog, --check, --explain, --init, "
+            "--list, --PR, --release, --split, --squash, --stats, --update) "
+            "cannot be used together.",
             err=True,
         )
         raise typer.Exit(code=1)
 
     if amend:
         return Mode.AMEND
+    if changelog:
+        return Mode.CHANGELOG
     if check:
         return Mode.CHECK
+    if explain:
+        return Mode.EXPLAIN
     if init:
         return Mode.INIT
     if list_flag:
         return Mode.LIST
     if pr:
         return Mode.PR
+    if release:
+        return Mode.RELEASE
+    if split:
+        return Mode.SPLIT
     if squash:
         return Mode.SQUASH
     if stats:
@@ -93,7 +127,7 @@ def validate_options(
 
     if stage_tracked and mode not in (Mode.COMMIT, Mode.AMEND):
         typer.echo(
-            "Error: --all cannot be used with --init, --list, --update, --PR, or --squash.",
+            "Error: --all can only be used in COMMIT or AMEND mode.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -116,16 +150,22 @@ def validate_options(
         )
         raise typer.Exit(code=1)
 
-    if context and mode not in (Mode.COMMIT, Mode.AMEND, Mode.SQUASH, Mode.PR):
+    if context and mode not in (
+        Mode.COMMIT,
+        Mode.AMEND,
+        Mode.SQUASH,
+        Mode.PR,
+        *READ_ONLY_MODES,
+    ):
         typer.echo(
-            "Error: --context cannot be used with --init, --list, or --update.",
+            "Error: --context cannot be used with this mode.",
             err=True,
         )
         raise typer.Exit(code=1)
 
     if files and mode not in (Mode.COMMIT, Mode.AMEND):
         typer.echo(
-            "Error: --files cannot be used with --init, --list, --update, --PR, or --squash.",
+            "Error: --files can only be used in COMMIT or AMEND mode.",
             err=True,
         )
         raise typer.Exit(code=1)

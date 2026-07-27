@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-07-05
+.\"      Date: 2026-07-28
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-07-05" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-07-28" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -32,29 +32,33 @@ git-cai \- AI\-powered commit message generator
 .SH "SYNOPSIS"
 .sp
 .nf
-\f(CRgit cai\fP [\-A | \-\-amend] [\-a | \-\-all] [\-C | \-\-conventional]
-        [\-b | \-\-branch] [\-c | \-\-crazy] [\-d | \-\-debug]
-        [\-B | \-\-allow\-secrets] [\-k | \-\-check] [\-n | \-\-ping]
-        [\-e TEMPERATURE | \-\-temperature TEMPERATURE]
+\f(CRgit cai\fP [\-A | \-\-amend] [\-a | \-\-all]
+        [\-B | \-\-allow\-secrets] [\-b | \-\-branch | \-\-no\-branch]
+        [\-C | \-\-conventional | \-\-no\-conventional] [\-c | \-\-crazy]
+        [\-D [HASH] | \-\-explain [HASH]] [\-d | \-\-debug]
+        [\-E TEMPERATURE | \-\-temperature TEMPERATURE]
+        [\-e | \-\-emoji | \-\-no\-emoji]
         [\-F | \-\-full\-files | \-\-no\-full\-files] [\-f PATH | \-\-files PATH]
         [\-g | \-\-generate\-config]
         [\-H KEY=VALUE | \-\-set\-home KEY=VALUE] [\-h | \-\-help]
-        [\-I | \-\-init]
-        [\-i | \-\-install\-completion]
+        [\-I | \-\-init] [\-i | \-\-install\-completion]
+        [\-k | \-\-check]
+        [\-L CODE | \-\-language CODE]
         [\-l [config|editor|language|model|path|provider|style] |
          \-\-list [config|editor|language|model|path|provider|style]]
         [\-m MODEL | \-\-model MODEL]
+        [\-N | \-\-changelog] [\-n | \-\-ping]
         [\-o | \-\-signoff | \-\-no\-signoff]
         [\-P PROVIDER | \-\-provider PROVIDER] [\-p | \-\-generate\-prompts]
         [\-\-print]
+        [\-q true|false | \-\-sql true|false]
+        [\-R | \-\-release]
         [\-r | \-\-PR] [\-\-base BRANCH]
         [\-S KEY=VALUE | \-\-set KEY=VALUE]
         [\-s [N|HASH] | \-\-squash [N|HASH]]
-        [\-q true|false | \-\-sql true|false]
-        [\-\-style STYLE] [\-\-language CODE] [\-\-emoji | \-\-no\-emoji]
-        [\-T SECONDS | \-\-timeout SECONDS]
-        [\-t | \-\-time] [\-u | \-\-update] [\-v | \-\-version]
-        [\-x CONTEXT | \-\-context CONTEXT]
+        [\-T SECONDS | \-\-timeout SECONDS] [\-t | \-\-time]
+        [\-u | \-\-update] [\-v | \-\-version] [\-w | \-\-split]
+        [\-x CONTEXT | \-\-context CONTEXT] [\-y STYLE | \-\-style STYLE]
         [\-z | \-\-stats] [\-\-since YYYY\-MM\-DD] [\-\-json] [\-\-reset\-stats]
 .fi
 .br
@@ -357,6 +361,30 @@ git cai \-A \-c
 .if n .RE
 .RE
 .sp
+\-D, \-\-explain [HASH]
+.RS 4
+Explain what a change does in plain prose, printed to stdout. With no
+argument, explains the staged diff; with a commit HASH, explains that
+commit\(cqs diff. Read\-only: nothing is staged, committed, or amended.
+.sp
+The explanation is prose, not a commit message: it covers the intent of
+the change, the notable edits, and any risks a reviewer should know. Use
+\f(CR\-x\fP to add context the diff does not show.
+.sp
+The prompt follows the usual fallback chain: \f(CRexplain_prompt_file\fP from
+config, then \f(CR~/.config/cai/explain_prompt.md\fP, then the built\-in default.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-explain
+git cai \-D a1b2c3d
+git cai \-D \-x "Fixes JIRA\-1234"
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-d, \-\-debug
 .RS 4
 Enable debug logging. Produces verbose output to stderr, including
@@ -375,7 +403,7 @@ git cai \-d
 .if n .RE
 .RE
 .sp
-\-e, \-\-temperature TEMPERATURE
+\-E, \-\-temperature TEMPERATURE
 .RS 4
 Override the sampling temperature of the active provider for this invocation
 only. Higher values produce more varied wording; lower values are more
@@ -387,8 +415,25 @@ for those the value is ignored and a warning is logged.
 .if n .RS 4
 .nf
 .fam C
-git cai \-e 0.7
-git cai \-P anthropic \-e 0.2
+git cai \-E 0.7
+git cai \-P anthropic \-E 0.2
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-e, \-\-emoji / \-\-no\-emoji
+.RS 4
+Override emoji usage for this invocation only. \f(CR\-\-emoji\fP instructs the model
+to use relevant emojis; \f(CR\-\-no\-emoji\fP disables them even when the persisted
+config enables emoji. To change the default permanently, set \f(CRemoji:\fP in
+\f(CRcai_config.yml\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-no\-emoji
+git cai \-\-emoji
 .fam
 .fi
 .if n .RE
@@ -574,16 +619,19 @@ git cai \-\-check \-\-ping
 .if n .RE
 .RE
 .sp
-\-n, \-\-ping
+\-L, \-\-language CODE
 .RS 4
-Only meaningful together with \f(CR\-\-check\fP. After the offline checks, send one
-small request to the active provider and report whether it is reachable and how
-long it took. Useful to confirm an API key and network path end to end.
+Override the commit message language for this invocation only, using a
+supported language code (e.g. \f(CRde\fP, \f(CRfr\fP, \f(CRes\fP), or \f(CRnone\fP to omit the
+language instruction. Run \f(CRgit cai \-l language\fP to list supported codes. An
+unsupported code is rejected with an error. To change it permanently, set
+\f(CRlanguage:\fP in \f(CRcai_config.yml\fP.
 .sp
 .if n .RS 4
 .nf
 .fam C
-git cai \-\-check \-\-ping
+git cai \-\-language de
+git cai \-\-language none
 .fam
 .fi
 .if n .RE
@@ -623,6 +671,50 @@ identifier for that provider.
 git cai \-P openai \-m gpt\-4o
 git cai \-P anthropic \-m claude\-haiku\-4\-5
 git cai \-P ollama \-m mistral
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-N, \-\-changelog
+.RS 4
+Generate a changelog section in the "Keep a Changelog" style from the
+commits since the most recent tag (\f(CRgit describe \-\-tags \-\-abbrev=0\fP). If the
+repository has no tags yet, the whole history is used.
+.sp
+Entries are grouped under the standard headings (Added, Changed,
+Deprecated, Removed, Fixed, Security); headings without entries are
+omitted. Read\-only: nothing is committed or tagged.
+.sp
+By default the section is printed to stdout. Set \f(CRchangelog_to_file: true\fP
+to prepend it to the changelog file instead; the filename comes from
+\f(CRchangelog_file_name\fP (default \f(CRCHANGELOG.md\fP) and the file is written in
+the repository root, keeping any existing content below the new section.
+.sp
+The prompt follows the usual fallback chain: \f(CRchangelog_prompt_file\fP from
+config, then \f(CR~/.config/cai/changelog_prompt.md\fP, then the built\-in default.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-changelog
+git cai \-N > CHANGELOG.new.md
+git cai \-S changelog_to_file=true
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-n, \-\-ping
+.RS 4
+Only meaningful together with \f(CR\-\-check\fP. After the offline checks, send one
+small request to the active provider and report whether it is reachable and how
+long it took. Useful to confirm an API key and network path end to end.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-check \-\-ping
 .fam
 .fi
 .if n .RE
@@ -744,6 +836,43 @@ git cai \-q false\&         # don\*(Aqt record this commit even when config has 
 .if n .RE
 .RE
 .sp
+\-R, \-\-release
+.RS 4
+Print release notes for the commits since the most recent tag
+(\f(CRgit describe \-\-tags \-\-abbrev=0\fP) to stdout. If the repository has no tags
+yet, the whole history is used. Read\-only: nothing is committed or tagged.
+.sp
+The notes open with a one\-line title, then group the changes under Markdown
+h3 headings (\f(CR### Features\fP) in this order: Breaking changes, Features, Bug
+fixes, Performance, Refactoring, Documentation, Tests, Build and CI, Chores,
+Reverts. A heading is printed only when it has entries \(em a release that
+fixes no bugs shows no "Bug fixes" heading. Each commit is assigned by its Conventional Commits type
+(\f(CRfeat\fP \(-> Features, \f(CRfix\fP \(-> Bug fixes, and so on); a \f(CR!\fP marker or a
+\f(CRBREAKING CHANGE\fP note goes under Breaking changes. Commits without a type
+prefix are placed by inferring the closest heading from the message.
+.sp
+Emojis appear only when they are switched on, either by \f(CRemoji: true\fP in
+\f(CRcai_config.yml\fP or by \f(CR\-e\fP/\f(CR\-\-emoji\fP on the command line. With \f(CR\-\-no\-emoji\fP,
+or with emoji disabled in config, the notes are plain text.
+.sp
+Output is the notes and nothing else, so it pipes cleanly into a file, a
+release form, or \f(CRgit tag \-a \-F \-\fP.
+.sp
+The prompt follows the usual fallback chain: \f(CRrelease_prompt_file\fP from
+config, then \f(CR~/.config/cai/release_prompt.md\fP, then the built\-in default.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-release
+git cai \-R \-\-no\-emoji
+git cai \-R > RELEASE_NOTES.md
+git cai \-R \-x "First public release"
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-r, \-\-PR
 .RS 4
 Generate a Pull Request description summarizing the commits between the
@@ -854,60 +983,6 @@ git cai \-s a1b2c3d
 .if n .RE
 .RE
 .sp
-\-\-style STYLE
-.RS 4
-Override the commit message tone style for this invocation only (e.g.
-\f(CRprofessional\fP, \f(CRneutral\fP, \f(CRfriendly\fP, \f(CRfunny\fP, \f(CRexcited\fP, \f(CRsarcastic\fP,
-\f(CRapologetic\fP, \f(CRacademic\fP, or \f(CRnone\fP to let the model choose). Run
-\f(CRgit cai \-l style\fP to see all styles with examples. An invalid value is
-rejected with an error. To change the style permanently, set \f(CRstyle:\fP in
-\f(CRcai_config.yml\fP.
-.sp
-.if n .RS 4
-.nf
-.fam C
-git cai \-\-style funny
-git cai \-\-style none
-.fam
-.fi
-.if n .RE
-.RE
-.sp
-\-\-language CODE
-.RS 4
-Override the commit message language for this invocation only, using a
-supported language code (e.g. \f(CRde\fP, \f(CRfr\fP, \f(CRes\fP), or \f(CRnone\fP to omit the
-language instruction. Run \f(CRgit cai \-l language\fP to list supported codes. An
-unsupported code is rejected with an error. To change it permanently, set
-\f(CRlanguage:\fP in \f(CRcai_config.yml\fP.
-.sp
-.if n .RS 4
-.nf
-.fam C
-git cai \-\-language de
-git cai \-\-language none
-.fam
-.fi
-.if n .RE
-.RE
-.sp
-\-\-emoji / \-\-no\-emoji
-.RS 4
-Override emoji usage for this invocation only. \f(CR\-\-emoji\fP instructs the model
-to use relevant emojis; \f(CR\-\-no\-emoji\fP disables them even when the persisted
-config enables emoji. To change the default permanently, set \f(CRemoji:\fP in
-\f(CRcai_config.yml\fP.
-.sp
-.if n .RS 4
-.nf
-.fam C
-git cai \-\-no\-emoji
-git cai \-\-emoji
-.fam
-.fi
-.if n .RE
-.RE
-.sp
 \-T, \-\-timeout SECONDS
 .RS 4
 Override the HTTP timeout for the LLM call in this invocation. The default
@@ -994,6 +1069,35 @@ git cai \-v
 .if n .RE
 .RE
 .sp
+\-w, \-\-split
+.RS 4
+Suggest how to break the staged change into several smaller, logically
+coherent commits. The grouping is at file granularity: whole files are
+assigned to groups, never split within a file. Each group is printed with a
+suggested one\-line commit message and the file paths it contains.
+.sp
+Advisory: the plan is printed and nothing is executed. To apply a group,
+run \f(CRgit reset\fP, then \f(CRgit add <files>\fP and \f(CRgit cai\fP for each group in
+turn.
+.sp
+Unlike the other read\-only modes, the \f(CR\-\-split\fP prompt does not receive the
+language, style, or emoji instructions: its output is a structured plan, not
+prose.
+.sp
+The prompt follows the usual fallback chain: \f(CRsplit_prompt_file\fP from
+config, then \f(CR~/.config/cai/split_prompt.md\fP, then the built\-in default.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git add \-A
+git cai \-\-split
+git cai \-w \-x "Keep the migration separate"
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-x, \-\-context CONTEXT
 .RS 4
 Provide extra context for the LLM to consider when generating the commit
@@ -1003,7 +1107,8 @@ provider. This is useful for including information that is not visible in
 the diff itself, such as a ticket number, the reason for a change, or a
 link to an issue.
 .sp
-Can be combined with \f(CRCOMMIT\fP, \f(CRAMEND\fP, \f(CRSQUASH\fP, or \f(CRPR\fP modes.
+Can be combined with \f(CRCOMMIT\fP, \f(CRAMEND\fP, \f(CRSQUASH\fP, \f(CRPR\fP, \f(CREXPLAIN\fP,
+\f(CRSPLIT\fP, \f(CRCHANGELOG\fP, and \f(CRTAG\fP modes.
 Cannot be used with \f(CR\-\-list\fP or \f(CR\-\-update\fP.
 .sp
 .if n .RS 4
@@ -1019,10 +1124,32 @@ git cai \-r \-x "Closes JIRA\-1234"
 .if n .RE
 .RE
 .sp
+\-y, \-\-style STYLE
+.RS 4
+Override the commit message tone style for this invocation only (e.g.
+\f(CRprofessional\fP, \f(CRneutral\fP, \f(CRfriendly\fP, \f(CRfunny\fP, \f(CRexcited\fP, \f(CRsarcastic\fP,
+\f(CRapologetic\fP, \f(CRacademic\fP, or \f(CRnone\fP to let the model choose). Run
+\f(CRgit cai \-l style\fP to see all styles with examples. An invalid value is
+rejected with an error. To change the style permanently, set \f(CRstyle:\fP in
+\f(CRcai_config.yml\fP.
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-\-style funny
+git cai \-\-style none
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-z, \-\-stats
 .RS 4
-Show local\-only usage analytics: commits and squashes generated, top
-provider, total token counts, average latency, and per\-provider rollups.
+Show local\-only usage analytics: commits, amends, squashes and PR
+descriptions generated, top provider, total token counts, average latency,
+and per\-provider rollups. The read\-only modes (\f(CR\-\-explain\fP, \f(CR\-\-split\fP,
+\f(CR\-\-changelog\fP, \f(CR\-\-release\fP) are recorded in the database and included in the
+token and latency totals, but do not yet get their own count line.
 Recording is opt\-in via the top\-level \f(CRstats\fP config key (a plain
 boolean, default \f(CRfalse\fP), so this view is empty until you turn writing
 on. No diff content, commit messages, or file paths are stored — only
@@ -1622,6 +1749,84 @@ built\-in fallback.
 .  sp -1
 .  IP \(bu 2.3
 .\}
+\f(CRchangelog_file_name\fP \(em filename used when \f(CRchangelog_to_file\fP is \f(CRtrue\fP
+(default \f(CRCHANGELOG.md\fP). The file is written in the repository root; any
+existing content is kept below the newly generated section.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRchangelog_prompt_file\fP \(em path to a custom Markdown prompt file used by
+\f(CR\-\-changelog\fP (fallback chain: configured path \(->
+\f(CR~/.config/cai/changelog_prompt.md\fP \(-> built\-in fallback).
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRchangelog_to_file\fP \(em when running \f(CR\-\-changelog\fP, prepend the generated
+section to the changelog file instead of printing it to stdout
+(\f(CRtrue\fP/\f(CRfalse\fP, default \f(CRfalse\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRexplain_prompt_file\fP \(em path to a custom Markdown prompt file used by
+\f(CR\-\-explain\fP (same fallback chain, with
+\f(CR~/.config/cai/explain_prompt.md\fP as the middle step).
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRsplit_prompt_file\fP \(em path to a custom Markdown prompt file used by
+\f(CR\-\-split\fP (same fallback chain, with \f(CR~/.config/cai/split_prompt.md\fP as
+the middle step).
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRrelease_prompt_file\fP \(em path to a custom Markdown prompt file used by
+\f(CR\-\-release\fP (same fallback chain, with \f(CR~/.config/cai/release_prompt.md\fP as
+the middle step).
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
 \f(CR<provider>.model\fP \(em model name for a specific provider
 .RE
 .sp
@@ -1670,7 +1875,8 @@ built\-in fallback.
 .\}
 \f(CRstats\fP \(em opt in to local\-only usage analytics (\f(CRtrue\fP/\f(CRfalse\fP,
 default \f(CRfalse\fP). When enabled, every generation appends one row to
-\f(CR~/.local/share/git\-cai/stats.db\fP capturing kind, repo name, provider,
+\f(CR~/.local/share/git\-cai/stats.db\fP capturing kind (\f(CRcommit\fP, \f(CRamend\fP,
+\f(CRsquash\fP, \f(CRpr\fP, \f(CRexplain\fP, \f(CRsplit\fP, \f(CRchangelog\fP, \f(CRrelease\fP), repo name, provider,
 model, token counts, real LLM latency, and a snapshot of the active
 settings (language, style, emoji, temperature, prompt file). No diff
 content, commit messages, or file paths are stored. View the rollup

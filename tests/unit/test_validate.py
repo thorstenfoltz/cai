@@ -652,39 +652,8 @@ def test_validate_llm_call_handles_non_json_body():
     assert "502" in str(exc_info.value)
 
 
-def test_validate_llm_call_openai_sdk_auth_error_classifies_as_auth():
-    """An exception with a status_code of 401 (OpenAI SDK style) is
-    classified as auth even when it is not requests.HTTPError."""
-
-    class FakeOpenAIAuthError(Exception):
-        status_code = 401
-
-    def fn():
-        raise FakeOpenAIAuthError("Incorrect API key provided")
-
-    with pytest.raises(ValueError) as exc_info:
-        _validate_llm_call(fn, token="t")
-
-    assert "401" in str(exc_info.value)
-    assert "invalid or not authorized" in str(exc_info.value)
-
-
-def test_validate_llm_call_openai_sdk_rate_limit_classifies_as_rate_limit():
-    class FakeOpenAIRateLimit(Exception):
-        status_code = 429
-
-    def fn():
-        raise FakeOpenAIRateLimit("rate limited")
-
-    with pytest.raises(ValueError) as exc_info:
-        _validate_llm_call(fn, token="t")
-
-    assert "Rate limit exceeded" in str(exc_info.value)
-    assert "429" in str(exc_info.value)
-
-
 def test_validate_llm_call_unrelated_exception_propagates():
-    """Non-HTTP, non-SDK errors must propagate (preserves stack for debug)."""
+    """Non-HTTP errors must propagate (preserves stack for debug)."""
 
     def fn():
         raise RuntimeError("boom")

@@ -117,7 +117,9 @@ def test_dispatch_valid_model(generator):
     """
     Test that the _dispatch_generate method calls the correct model generation method
     """
-    with patch.object(generator, "generate_openai", return_value="ok") as mock_fn:
+    with patch.object(
+        generator, "generate_openai_compatible", return_value="ok"
+    ) as mock_fn:
         result = generator._dispatch_generate("diff", "prompt")
         assert result == "ok"
         mock_fn.assert_called_once()
@@ -135,37 +137,35 @@ def test_dispatch_invalid_model(generator):
 # test openai
 def test_generate_openai(generator):
     """
-    Test that the generate_openai method returns the correct message text
+    Test that the OpenAI-compatible call returns the correct message text
     """
-    mock_client = MagicMock()
-    mock_instance = MagicMock()
-    mock_instance.chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message=MagicMock(content="  message text  "))]
-    )
-    mock_client.return_value = mock_instance
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "  message text  "}}]
+    }
 
-    result = generator.generate_openai(
-        "diff", openai_cls=mock_client, system_prompt_override="sys"
-    )
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        result = generator.generate_openai_compatible(
+            "diff", "openai", system_prompt_override="sys"
+        )
+
     assert result == "message text"
-
-    mock_instance.chat.completions.create.assert_called_once()
+    assert mock_post.call_args[0][0] == "https://api.openai.com/v1/chat/completions"
 
 
 def test_generate_openai_empty_content_raises(generator):
-    """A None message.content (empty/refused completion) must raise a clean
+    """A null message content (empty/refused completion) must raise a clean
     ValueError instead of an AttributeError on .strip()."""
-    mock_client = MagicMock()
-    mock_instance = MagicMock()
-    mock_instance.chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message=MagicMock(content=None))]
-    )
-    mock_client.return_value = mock_instance
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": None}}]
+    }
 
-    with pytest.raises(ValueError, match="empty response"):
-        generator.generate_openai(
-            "diff", openai_cls=mock_client, system_prompt_override="sys"
-        )
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        with pytest.raises(ValueError, match="empty response"):
+            generator.generate_openai_compatible(
+                "diff", "openai", system_prompt_override="sys"
+            )
 
 
 # test anthropic
@@ -304,7 +304,9 @@ def test_generate_groq():
     }
 
     with patch(f"{module_path}._http_post", mock_post):
-        result = gen.generate_groq("abc", system_prompt_override="sys")
+        result = gen.generate_openai_compatible(
+            "abc", "groq", system_prompt_override="sys"
+        )
 
     assert result == "groq result"
     mock_post.assert_called_once()
@@ -356,7 +358,9 @@ def test_generate_xai():
     }
 
     with patch(f"{module_path}._http_post", mock_post):
-        result = gen.generate_xai("hello x", system_prompt_override="sys")
+        result = gen.generate_openai_compatible(
+            "hello x", "xai", system_prompt_override="sys"
+        )
 
     assert result == "xai content"
     mock_post.assert_called_once()
@@ -498,22 +502,17 @@ def test_token_usage_logged_openai(caplog):
 
     gen = CommitMessageGenerator(token="fake", config=config, default_model="openai")
 
-    mock_client = MagicMock()
-    mock_instance = MagicMock()
-    mock_usage = MagicMock()
-    mock_usage.prompt_tokens = 100
-    mock_usage.completion_tokens = 50
-    mock_completion = MagicMock(
-        choices=[MagicMock(message=MagicMock(content="msg"))],
-        usage=mock_usage,
-    )
-    mock_instance.chat.completions.create.return_value = mock_completion
-    mock_client.return_value = mock_instance
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+    }
 
     with caplog.at_level(logging.INFO):
-        gen.generate_openai(
-            "diff", openai_cls=mock_client, system_prompt_override="sys"
-        )
+        with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+            gen.generate_openai_compatible(
+                "diff", "openai", system_prompt_override="sys"
+            )
 
     assert "Token usage [openai]: prompt=100, completion=50, total=150" in caplog.text
 
@@ -584,7 +583,7 @@ def test_token_usage_logged_groq(caplog):
 
     with caplog.at_level(logging.INFO):
         with patch(f"{module_path}._http_post", mock_post):
-            gen.generate_groq("diff", system_prompt_override="sys")
+            gen.generate_openai_compatible("diff", "groq", system_prompt_override="sys")
 
     assert "Token usage [groq]: prompt=120, completion=40, total=160" in caplog.text
 
@@ -641,7 +640,7 @@ def test_token_usage_not_available(caplog):
 
     with caplog.at_level(logging.DEBUG):
         with patch(f"{module_path}._http_post", mock_post):
-            gen.generate_groq("diff", system_prompt_override="sys")
+            gen.generate_openai_compatible("diff", "groq", system_prompt_override="sys")
 
     assert "Token usage not available" in caplog.text
 
@@ -664,7 +663,7 @@ def test_token_usage_disabled(caplog):
 
     with caplog.at_level(logging.DEBUG):
         with patch(f"{module_path}._http_post", mock_post):
-            gen.generate_groq("diff", system_prompt_override="sys")
+            gen.generate_openai_compatible("diff", "groq", system_prompt_override="sys")
 
     assert "Token usage" not in caplog.text
 
@@ -687,7 +686,7 @@ def test_token_usage_disabled_when_key_missing(caplog):
 
     with caplog.at_level(logging.DEBUG):
         with patch(f"{module_path}._http_post", mock_post):
-            gen.generate_groq("diff", system_prompt_override="sys")
+            gen.generate_openai_compatible("diff", "groq", system_prompt_override="sys")
 
     assert "Token usage" not in caplog.text
 
@@ -720,7 +719,9 @@ def test_generate_mistral():
     }
 
     with patch(f"{module_path}._http_post", mock_post):
-        result = gen.generate_mistral("abc", system_prompt_override="sys")
+        result = gen.generate_openai_compatible(
+            "abc", "mistral", system_prompt_override="sys"
+        )
 
     assert result == "mistral result"
     mock_post.assert_called_once()
@@ -771,7 +772,9 @@ def test_generate_mistral_raises_on_http_error():
 
     with patch(f"{module_path}._http_post", mock_post):
         with pytest.raises(requests.HTTPError):
-            gen.generate_mistral("abc", system_prompt_override="sys")
+            gen.generate_openai_compatible(
+                "abc", "mistral", system_prompt_override="sys"
+            )
 
 
 def test_token_usage_logged_mistral(caplog):
@@ -792,7 +795,9 @@ def test_token_usage_logged_mistral(caplog):
 
     with caplog.at_level(logging.INFO):
         with patch(f"{module_path}._http_post", mock_post):
-            gen.generate_mistral("diff", system_prompt_override="sys")
+            gen.generate_openai_compatible(
+                "diff", "mistral", system_prompt_override="sys"
+            )
 
     assert "Token usage [mistral]: prompt=110, completion=45, total=155" in caplog.text
 
@@ -803,75 +808,51 @@ def test_token_usage_logged_mistral(caplog):
 
 
 def test_generate_deepseek():
-    """Test that generate_deepseek delegates to generate_openai with correct params."""
-    config = {
-        "deepseek": {
-            "model": "deepseek-chat",
-            "temperature": 0.5,
-        },
-        "openai": {
-            "model": "gpt-5.1",
-            "temperature": 0,
-        },
+    """DeepSeek is routed through the shared OpenAI-compatible call."""
+    config = {"deepseek": {"model": "deepseek-chat", "temperature": 0.5}}
+    gen = CommitMessageGenerator(
+        token="fake-token", config=config, default_model="deepseek"
+    )
+
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "  deepseek result  "}}]
     }
 
-    gen = CommitMessageGenerator(
-        token="fake-token",
-        config=config,
-        default_model="deepseek",
-    )
-
-    with patch.object(
-        gen, "generate_openai", return_value="deepseek result"
-    ) as mock_openai:
-        result = gen.generate_deepseek("diff content", system_prompt_override="sys")
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        result = gen.generate_openai_compatible(
+            "diff content", "deepseek", system_prompt_override="sys"
+        )
 
     assert result == "deepseek result"
-    mock_openai.assert_called_once_with(
-        content="diff content",
-        system_prompt_override="sys",
-        base_url="https://api.deepseek.com",
-        model_override="deepseek-chat",
-        temperature_override=0.5,
-        provider_name="deepseek",
-    )
+    assert mock_post.call_args[0][0] == "https://api.deepseek.com/v1/chat/completions"
+    assert mock_post.call_args[1]["json"]["model"] == "deepseek-chat"
+    assert mock_post.call_args[1]["json"]["temperature"] == 0.5
 
 
-def test_generate_deepseek_missing_temperature_does_not_raise(monkeypatch):
-    """Regression: a deepseek config without a temperature key (now optional
-    per validation/doctor) must not KeyError, and since no temperature is
-    configured, the OpenAI SDK create() call must omit the kwarg entirely."""
-    import git_cai_cli.core.llm as llm_module
-
+def test_generate_deepseek_missing_temperature_does_not_raise():
+    """Regression: a deepseek config without a temperature key (optional per
+    validation/doctor) must not KeyError, and the request must omit the key."""
     config = {"deepseek": {"model": "deepseek-chat"}}
     gen = CommitMessageGenerator(
         token="fake-token", config=config, default_model="deepseek"
     )
 
-    fake_chat = MagicMock()
-    fake_chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message=MagicMock(content="ok"))],
-        usage=MagicMock(prompt_tokens=1, completion_tokens=1),
-    )
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "ok"}}]
+    }
 
-    def fake_init(self, **kwargs):
-        self.chat = fake_chat
-
-    monkeypatch.setattr(llm_module.OpenAI, "__init__", fake_init)
-
-    result = gen.generate_deepseek("diff content")
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        result = gen.generate_openai_compatible("diff content", "deepseek")
 
     assert result == "ok"
-    _, create_kwargs = fake_chat.completions.create.call_args
-    assert "temperature" not in create_kwargs
+    assert "temperature" not in mock_post.call_args[1]["json"]
 
 
-def test_generate_deepseek_does_not_leak_openai_temperature(monkeypatch):
-    """Regression: generate_openai's fallback must key off provider_name
-    (not hardcode 'openai'), otherwise a deepseek call with no temperature
-    of its own wrongly picks up the openai block's configured temperature."""
-    import git_cai_cli.core.llm as llm_module
-
+def test_generate_deepseek_does_not_leak_openai_temperature():
+    """Regression: each provider reads only its own config block, so a
+    deepseek call with no temperature must not inherit openai's."""
     config = {
         "deepseek": {"model": "deepseek-chat"},
         "openai": {"model": "gpt-5.4-mini", "temperature": 0.5},
@@ -880,21 +861,15 @@ def test_generate_deepseek_does_not_leak_openai_temperature(monkeypatch):
         token="fake-token", config=config, default_model="deepseek"
     )
 
-    fake_chat = MagicMock()
-    fake_chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message=MagicMock(content="ok"))],
-        usage=MagicMock(prompt_tokens=1, completion_tokens=1),
-    )
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "ok"}}]
+    }
 
-    def fake_init(self, **kwargs):
-        self.chat = fake_chat
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        gen.generate_openai_compatible("diff content", "deepseek")
 
-    monkeypatch.setattr(llm_module.OpenAI, "__init__", fake_init)
-
-    gen.generate_deepseek("diff content")
-
-    _, create_kwargs = fake_chat.completions.create.call_args
-    assert "temperature" not in create_kwargs
+    assert "temperature" not in mock_post.call_args[1]["json"]
 
 
 # ------------------------------------------
@@ -910,17 +885,15 @@ def test_generate_openai_none_system_prompt_omits_system_message():
 
     gen = CommitMessageGenerator(token="fake", config=config, default_model="openai")
 
-    mock_client = MagicMock()
-    mock_instance = MagicMock()
-    mock_instance.chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message=MagicMock(content="msg"))]
-    )
-    mock_client.return_value = mock_instance
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}]
+    }
 
-    gen.generate_openai("diff", openai_cls=mock_client, system_prompt_override=None)
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        gen.generate_openai_compatible("diff", "openai", system_prompt_override=None)
 
-    call_kwargs = mock_instance.chat.completions.create.call_args[1]
-    messages = call_kwargs["messages"]
+    messages = mock_post.call_args[1]["json"]["messages"]
     assert len(messages) == 1
     assert messages[0]["role"] == "user"
 
@@ -940,7 +913,7 @@ def test_generate_mistral_none_system_prompt_omits_system_message():
     }
 
     with patch(f"{module_path}._http_post", mock_post):
-        gen.generate_mistral("diff", system_prompt_override=None)
+        gen.generate_openai_compatible("diff", "mistral", system_prompt_override=None)
 
     call_kwargs = mock_post.call_args[1]
     messages = call_kwargs["json"]["messages"]
@@ -963,7 +936,7 @@ def test_generate_xai_none_system_prompt_omits_system_message():
     }
 
     with patch(f"{module_path}._http_post", mock_post):
-        gen.generate_xai("diff", system_prompt_override=None)
+        gen.generate_openai_compatible("diff", "xai", system_prompt_override=None)
 
     call_kwargs = mock_post.call_args[1]
     messages = call_kwargs["json"]["messages"]
@@ -1002,7 +975,7 @@ def test_generate_xai_raises_on_http_error():
 
     with patch(f"{module_path}._http_post", mock_post):
         with pytest.raises(requests.HTTPError):
-            gen.generate_xai("abc", system_prompt_override="sys")
+            gen.generate_openai_compatible("abc", "xai", system_prompt_override="sys")
 
 
 # ---------------------------
@@ -1204,7 +1177,7 @@ def test_remote_providers_respect_configured_timeout(
     mock_post.return_value.json.return_value = response_json
 
     with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
-        getattr(gen, f"generate_{provider}")("abc", system_prompt_override="sys")
+        gen._dispatch_generate("abc", "sys")
 
     _, kwargs = mock_post.call_args
     assert kwargs["timeout"] == 77
@@ -1236,21 +1209,19 @@ def test_generate_ollama_uses_ollama_timeout():
     assert kwargs["timeout"] == 42
 
 
-def test_generate_openai_sdk_receives_timeout():
+def test_generate_openai_receives_timeout():
     config = {"openai": {"model": "gpt-5.1", "temperature": 0}, "timeout": 55}
     gen = CommitMessageGenerator(token="t", config=config, default_model="openai")
 
-    fake_completion = MagicMock()
-    fake_completion.choices = [MagicMock(message=MagicMock(content="ok"))]
-    fake_completion.usage = MagicMock(prompt_tokens=1, completion_tokens=1)
-    fake_client = MagicMock()
-    fake_client.chat.completions.create.return_value = fake_completion
-    fake_openai_cls = MagicMock(return_value=fake_client)
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "ok"}}]
+    }
 
-    gen.generate_openai("abc", openai_cls=fake_openai_cls, system_prompt_override="sys")
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        gen.generate_openai_compatible("abc", "openai", system_prompt_override="sys")
 
-    fake_openai_cls.assert_called_once()
-    _, kwargs = fake_openai_cls.call_args
+    _, kwargs = mock_post.call_args
     assert kwargs["timeout"] == 55
 
 
@@ -1478,7 +1449,7 @@ def test_groq_includes_temperature_for_accepting_model():
     }
 
     with patch(f"{module_path}._http_post", mock_post):
-        gen.generate_groq("diff")
+        gen.generate_openai_compatible("diff", "groq")
 
     _, kwargs = mock_post.call_args
     assert kwargs["json"]["temperature"] == 0
@@ -1497,17 +1468,87 @@ def test_openai_omits_temperature_for_gpt5(caplog):
         default_model="openai",
     )
 
-    mock_client = MagicMock()
-    mock_instance = MagicMock()
-    mock_instance.chat.completions.create.return_value = MagicMock(
-        choices=[MagicMock(message=MagicMock(content="msg"))]
-    )
-    mock_client.return_value = mock_instance
+    mock_post = MagicMock()
+    mock_post.return_value.json.return_value = {
+        "choices": [{"message": {"content": "msg"}}]
+    }
 
     with caplog.at_level(logging.WARNING):
-        gen.generate_openai("diff", openai_cls=mock_client)
+        with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+            gen.generate_openai_compatible("diff", "openai")
 
-    _, kwargs = mock_instance.chat.completions.create.call_args
-    assert "temperature" not in kwargs
+    assert "temperature" not in mock_post.call_args[1]["json"]
     assert "does not support temperature" in caplog.text
     assert "gpt-5.4-mini" in caplog.text
+
+
+# ------------------------------------------------------------------------------
+# Request builders for the read-only modes (explain / split / changelog / tag)
+# ------------------------------------------------------------------------------
+
+
+def _readonly_gen():
+    config = {
+        "default": "openai",
+        "openai": {"model": "gpt", "temperature": 0},
+        "language": "en",
+        "style": "professional",
+        "emoji": False,
+        "explain_prompt_file": "",
+        "split_prompt_file": "",
+        "changelog_prompt_file": "",
+        "release_prompt_file": "",
+    }
+    return CommitMessageGenerator("tok", config, "openai")
+
+
+def test_build_explain_request_includes_diff_and_context():
+    gen = _readonly_gen()
+    gen.kind = "explain"
+    content, prompt = gen.build_explain_request("DIFFTEXT", context="ticket-9")
+    assert "DIFFTEXT" in content
+    assert "ticket-9" in content
+    assert "explain" in prompt.lower()
+
+
+def test_build_split_request_lists_files():
+    gen = _readonly_gen()
+    gen.kind = "split"
+    content, prompt = gen.build_split_request("DIFF", ["a.py", "b.py"])
+    assert "a.py" in content and "b.py" in content
+    assert "commit" in prompt.lower()
+
+
+def test_build_changelog_request_has_commits_and_files():
+    gen = _readonly_gen()
+    gen.kind = "changelog"
+    content, prompt = gen.build_changelog_request("- feat: x", "a.py")
+    assert "feat: x" in content and "a.py" in content
+    assert "changelog" in prompt.lower()
+
+
+def test_build_release_request_groups_by_type():
+    gen = _readonly_gen()
+    gen.kind = "release"
+    content, prompt = gen.build_release_request("- fix: y")
+    assert "fix: y" in content
+    assert "release notes" in prompt.lower()
+    # Headings are requested, and empty ones must be suppressed.
+    assert "bug fixes" in prompt.lower()
+    assert "omit any heading" in prompt.lower()
+
+
+def test_split_prompt_has_no_style_suffix():
+    """--split output is structured, so language/style/emoji must not leak in."""
+    gen = _readonly_gen()
+    gen.kind = "split"
+    _, prompt = gen.build_split_request("DIFF", ["a.py"])
+    assert "tone style" not in prompt
+
+
+def test_explain_prompt_appends_language_and_style():
+    gen = _readonly_gen()
+    gen.kind = "explain"
+    _, prompt = gen.build_explain_request("DIFF")
+    assert "English" in prompt
+    assert "tone style: professional" in prompt

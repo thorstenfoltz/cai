@@ -10,29 +10,33 @@ git-cai - AI-powered commit message generator
 SYNOPSIS
 --------
 [verse]
-`git cai` [-A | --amend] [-a | --all] [-C | --conventional]
-        [-b | --branch] [-c | --crazy] [-d | --debug]
-        [-B | --allow-secrets] [-k | --check] [-n | --ping]
-        [-e TEMPERATURE | --temperature TEMPERATURE]
+`git cai` [-A | --amend] [-a | --all]
+        [-B | --allow-secrets] [-b | --branch | --no-branch]
+        [-C | --conventional | --no-conventional] [-c | --crazy]
+        [-D [HASH] | --explain [HASH]] [-d | --debug]
+        [-E TEMPERATURE | --temperature TEMPERATURE]
+        [-e | --emoji | --no-emoji]
         [-F | --full-files | --no-full-files] [-f PATH | --files PATH]
         [-g | --generate-config]
         [-H KEY=VALUE | --set-home KEY=VALUE] [-h | --help]
-        [-I | --init]
-        [-i | --install-completion]
+        [-I | --init] [-i | --install-completion]
+        [-k | --check]
+        [-L CODE | --language CODE]
         [-l [config|editor|language|model|path|provider|style] |
          --list [config|editor|language|model|path|provider|style]]
         [-m MODEL | --model MODEL]
+        [-N | --changelog] [-n | --ping]
         [-o | --signoff | --no-signoff]
         [-P PROVIDER | --provider PROVIDER] [-p | --generate-prompts]
         [--print]
+        [-q true|false | --sql true|false]
+        [-R | --release]
         [-r | --PR] [--base BRANCH]
         [-S KEY=VALUE | --set KEY=VALUE]
         [-s [N|HASH] | --squash [N|HASH]]
-        [-q true|false | --sql true|false]
-        [--style STYLE] [--language CODE] [--emoji | --no-emoji]
-        [-T SECONDS | --timeout SECONDS]
-        [-t | --time] [-u | --update] [-v | --version]
-        [-x CONTEXT | --context CONTEXT]
+        [-T SECONDS | --timeout SECONDS] [-t | --time]
+        [-u | --update] [-v | --version] [-w | --split]
+        [-x CONTEXT | --context CONTEXT] [-y STYLE | --style STYLE]
         [-z | --stats] [--since YYYY-MM-DD] [--json] [--reset-stats]
 
 
@@ -188,6 +192,24 @@ git cai -c
 git cai -A -c
 ----
 
+-D, --explain [HASH]::
+Explain what a change does in plain prose, printed to stdout. With no
+argument, explains the staged diff; with a commit HASH, explains that
+commit's diff. Read-only: nothing is staged, committed, or amended.
++
+The explanation is prose, not a commit message: it covers the intent of
+the change, the notable edits, and any risks a reviewer should know. Use
+`-x` to add context the diff does not show.
++
+The prompt follows the usual fallback chain: `explain_prompt_file` from
+config, then `~/.config/cai/explain_prompt.md`, then the built-in default.
++
+----
+git cai --explain
+git cai -D a1b2c3d
+git cai -D -x "Fixes JIRA-1234"
+----
+
 -d, --debug::
 Enable debug logging. Produces verbose output to stderr, including
 configuration loading, provider selection, prompt assembly, and the raw
@@ -200,7 +222,7 @@ Cannot be combined with `--help` or `--version`.
 git cai -d
 ----
 
--e, --temperature TEMPERATURE::
+-E, --temperature TEMPERATURE::
 Override the sampling temperature of the active provider for this invocation
 only. Higher values produce more varied wording; lower values are more
 deterministic. The override is provider-scoped, mirroring `--model`, and does
@@ -209,8 +231,19 @@ temperature (for example OpenAI GPT-5 models and Anthropic Opus 4.7 and newer);
 for those the value is ignored and a warning is logged.
 +
 ----
-git cai -e 0.7
-git cai -P anthropic -e 0.2
+git cai -E 0.7
+git cai -P anthropic -E 0.2
+----
+
+-e, --emoji / --no-emoji::
+Override emoji usage for this invocation only. `--emoji` instructs the model
+to use relevant emojis; `--no-emoji` disables them even when the persisted
+config enables emoji. To change the default permanently, set `emoji:` in
+`cai_config.yml`.
++
+----
+git cai --no-emoji
+git cai --emoji
 ----
 
 -F, --full-files::
@@ -341,13 +374,16 @@ git cai --check
 git cai --check --ping
 ----
 
--n, --ping::
-Only meaningful together with `--check`. After the offline checks, send one
-small request to the active provider and report whether it is reachable and how
-long it took. Useful to confirm an API key and network path end to end.
+-L, --language CODE::
+Override the commit message language for this invocation only, using a
+supported language code (e.g. `de`, `fr`, `es`), or `none` to omit the
+language instruction. Run `git cai -l language` to list supported codes. An
+unsupported code is rejected with an error. To change it permanently, set
+`language:` in `cai_config.yml`.
 +
 ----
-git cai --check --ping
+git cai --language de
+git cai --language none
 ----
 
 -l, --list [config|editor|language|model|path|provider|style]::
@@ -375,6 +411,38 @@ identifier for that provider.
 git cai -P openai -m gpt-4o
 git cai -P anthropic -m claude-haiku-4-5
 git cai -P ollama -m mistral
+----
+
+-N, --changelog::
+Generate a changelog section in the "Keep a Changelog" style from the
+commits since the most recent tag (`git describe --tags --abbrev=0`). If the
+repository has no tags yet, the whole history is used.
++
+Entries are grouped under the standard headings (Added, Changed,
+Deprecated, Removed, Fixed, Security); headings without entries are
+omitted. Read-only: nothing is committed or tagged.
++
+By default the section is printed to stdout. Set `changelog_to_file: true`
+to prepend it to the changelog file instead; the filename comes from
+`changelog_file_name` (default `CHANGELOG.md`) and the file is written in
+the repository root, keeping any existing content below the new section.
++
+The prompt follows the usual fallback chain: `changelog_prompt_file` from
+config, then `~/.config/cai/changelog_prompt.md`, then the built-in default.
++
+----
+git cai --changelog
+git cai -N > CHANGELOG.new.md
+git cai -S changelog_to_file=true
+----
+
+-n, --ping::
+Only meaningful together with `--check`. After the offline checks, send one
+small request to the active provider and report whether it is reachable and how
+long it took. Useful to confirm an API key and network path end to end.
++
+----
+git cai --check --ping
 ----
 
 -o, --signoff / --no-signoff::
@@ -457,6 +525,37 @@ value. Useful for one-off opt-in or opt-out without editing the config.
 ----
 git cai --sql true       # record this commit even when config has stats off
 git cai -q false         # don't record this commit even when config has stats on
+----
+
+-R, --release::
+Print release notes for the commits since the most recent tag
+(`git describe --tags --abbrev=0`) to stdout. If the repository has no tags
+yet, the whole history is used. Read-only: nothing is committed or tagged.
++
+The notes open with a one-line title, then group the changes under Markdown
+h3 headings (`### Features`) in this order: Breaking changes, Features, Bug
+fixes, Performance, Refactoring, Documentation, Tests, Build and CI, Chores,
+Reverts. A heading is printed only when it has entries -- a release that
+fixes no bugs shows no "Bug fixes" heading. Each commit is assigned by its Conventional Commits type
+(`feat` -> Features, `fix` -> Bug fixes, and so on); a `!` marker or a
+`BREAKING CHANGE` note goes under Breaking changes. Commits without a type
+prefix are placed by inferring the closest heading from the message.
++
+Emojis appear only when they are switched on, either by `emoji: true` in
+`cai_config.yml` or by `-e`/`--emoji` on the command line. With `--no-emoji`,
+or with emoji disabled in config, the notes are plain text.
++
+Output is the notes and nothing else, so it pipes cleanly into a file, a
+release form, or `git tag -a -F -`.
++
+The prompt follows the usual fallback chain: `release_prompt_file` from
+config, then `~/.config/cai/release_prompt.md`, then the built-in default.
++
+----
+git cai --release
+git cai -R --no-emoji
+git cai -R > RELEASE_NOTES.md
+git cai -R -x "First public release"
 ----
 
 -r, --PR::
@@ -545,42 +644,6 @@ git cai -s 3
 git cai -s a1b2c3d
 ----
 
---style STYLE::
-Override the commit message tone style for this invocation only (e.g.
-`professional`, `neutral`, `friendly`, `funny`, `excited`, `sarcastic`,
-`apologetic`, `academic`, or `none` to let the model choose). Run
-`git cai -l style` to see all styles with examples. An invalid value is
-rejected with an error. To change the style permanently, set `style:` in
-`cai_config.yml`.
-+
-----
-git cai --style funny
-git cai --style none
-----
-
---language CODE::
-Override the commit message language for this invocation only, using a
-supported language code (e.g. `de`, `fr`, `es`), or `none` to omit the
-language instruction. Run `git cai -l language` to list supported codes. An
-unsupported code is rejected with an error. To change it permanently, set
-`language:` in `cai_config.yml`.
-+
-----
-git cai --language de
-git cai --language none
-----
-
---emoji / --no-emoji::
-Override emoji usage for this invocation only. `--emoji` instructs the model
-to use relevant emojis; `--no-emoji` disables them even when the persisted
-config enables emoji. To change the default permanently, set `emoji:` in
-`cai_config.yml`.
-+
-----
-git cai --no-emoji
-git cai --emoji
-----
-
 -T, --timeout SECONDS::
 Override the HTTP timeout for the LLM call in this invocation. The default
 is 30 seconds for remote providers and 300 seconds for Ollama (since local
@@ -635,6 +698,29 @@ from git tags via `setuptools-scm`.
 git cai -v
 ----
 
+-w, --split::
+Suggest how to break the staged change into several smaller, logically
+coherent commits. The grouping is at file granularity: whole files are
+assigned to groups, never split within a file. Each group is printed with a
+suggested one-line commit message and the file paths it contains.
++
+Advisory: the plan is printed and nothing is executed. To apply a group,
+run `git reset`, then `git add <files>` and `git cai` for each group in
+turn.
++
+Unlike the other read-only modes, the `--split` prompt does not receive the
+language, style, or emoji instructions: its output is a structured plan, not
+prose.
++
+The prompt follows the usual fallback chain: `split_prompt_file` from
+config, then `~/.config/cai/split_prompt.md`, then the built-in default.
++
+----
+git add -A
+git cai --split
+git cai -w -x "Keep the migration separate"
+----
+
 -x, --context CONTEXT::
 Provide extra context for the LLM to consider when generating the commit
 message. The context string is appended to the diff (or commit history in
@@ -643,7 +729,8 @@ provider. This is useful for including information that is not visible in
 the diff itself, such as a ticket number, the reason for a change, or a
 link to an issue.
 +
-Can be combined with `COMMIT`, `AMEND`, `SQUASH`, or `PR` modes.
+Can be combined with `COMMIT`, `AMEND`, `SQUASH`, `PR`, `EXPLAIN`,
+`SPLIT`, `CHANGELOG`, and `TAG` modes.
 Cannot be used with `--list` or `--update`.
 +
 ----
@@ -654,9 +741,25 @@ git cai --squash -x "Resolves JIRA-99"
 git cai -r -x "Closes JIRA-1234"
 ----
 
+-y, --style STYLE::
+Override the commit message tone style for this invocation only (e.g.
+`professional`, `neutral`, `friendly`, `funny`, `excited`, `sarcastic`,
+`apologetic`, `academic`, or `none` to let the model choose). Run
+`git cai -l style` to see all styles with examples. An invalid value is
+rejected with an error. To change the style permanently, set `style:` in
+`cai_config.yml`.
++
+----
+git cai --style funny
+git cai --style none
+----
+
 -z, --stats::
-Show local-only usage analytics: commits and squashes generated, top
-provider, total token counts, average latency, and per-provider rollups.
+Show local-only usage analytics: commits, amends, squashes and PR
+descriptions generated, top provider, total token counts, average latency,
+and per-provider rollups. The read-only modes (`--explain`, `--split`,
+`--changelog`, `--release`) are recorded in the database and included in the
+token and latency totals, but do not yet get their own count line.
 Recording is opt-in via the top-level `stats` config key (a plain
 boolean, default `false`), so this view is empty until you turn writing
 on. No diff content, commit messages, or file paths are stored — only
@@ -950,6 +1053,24 @@ Available configuration keys:
   `--PR`. Follows the same fallback chain as `prompt_file` /
   `squash_prompt_file`: configured path -> `~/.config/cai/pr_prompt.md` ->
   built-in fallback.
+- `changelog_file_name` -- filename used when `changelog_to_file` is `true`
+  (default `CHANGELOG.md`). The file is written in the repository root; any
+  existing content is kept below the newly generated section.
+- `changelog_prompt_file` -- path to a custom Markdown prompt file used by
+  `--changelog` (fallback chain: configured path ->
+  `~/.config/cai/changelog_prompt.md` -> built-in fallback).
+- `changelog_to_file` -- when running `--changelog`, prepend the generated
+  section to the changelog file instead of printing it to stdout
+  (`true`/`false`, default `false`)
+- `explain_prompt_file` -- path to a custom Markdown prompt file used by
+  `--explain` (same fallback chain, with
+  `~/.config/cai/explain_prompt.md` as the middle step).
+- `split_prompt_file` -- path to a custom Markdown prompt file used by
+  `--split` (same fallback chain, with `~/.config/cai/split_prompt.md` as
+  the middle step).
+- `release_prompt_file` -- path to a custom Markdown prompt file used by
+  `--release` (same fallback chain, with `~/.config/cai/release_prompt.md` as
+  the middle step).
 - `<provider>.model` -- model name for a specific provider
 - `<provider>.temperature` -- temperature for a specific provider
 - `anthropic.max_tokens` -- upper bound on Anthropic response tokens
@@ -958,7 +1079,8 @@ Available configuration keys:
   (default `300`; overrides the global `timeout` for this provider only)
 - `stats` -- opt in to local-only usage analytics (`true`/`false`,
   default `false`). When enabled, every generation appends one row to
-  `~/.local/share/git-cai/stats.db` capturing kind, repo name, provider,
+  `~/.local/share/git-cai/stats.db` capturing kind (`commit`, `amend`,
+  `squash`, `pr`, `explain`, `split`, `changelog`, `release`), repo name, provider,
   model, token counts, real LLM latency, and a snapshot of the active
   settings (language, style, emoji, temperature, prompt file). No diff
   content, commit messages, or file paths are stored. View the rollup

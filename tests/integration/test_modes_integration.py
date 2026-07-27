@@ -106,7 +106,7 @@ def test_resolve_mode_conflict_raises(capsys):
             False,
             False,
             False,
-            "Error: --all cannot be used with --init, --list, --update, --PR, or --squash.",
+            "Error: --all can only be used in COMMIT or AMEND mode.",
         ),
         (
             Mode.COMMIT,
@@ -188,10 +188,7 @@ def test_validate_options_files_rejected_outside_commit_amend(bad_mode, capsys):
             files=["x.py"],
         )
     captured = capsys.readouterr()
-    assert (
-        "--files cannot be used with --init, --list, --update, --PR, or --squash."
-        in captured.err
-    )
+    assert "--files can only be used in COMMIT or AMEND mode." in captured.err
     assert exc.value.exit_code == 1
 
 

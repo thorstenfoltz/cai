@@ -14,9 +14,28 @@ import tempfile
 from pathlib import Path
 from typing import Callable, Sequence
 
-from git_cai_cli.core.editors import EDITOR_BLOCK_FLAGS, TERMINAL_EDITORS
-
 log = logging.getLogger(__name__)
+
+
+# Terminal editors block by default; GUI editors need an explicit flag to
+# stop them returning immediately and leaving git-cai with an empty message.
+TERMINAL_EDITORS = {
+    "vi",
+    "vim",
+    "nano",
+    "nvim",
+}
+
+EDITOR_BLOCK_FLAGS = {
+    "code": "--wait",
+    "code-insiders": "--wait",
+    "subl": "--wait",
+    "sublime_text": "--wait",
+    "atom": "--wait",
+    "pycharm": "--wait",
+    "pycharm64": "--wait",
+    "kate": "--block",
+}
 
 
 def commit_direct(commit_message: str, *, amend: bool = False) -> int:
@@ -69,6 +88,58 @@ def get_last_commit_message(
         log.debug("Failed to get last commit message: %s", result.stderr.strip())
         return ""
     return result.stdout.strip()
+
+
+def merge_base(base_branch: str) -> str:
+    """Return the merge-base between ``base_branch`` and HEAD."""
+    return subprocess.check_output(
+        ["git", "merge-base", base_branch, "HEAD"], text=True
+    ).strip()
+
+
+def commit_log_range(rev_range: str) -> str:
+    """Return the concatenated commit messages (%B) for a git rev range."""
+    return subprocess.check_output(
+        ["git", "--no-pager", "log", rev_range, "--pretty=format:%B"],
+        text=True,
+    ).strip()
+
+
+def changed_files_range(rev_range: str) -> str:
+    """Return the newline-joined list of files changed over a git rev range."""
+    return subprocess.check_output(
+        ["git", "diff", "--name-only", rev_range], text=True
+    ).strip()
+
+
+def last_git_tag() -> str | None:
+    """Return the most recent tag reachable from HEAD, or None if there is none."""
+    try:
+        out = subprocess.check_output(
+            ["git", "describe", "--tags", "--abbrev=0"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except subprocess.CalledProcessError:
+        return None
+    return out or None
+
+
+def get_commit_diff(repo_root: Path, rev: str) -> str:
+    """Return the patch for a single commit-ish (without the commit header)."""
+    return subprocess.check_output(
+        ["git", "-C", str(repo_root), "show", rev, "--format=", "--patch"],
+        text=True,
+    ).strip()
+
+
+def staged_file_names(repo_root: Path) -> list[str]:
+    """Return the list of staged (cached) file paths."""
+    out = subprocess.check_output(
+        ["git", "-C", str(repo_root), "diff", "--cached", "--name-only"],
+        text=True,
+    )
+    return [line for line in out.splitlines() if line.strip()]
 
 
 _DIFF_GIT_RE = re.compile(r"^diff --git a/.+ b/(.+)$")
@@ -285,6 +356,25 @@ def truncate_diff(diff: str, max_bytes: int) -> tuple[str, bool]:
     truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
     marker = f"\n\n[... diff truncated: exceeded max_diff_bytes={max_bytes} ...]"
     return truncated + marker, True
+
+
+def apply_diff_limit(text: str, config: dict, *, label: str = "Input") -> str:
+    """Truncate ``text`` per the ``max_diff_bytes`` config, warning if it hit.
+
+    Every mode that sends git output to the LLM funnels through here so the
+    limit and its warning stay identical across commit/squash/pr and the
+    read-only modes.
+    """
+    max_bytes = int(config.get("max_diff_bytes", 0) or 0)
+    text, was_truncated = truncate_diff(text, max_bytes)
+    if was_truncated:
+        log.warning(
+            "%s exceeded max_diff_bytes=%d and was truncated before sending "
+            "to the LLM. Raise max_diff_bytes if you need the full context.",
+            label,
+            max_bytes,
+        )
+    return text
 
 
 def _matches_caiignore(path: str, patterns: Sequence[str]) -> bool:

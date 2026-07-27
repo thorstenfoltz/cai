@@ -129,8 +129,8 @@ def test_validate_options_stage_tracked_with_non_commit(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --init, --list, --update" in captured.out
-        or "cannot be used with --init, --list, --update" in captured.err
+        "--all can only be used in COMMIT or AMEND mode." in captured.out
+        or "--all can only be used in COMMIT or AMEND mode." in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -295,8 +295,8 @@ def test_context_rejected_with_list_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --init, --list, or --update" in captured.out
-        or "cannot be used with --init, --list, or --update" in captured.err
+        "--context cannot be used with this mode." in captured.out
+        or "--context cannot be used with this mode." in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -314,8 +314,8 @@ def test_context_rejected_with_update_mode(capsys):
         )
     captured = capsys.readouterr()
     assert (
-        "cannot be used with --init, --list, or --update" in captured.out
-        or "cannot be used with --init, --list, or --update" in captured.err
+        "--context cannot be used with this mode." in captured.out
+        or "--context cannot be used with this mode." in captured.err
     )
     assert exc.value.exit_code == 1
 
@@ -366,4 +366,75 @@ def test_context_none_allowed_with_any_mode():
             help_flag=False,
             version_flag=False,
             context=None,
+        )
+
+
+# ------------------------------------------------------------------
+# Read-only generator modes (explain / split / changelog / tag)
+# ------------------------------------------------------------------
+
+
+def _base_kwargs():
+    return dict(
+        amend=False,
+        check=False,
+        init=False,
+        list_flag=False,
+        pr=False,
+        squash=False,
+        stats=False,
+        update=False,
+    )
+
+
+def test_resolve_mode_explain():
+    assert modes.resolve_mode(**_base_kwargs(), explain=True) is Mode.EXPLAIN
+
+
+def test_resolve_mode_split():
+    assert modes.resolve_mode(**_base_kwargs(), split=True) is Mode.SPLIT
+
+
+def test_resolve_mode_changelog():
+    assert modes.resolve_mode(**_base_kwargs(), changelog=True) is Mode.CHANGELOG
+
+
+def test_resolve_mode_release():
+    assert modes.resolve_mode(**_base_kwargs(), release=True) is Mode.RELEASE
+
+
+def test_resolve_mode_rejects_two_new_modes(capsys):
+    with pytest.raises(typer.Exit):
+        modes.resolve_mode(**_base_kwargs(), explain=True, release=True)
+    assert "cannot be used together" in capsys.readouterr().err
+
+
+def test_resolve_mode_rejects_new_mode_with_squash(capsys):
+    kwargs = _base_kwargs()
+    kwargs["squash"] = True
+    with pytest.raises(typer.Exit):
+        modes.resolve_mode(**kwargs, split=True)
+
+
+def test_context_allowed_in_new_modes():
+    for mode in (Mode.EXPLAIN, Mode.SPLIT, Mode.CHANGELOG, Mode.RELEASE):
+        modes.validate_options(
+            mode=mode,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            context="ticket-1",
+        )
+
+
+def test_print_rejected_in_new_modes(capsys):
+    with pytest.raises(typer.Exit):
+        modes.validate_options(
+            mode=Mode.EXPLAIN,
+            stage_tracked=False,
+            enable_debug=False,
+            help_flag=False,
+            version_flag=False,
+            print_only=True,
         )

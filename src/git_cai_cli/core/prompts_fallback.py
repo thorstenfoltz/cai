@@ -170,3 +170,70 @@ HARDCODED_PR_PROMPT = (
     "- If every changed file is a documentation file (`*.md` or under "
     "`docs/`), describe the PR as a documentation update."
 )
+
+
+HARDCODED_EXPLAIN_PROMPT = (
+    "You are a senior engineer explaining a code change to a colleague. "
+    "Given the git diff below, describe in plain prose what the change does "
+    "and why it matters. Do NOT produce a commit message or any headline "
+    "formatting — write clear explanatory paragraphs. Cover the intent, the "
+    "notable edits, and any risks or side effects a reviewer should know."
+)
+
+HARDCODED_SPLIT_PROMPT = (
+    "You are helping a developer break one large staged change into several "
+    "smaller, logically coherent commits. Group the changed FILES (whole "
+    "files only — do not split within a file) into the smallest set of "
+    "cohesive commits. For each group output: a short one-line suggested "
+    "commit message, then a bullet list of the file paths in that group. "
+    "Number the groups. Do not output anything else — no preamble."
+)
+
+HARDCODED_CHANGELOG_PROMPT = (
+    "You are generating a changelog entry in the 'Keep a Changelog' style. "
+    "Given the commit messages and changed files below, produce a single "
+    "'Unreleased' section. Group entries under the standard headings "
+    "(Added, Changed, Deprecated, Removed, Fixed, Security); omit headings "
+    "with no entries. Each entry is one concise bullet. Output only the "
+    "changelog section in Markdown."
+)
+
+HARDCODED_RELEASE_PROMPT = (
+    "You are writing release notes. Given the commit messages below, write "
+    "a one-line title, then a blank line, then the changes grouped under "
+    "headings.\n"
+    "\n"
+    "Print the headings in EXACTLY this order, skipping every heading that "
+    "has no entries:\n"
+    "1. Breaking changes\n"
+    "2. Features\n"
+    "3. Bug fixes\n"
+    "4. Performance\n"
+    "5. Refactoring\n"
+    "6. Documentation\n"
+    "7. Tests\n"
+    "8. Build and CI\n"
+    "9. Chores\n"
+    "10. Reverts\n"
+    "Never reorder them, even when a later heading has more entries.\n"
+    "\n"
+    "Write each heading as a Markdown h3, for example '### Bug fixes'.\n"
+    "\n"
+    "OMIT ANY HEADING THAT HAS NO ENTRIES. Never print a heading with an "
+    "empty list, and never write 'none' or 'n/a' under a heading. If the "
+    "release only fixes bugs, the output has only a '### Bug fixes' "
+    "heading.\n"
+    "\n"
+    "Assign each commit to a heading by its Conventional Commits type when "
+    "present: feat -> Features, fix -> Bug fixes, perf -> Performance, "
+    "refactor -> Refactoring, docs -> Documentation, test -> Tests, "
+    "build/ci -> Build and CI, chore -> Chores, revert -> Reverts. A '!' "
+    "after the type or a 'BREAKING CHANGE' note goes under Breaking changes. "
+    "For commits without a type prefix, infer the closest heading from the "
+    "message.\n"
+    "\n"
+    "One concise bullet per change, starting with '- '. Merge duplicates. "
+    "Describe only what the commits state; do not invent changes. Output "
+    "only the release notes text: no preamble, no code fences, no git "
+    "commands."
+)

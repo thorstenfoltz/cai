@@ -13,7 +13,7 @@ import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict
 from urllib.parse import urlparse
 
 import requests
@@ -21,12 +21,15 @@ from git_cai_cli.core.config import CONFIG_DIR
 from git_cai_cli.core.gitutils import classify_changed_paths, paths_from_diff
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.prompts_fallback import (
+    HARDCODED_CHANGELOG_PROMPT,
     HARDCODED_COMMIT_PROMPT,
+    HARDCODED_EXPLAIN_PROMPT,
     HARDCODED_FULL_FILES_PROMPT,
     HARDCODED_PR_PROMPT,
+    HARDCODED_RELEASE_PROMPT,
+    HARDCODED_SPLIT_PROMPT,
     HARDCODED_SQUASH_PROMPT,
 )
-from openai import OpenAI
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -65,6 +68,17 @@ def _resolve_temperature(model: str, temperature: float | int | None) -> float |
         )
         return None
     return float(temperature)
+
+
+# Providers speaking the OpenAI ``/chat/completions`` dialect: same request
+# body, same response envelope, same Bearer auth — only the endpoint differs.
+OPENAI_COMPATIBLE_URLS = {
+    "openai": "https://api.openai.com/v1/chat/completions",
+    "deepseek": "https://api.deepseek.com/v1/chat/completions",
+    "groq": "https://api.groq.com/openai/v1/chat/completions",
+    "mistral": "https://api.mistral.ai/v1/chat/completions",
+    "xai": "https://api.x.ai/v1/chat/completions",
+}
 
 
 _RETRY_STATUS_CODES = (429, 500, 502, 503, 504)
@@ -257,6 +271,10 @@ class CommitMessageGenerator:
         "amend": "prompt_file",
         "squash": "squash_prompt_file",
         "pr": "pr_prompt_file",
+        "explain": "explain_prompt_file",
+        "split": "split_prompt_file",
+        "changelog": "changelog_prompt_file",
+        "release": "release_prompt_file",
     }
 
     def _settings_snapshot(self, provider: str) -> Dict[str, Any]:
@@ -502,6 +520,67 @@ class CommitMessageGenerator:
         )
         return self.send(content, prompt)
 
+    @staticmethod
+    def _with_context(content: str, context: str | None) -> str:
+        """Append the author's extra context to a request body, if any."""
+        if not context:
+            return content
+        return f"{content}\n\n--- Additional context from the author ---\n{context}"
+
+    def build_explain_request(
+        self, diff: str, context: str | None = None
+    ) -> tuple[str, str]:
+        """Build the ``(content, system_prompt)`` pair for ``--explain``."""
+        self._log_target()
+        self.set_changed_files(paths_from_diff(diff))
+        prompt = self._build_explain_prompt()
+        content = diff.strip() or "(empty diff)"
+        return self._with_context(content, context), prompt
+
+    def build_split_request(
+        self, diff: str, file_list: list[str], context: str | None = None
+    ) -> tuple[str, str]:
+        """Build the ``(content, system_prompt)`` pair for ``--split``."""
+        self._log_target()
+        self.set_changed_files(file_list)
+        prompt = self._build_split_prompt()
+        sections = [
+            "--- Staged files ---",
+            "\n".join(file_list) or "(no files)",
+            "",
+            "--- Staged diff ---",
+            diff.strip() or "(empty diff)",
+        ]
+        return self._with_context("\n".join(sections), context), prompt
+
+    def build_changelog_request(
+        self, commit_log: str, changed_files: str, context: str | None = None
+    ) -> tuple[str, str]:
+        """Build the ``(content, system_prompt)`` pair for ``--changelog``."""
+        self._log_target()
+        self.set_changed_files(changed_files.splitlines())
+        prompt = self._build_changelog_prompt()
+        sections = [
+            "--- Commit log ---",
+            commit_log.strip() or "(no commits)",
+            "",
+            "--- Changed files ---",
+            changed_files.strip() or "(no files)",
+        ]
+        return self._with_context("\n".join(sections), context), prompt
+
+    def build_release_request(
+        self, commit_log: str, context: str | None = None
+    ) -> tuple[str, str]:
+        """Build the ``(content, system_prompt)`` pair for ``--release``."""
+        self._log_target()
+        prompt = self._build_release_prompt()
+        sections = [
+            "--- Commit log ---",
+            commit_log.strip() or "(no commits)",
+        ]
+        return self._with_context("\n".join(sections), context), prompt
+
     def _emoji_instruction(self) -> str:
         """
         Returns an emoji instruction string, or empty string if emoji is set to "none".
@@ -742,20 +821,62 @@ class CommitMessageGenerator:
         log.debug("Final PR prompt (%d characters).", len(prompt))
         return prompt
 
-    # Keep old method names as aliases for backward compatibility in tests
-    def _system_prompt(self, _language_name: str | None = None) -> str:
-        """
-        Legacy method — builds the commit prompt with config instructions.
-        Kept for backward compatibility.
-        """
-        return self._build_commit_prompt()
+    def _build_prose_prompt(
+        self, config_key: str, default_filename: str, hardcoded_fallback: str
+    ) -> str:
+        """Load a base prompt and append language/style/emoji instructions.
 
-    def _summary_prompt(self, _language_name: str | None = None) -> str:
+        Shared by explain/changelog/tag — the same suffix set `--PR` uses,
+        minus the code/doc classification line (not meaningful for prose).
         """
-        Legacy method — builds the squash prompt with config instructions.
-        Kept for backward compatibility.
+        base = load_prompt_file(
+            config_key=config_key,
+            config=self.config,
+            default_filename=default_filename,
+            hardcoded_fallback=hardcoded_fallback,
+        )
+
+        parts = [
+            self._language_instruction(),
+            self._style_instruction(),
+            self._emoji_instruction(),
+        ]
+        suffix = " ".join(p for p in parts if p)
+        prompt = "\n\n".join([base.rstrip(), suffix.lstrip()]) if suffix else base
+
+        log.debug("Final %s prompt (%d characters).", config_key, len(prompt))
+        return prompt
+
+    def _build_explain_prompt(self) -> str:
+        """Build the ``--explain`` prompt (base + style instructions)."""
+        return self._build_prose_prompt(
+            "explain_prompt_file", "explain_prompt.md", HARDCODED_EXPLAIN_PROMPT
+        )
+
+    def _build_changelog_prompt(self) -> str:
+        """Build the ``--changelog`` prompt (base + style instructions)."""
+        return self._build_prose_prompt(
+            "changelog_prompt_file", "changelog_prompt.md", HARDCODED_CHANGELOG_PROMPT
+        )
+
+    def _build_release_prompt(self) -> str:
+        """Build the ``--release`` prompt (base + style instructions)."""
+        return self._build_prose_prompt(
+            "release_prompt_file", "release_prompt.md", HARDCODED_RELEASE_PROMPT
+        )
+
+    def _build_split_prompt(self) -> str:
+        """Build the ``--split`` prompt.
+
+        Deliberately bare: the output is a structured grouping of file paths,
+        so language/style/emoji instructions would only corrupt the format.
         """
-        return self._build_squash_prompt()
+        return load_prompt_file(
+            config_key="split_prompt_file",
+            config=self.config,
+            default_filename="split_prompt.md",
+            hardcoded_fallback=HARDCODED_SPLIT_PROMPT,
+        )
 
     # ---------------------------
     # DISPATCH
@@ -800,40 +921,98 @@ class CommitMessageGenerator:
 
     def _dispatch_generate(self, content: str, system_prompt: str) -> str:
         """
-        Route to correct model with the right prompt. System prompt is
-        _system_prompt or _summary_prompt depending on use case.
-        Content is output of git diff.
+        Route to the right provider. ``system_prompt`` comes from the
+        matching ``_build_*_prompt``; ``content`` is the git output.
         """
         self._scan_for_secrets(content)
 
         model_dispatch: Dict[str, Callable[..., str]] = {
-            "openai": self.generate_openai,
             "gemini": self.generate_gemini,
             "anthropic": self.generate_anthropic,
-            "groq": self.generate_groq,
-            "xai": self.generate_xai,
-            "mistral": self.generate_mistral,
-            "deepseek": self.generate_deepseek,
             "ollama": self.generate_ollama,
         }
 
-        if self.default_model not in model_dispatch:
-            raise ValueError(f"Unknown model type: '{self.default_model}'")
+        provider = self.default_model
+        if provider not in OPENAI_COMPATIBLE_URLS and provider not in model_dispatch:
+            raise ValueError(f"Unknown model type: '{provider}'")
 
-        log.debug("Using provider '%s' for generation.", self.default_model)
+        log.debug("Using provider '%s' for generation.", provider)
 
-        return model_dispatch[self.default_model](
-            content, system_prompt_override=system_prompt
-        )
+        if provider in OPENAI_COMPATIBLE_URLS:
+            return self.generate_openai_compatible(
+                content, provider, system_prompt_override=system_prompt
+            )
+
+        return model_dispatch[provider](content, system_prompt_override=system_prompt)
 
     # ---------------------------
     # MODEL CALLS
     # ---------------------------
 
+    def generate_openai_compatible(
+        self,
+        content: str,
+        provider: str = "openai",
+        system_prompt_override: str | None = None,
+    ) -> str:
+        """Call any provider exposing the OpenAI ``/chat/completions`` shape.
+
+        OpenAI, DeepSeek, Groq, xAI and Mistral all accept the same request
+        body and return the same response envelope, so they share one
+        implementation and differ only by the endpoint in
+        ``OPENAI_COMPATIBLE_URLS``.
+        """
+        url = OPENAI_COMPATIBLE_URLS[provider]
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}",
+        }
+
+        model = self.config[provider]["model"]
+        temperature = _resolve_temperature(
+            model, self.config[provider].get("temperature")
+        )
+
+        log.debug("Using %s model '%s'.", provider, model)
+
+        messages = []
+        if system_prompt_override:
+            messages.append({"role": "system", "content": system_prompt_override})
+        messages.append({"role": "user", "content": content})
+
+        request: dict[str, Any] = {"model": model, "messages": messages}
+        if temperature is not None:
+            request["temperature"] = temperature
+
+        start = time.perf_counter()
+        response = _http_post(  # nosec B113
+            url, json=request, headers=headers, timeout=self._timeout(provider)
+        )
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
+        response.raise_for_status()
+
+        data = response.json()
+
+        usage = data.get("usage") or {}
+        self._log_token_usage(
+            provider,
+            usage.get("prompt_tokens"),
+            usage.get("completion_tokens"),
+        )
+
+        # Some models (e.g. reasoning models that hit a stop/refusal) return
+        # ``None`` content; ``.strip()`` on that would raise AttributeError.
+        # Surface a clean ValueError that ``_validate_llm_call`` can classify.
+        text = data["choices"][0]["message"]["content"]
+        if not text:
+            raise ValueError(f"{provider} returned an empty response.")
+
+        return text.strip()
+
     def generate_anthropic(
         self,
         content: str,
-        system_prompt_override: Optional[str] = None,
+        system_prompt_override: str | None = None,
     ) -> str:
         """
         Shared Anthropic call for commit generation or commit history summarization.
@@ -893,31 +1072,10 @@ class CommitMessageGenerator:
 
         return data["content"][0]["text"].strip()
 
-    def generate_deepseek(
-        self,
-        content: str,
-        system_prompt_override: Optional[str] = None,
-    ) -> str:
-        """
-        Shared Deepseek call for commit generation or commit history summarization.
-        It uses the OpenAI SDK.
-        """
-        url = "https://api.deepseek.com"
-        model = self.config["deepseek"]["model"]
-        temperature = self.config["deepseek"].get("temperature")
-        return self.generate_openai(
-            content=content,
-            system_prompt_override=system_prompt_override,
-            base_url=url,
-            model_override=model,
-            temperature_override=temperature,
-            provider_name="deepseek",
-        )
-
     def generate_gemini(
         self,
         content: str,
-        system_prompt_override: Optional[str] = None,
+        system_prompt_override: str | None = None,
     ) -> str:
         """
         Shared Gemini call for commit generation or commit history summarization.
@@ -966,134 +1124,6 @@ class CommitMessageGenerator:
         )
 
         return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-
-    def generate_groq(
-        self,
-        content: str,
-        system_prompt_override: Optional[str] = None,
-    ) -> str:
-        """
-        Shared Groq call for commit generation or commit history summarization.
-        Uses direct HTTP API instead of the Groq SDK.
-        """
-        url = "https://api.groq.com/openai/v1/chat/completions"
-
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}",
-        }
-
-        model = self.config["groq"]["model"]
-        temperature = _resolve_temperature(
-            model, self.config["groq"].get("temperature")
-        )
-
-        log.debug("Using groq model '%s'.", model)
-
-        messages = []
-
-        if system_prompt_override:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": system_prompt_override,
-                }
-            )
-
-        messages.append(
-            {
-                "role": "user",
-                "content": content,
-            }
-        )
-
-        request = {
-            "model": model,
-            "messages": messages,
-        }
-        if temperature is not None:
-            request["temperature"] = temperature
-
-        start = time.perf_counter()
-        response = _http_post(  # nosec B113
-            url, json=request, headers=headers, timeout=self._timeout("groq")
-        )
-        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
-        response.raise_for_status()
-
-        data = response.json()
-
-        usage = data.get("usage") or {}
-        self._log_token_usage(
-            "groq",
-            usage.get("prompt_tokens"),
-            usage.get("completion_tokens"),
-        )
-
-        return data["choices"][0]["message"]["content"].strip()
-
-    def generate_mistral(
-        self,
-        content: str,
-        system_prompt_override: Optional[str] = None,
-    ) -> str:
-        """
-        Shared Mistral call for commit generation or commit history summarization.
-        """
-        url = "https://api.mistral.ai/v1/chat/completions"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}",
-        }
-
-        model = self.config["mistral"]["model"]
-        temperature = _resolve_temperature(
-            model, self.config["mistral"].get("temperature")
-        )
-
-        log.debug("Using mistral model '%s'.", model)
-
-        messages = []
-
-        if system_prompt_override:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": system_prompt_override,
-                }
-            )
-
-        messages.append(
-            {
-                "role": "user",
-                "content": content,
-            }
-        )
-
-        request = {
-            "model": model,
-            "messages": messages,
-        }
-        if temperature is not None:
-            request["temperature"] = temperature
-
-        start = time.perf_counter()
-        response = _http_post(  # nosec B113
-            url, json=request, headers=headers, timeout=self._timeout("mistral")
-        )
-        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
-        response.raise_for_status()
-
-        data = response.json()
-
-        usage = data.get("usage") or {}
-        self._log_token_usage(
-            "mistral",
-            usage.get("prompt_tokens"),
-            usage.get("completion_tokens"),
-        )
-
-        return data["choices"][0]["message"]["content"].strip()
 
     def _ollama_startup_timeout(self) -> float:
         """Seconds to wait for ``ollama serve`` to come up. Configurable
@@ -1228,7 +1258,7 @@ class CommitMessageGenerator:
     def generate_ollama(
         self,
         content: str,
-        system_prompt_override: Optional[str] = None,
+        system_prompt_override: str | None = None,
     ) -> str:
         """Generate using the local Ollama HTTP API."""
         self._ensure_ollama_installed()
@@ -1304,134 +1334,6 @@ class CommitMessageGenerator:
             return out
 
         raise ValueError("Ollama returned an empty response.")
-
-    def generate_openai(
-        self,
-        content: str,
-        openai_cls: Type[Any] = OpenAI,
-        system_prompt_override: Optional[str] = None,
-        base_url: Optional[str] = None,
-        model_override: Optional[str] = None,
-        temperature_override: Optional[float] = None,
-        provider_name: str = "openai",
-    ) -> str:
-        """
-        Shared OpenAI call for commit generation or commit history summarization.
-        """
-        client_kwargs: dict[str, Any] = {"api_key": self.token}
-        if base_url is not None:
-            client_kwargs["base_url"] = base_url
-        client_kwargs["timeout"] = self._timeout(provider_name)
-
-        client = openai_cls(**client_kwargs)
-        model = (
-            model_override
-            if model_override is not None
-            else self.config["openai"]["model"]
-        )
-        raw_temperature = (
-            temperature_override
-            if temperature_override is not None
-            else self.config.get(provider_name, {}).get("temperature")
-        )
-        temperature = _resolve_temperature(model, raw_temperature)
-
-        log.debug("Using %s model '%s'.", provider_name, model)
-
-        messages = []
-
-        if system_prompt_override:
-            messages.append({"role": "system", "content": system_prompt_override})
-
-        messages.append({"role": "user", "content": content})
-
-        create_kwargs: dict[str, Any] = {
-            "model": model,
-            "messages": messages,
-            "stream": False,
-        }
-        if temperature is not None:
-            create_kwargs["temperature"] = temperature
-
-        start = time.perf_counter()
-        completion = client.chat.completions.create(**create_kwargs)
-        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
-
-        usage = completion.usage
-        self._log_token_usage(
-            provider_name,
-            getattr(usage, "prompt_tokens", None),
-            getattr(usage, "completion_tokens", None),
-        )
-
-        # Some models (e.g. reasoning models that hit a stop/refusal) return
-        # ``None`` content; ``.strip()`` on that would raise AttributeError.
-        # Surface a clean ValueError that ``_validate_llm_call`` can classify.
-        content_out = completion.choices[0].message.content
-        if not content_out:
-            raise ValueError(f"{provider_name} returned an empty response.")
-
-        return content_out.strip()
-
-    def generate_xai(
-        self,
-        content: str,
-        system_prompt_override: Optional[str] = None,
-    ) -> str:
-        """
-        Shared Xai call for commit generation or commit history summarization.
-        """
-        url = "https://api.x.ai/v1/chat/completions"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}",
-        }
-
-        model = self.config["xai"]["model"]
-        temperature = _resolve_temperature(model, self.config["xai"].get("temperature"))
-
-        log.debug("Using xai model '%s'.", model)
-
-        messages = []
-
-        if system_prompt_override:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": system_prompt_override,
-                }
-            )
-
-        messages.append(
-            {
-                "role": "user",
-                "content": content,
-            }
-        )
-
-        request = {
-            "model": model,
-            "messages": messages,
-        }
-        if temperature is not None:
-            request["temperature"] = temperature
-        start = time.perf_counter()
-        response = _http_post(  # nosec B113
-            url, json=request, headers=headers, timeout=self._timeout("xai")
-        )
-        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
-        response.raise_for_status()
-
-        data = response.json()
-
-        usage = data.get("usage") or {}
-        self._log_token_usage(
-            "xai",
-            usage.get("prompt_tokens"),
-            usage.get("completion_tokens"),
-        )
-
-        return data["choices"][0]["message"]["content"].strip()
 
     # ---------------------------
     # LANGUAGE HELPER

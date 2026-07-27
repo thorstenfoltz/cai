@@ -20,13 +20,13 @@ from git_cai_cli.core.config import (
 from git_cai_cli.core.gitutils import (
     _has_upstream,
     append_signoff,
+    apply_diff_limit,
     commit_with_edit_template,
     find_git_root,
     get_git_editor,
     git_diff_excluding,
     repo_name_from_root,
     sha256_of_file,
-    truncate_diff,
 )
 from git_cai_cli.core.llm import CommitMessageGenerator
 from git_cai_cli.core.secrets import SecretLeakError, format_findings
@@ -34,19 +34,6 @@ from git_cai_cli.core.spinner import Spinner
 from git_cai_cli.core.validate import _validate_llm_call
 
 log = logging.getLogger(__name__)
-
-
-def _apply_diff_limit(text: str, config: dict) -> str:
-    """Truncate ``text`` per the ``max_diff_bytes`` config, logging a warning."""
-    max_diff_bytes = int(config.get("max_diff_bytes", 0) or 0)
-    text, was_truncated = truncate_diff(text, max_diff_bytes)
-    if was_truncated:
-        log.warning(
-            "Input exceeded max_diff_bytes=%d and was truncated before sending "
-            "to the LLM.",
-            max_diff_bytes,
-        )
-    return text
 
 
 def _get_branch_base() -> str:
@@ -303,7 +290,7 @@ def squash_branch(
                 log.error("Staged changes detected, but diff is empty. Aborting.")
                 return
 
-            diff = _apply_diff_limit(diff, config)
+            diff = apply_diff_limit(diff, config)
 
             start = time.perf_counter() if measure else None
 
@@ -383,7 +370,7 @@ def squash_branch(
             log.info("Nothing to squash — branch contains only one commit.")
             return
 
-        commit_log = _apply_diff_limit(commit_log, config)
+        commit_log = apply_diff_limit(commit_log, config)
 
         log.info("Summarizing commit history using LLM...")
 

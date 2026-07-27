@@ -21,10 +21,13 @@ from git_cai_cli.core.config import (
     load_token,
 )
 from git_cai_cli.core.gitutils import (
+    apply_diff_limit,
+    changed_files_range,
+    commit_log_range,
     detect_base_branch,
     find_git_root,
+    merge_base,
     repo_name_from_root,
-    truncate_diff,
 )
 from git_cai_cli.core.llm import CommitMessageGenerator
 from git_cai_cli.core.secrets import SecretLeakError, format_findings
@@ -32,34 +35,6 @@ from git_cai_cli.core.spinner import Spinner
 from git_cai_cli.core.validate import _validate_llm_call
 
 log = logging.getLogger(__name__)
-
-
-def _merge_base(base_branch: str) -> str:
-    """Return the merge-base between `base_branch` and HEAD."""
-    return subprocess.check_output(
-        ["git", "merge-base", base_branch, "HEAD"], text=True
-    ).strip()
-
-
-def _commit_log(merge_base: str) -> str:
-    """Return the concatenated commit messages between merge_base and HEAD."""
-    return subprocess.check_output(
-        [
-            "git",
-            "--no-pager",
-            "log",
-            f"{merge_base}..HEAD",
-            "--pretty=format:%B",
-        ],
-        text=True,
-    ).strip()
-
-
-def _changed_files(merge_base: str) -> str:
-    """Return the newline-joined list of files changed between merge_base and HEAD."""
-    return subprocess.check_output(
-        ["git", "diff", "--name-only", f"{merge_base}..HEAD"], text=True
-    ).strip()
 
 
 def run_pr(
@@ -118,7 +93,7 @@ def run_pr(
     log.info("Using base branch: %s", base_branch)
 
     try:
-        merge_base = _merge_base(base_branch)
+        merge_base_sha = merge_base(base_branch)
     except subprocess.CalledProcessError as e:
         log.error(
             "Failed to compute merge-base between '%s' and HEAD: %s",
@@ -127,21 +102,14 @@ def run_pr(
         )
         raise typer.Exit(code=1)
 
-    commit_log = _commit_log(merge_base)
+    commit_log = commit_log_range(f"{merge_base_sha}..HEAD")
     if not commit_log:
         log.info("No commits between %s and HEAD — nothing to describe.", base_branch)
         return
 
-    max_diff_bytes = int(config.get("max_diff_bytes", 0) or 0)
-    commit_log, was_truncated = truncate_diff(commit_log, max_diff_bytes)
-    if was_truncated:
-        log.warning(
-            "Commit log exceeded max_diff_bytes=%d and was truncated before "
-            "sending to the LLM.",
-            max_diff_bytes,
-        )
+    commit_log = apply_diff_limit(commit_log, config, label="Commit log")
 
-    changed_files = _changed_files(merge_base)
+    changed_files = changed_files_range(f"{merge_base_sha}..HEAD")
 
     measure = time_flag or config.get("measure_time", False)
     start = time.perf_counter() if measure else None
