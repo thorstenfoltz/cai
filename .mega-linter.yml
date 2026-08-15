@@ -2,20 +2,26 @@
 # See all available variables at https://megalinter.io/configuration/
 # and in linters documentation
 
+ADDITIONAL_EXCLUDED_DIRECTORIES:
+  # Build/test caches: gitignored, but project-mode linters scan them anyway.
+  - __pycache__
+  - .mypy_cache
+  - .pytest_cache
+  - .ruff_cache
+  - .benchmarks
 APPLY_FIXES: none # all, none, or list of linter keys
 BASH_SHELLCHECK_ARGUMENTS: -e "SC2162"
 CLEAR_REPORT_FOLDER: true
 DISABLE_ERRORS: false
 ENABLE_LINTERS:
+  - ACTION_ACTIONLINT
   - BASH_EXEC
   - BASH_SHELLCHECK
   - BASH_SHFMT
   - JSON_JSONLINT
   - JSON_PRETTIER
   - JSON_V8R
-  - MAKEFILE_CHECKMAKE
   - MARKDOWN_MARKDOWNLINT
-  - MARKDOWN_MARKDOWN_LINK_CHECK
   - MARKDOWN_MARKDOWN_TABLE_FORMATTER
   - PYTHON_BLACK
   - PYTHON_BANDIT
@@ -26,9 +32,8 @@ ENABLE_LINTERS:
   - PYTHON_PYRIGHT
   - PYTHON_RUFF
   - PYTHON_RUFF_FORMAT
+  - REPOSITORY_BETTERLEAKS
   - REPOSITORY_CHECKOV
-  - REPOSITORY_GITLEAKS
-  - REPOSITORY_KICS
   - REPOSITORY_LS_LINT
   - REPOSITORY_SECRETLINT
   - REPOSITORY_SEMGREP
@@ -48,7 +53,8 @@ IGNORE_GITIGNORED_FILES: true
 LINTER_RULES_PATH: .linters
 LOG_LEVEL: INFO
 MARKDOWN_DEFAULT_STYLE: markdownlint
-MARKDOWN_MARKDOWN_LINK_CHECK_RULES_PATH: .linters
+# Pins the Docker image for local runs to the version the CI workflow pins.
+MEGALINTER_VERSION: v10.0.0
 PARALLEL: true
 PRINT_ALPACA: false
 PYTHON_BANDIT_RULES_PATH: .linters
@@ -68,8 +74,10 @@ REPOSITORY_SEMGREP_RULESETS:
     "p/secure-defaults",
   ]
 SECURITY_SUGGESTIONS: false
+# Lob API keys look like `test_<alnum>`, so every pytest function name is
+# reported as a verified secret. No other detector is affected.
+REPOSITORY_TRUFFLEHOG_ARGUMENTS: --exclude-detectors=Lob
 SHOW_ELAPSED_TIME: true
 SHOW_SKIPPED_LINTERS: true
 SPELL_PROSELINT_RULES_PATH: .linters
-SPELL_VALE_RULES_PATH: .linters
 VALIDATE_ALL_CODEBASE: false

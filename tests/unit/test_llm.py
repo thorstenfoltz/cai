@@ -8,8 +8,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from git_cai_cli.core.llm import (
     CommitMessageGenerator,
+    _http_post,
     _model_rejects_temperature,
     _resolve_temperature,
+    _strip_temperature,
 )
 
 
@@ -1381,6 +1383,65 @@ def test_ollama_start_skips_start_new_session_on_windows(monkeypatch, generator)
 # ---------------------------------------------------------------------------
 # Task 1 — temperature detection + resolution helpers
 # ---------------------------------------------------------------------------
+
+
+def test_strip_temperature_removes_nested_occurrences():
+    payload = {
+        "model": "m",
+        "temperature": 0,
+        "generationConfig": {"temperature": 0.7, "topK": 1},
+        "options": {"temperature": 0},
+    }
+    assert _strip_temperature(payload) is True
+    assert payload == {"model": "m", "generationConfig": {"topK": 1}, "options": {}}
+    # nothing left to remove -> no pointless retry
+    assert _strip_temperature(payload) is False
+
+
+def test_http_post_retries_without_temperature_on_400(caplog):
+    """A model not covered by the known-list rejects the field with 400;
+    the request is replayed once without it instead of failing the run."""
+    rejected = MagicMock(
+        status_code=400,
+        text=(
+            '{"error":{"message":"Unsupported value: \'temperature\'",'
+            '"param":"temperature"}}'
+        ),
+    )
+    accepted = MagicMock(status_code=200, text="{}")
+    session = MagicMock()
+    session.post.side_effect = [rejected, accepted]
+    payload = {"model": "future-model", "temperature": 0}
+
+    with (
+        patch(
+            f"{CommitMessageGenerator.__module__}._get_http_session",
+            return_value=session,
+        ),
+        caplog.at_level(logging.WARNING),
+    ):
+        result = _http_post("https://api.example.com/v1", json=payload)
+
+    assert result is accepted
+    assert session.post.call_count == 2
+    assert session.post.call_args_list[1].kwargs["json"] == {"model": "future-model"}
+    assert "retrying without it" in caplog.text
+
+
+def test_http_post_does_not_retry_on_unrelated_400():
+    rejected = MagicMock(
+        status_code=400, text='{"error":{"message":"model not found"}}'
+    )
+    session = MagicMock()
+    session.post.return_value = rejected
+
+    with patch(
+        f"{CommitMessageGenerator.__module__}._get_http_session", return_value=session
+    ):
+        result = _http_post("https://api.example.com/v1", json={"temperature": 0})
+
+    assert result is rejected
+    assert session.post.call_count == 1
 
 
 def test_model_rejects_temperature_openai_gpt5():

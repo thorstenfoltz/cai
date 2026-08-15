@@ -40,7 +40,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # ``max_tokens`` is still read as a legacy alias (see llm.py)
         "max_output_tokens": 32768,
     },
-    "openai": {"model": "gpt-5.4-mini"},
+    "openai": {"model": "gpt-5.6-luna"},
     "deepseek": {"model": "deepseek-chat", "temperature": 0},
     "gemini": {"model": "gemini-3.1-flash-lite", "temperature": 0},
     "groq": {"model": "openai/gpt-oss-20b", "temperature": 0},

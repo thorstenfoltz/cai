@@ -409,7 +409,17 @@ def squash_branch(
             log.info("Squash summary generated in %.2fs", elapsed)
             generator.record_elapsed(int(elapsed * 1000))
 
-        # 4) Let user edit the summary without making a commit yet
+        # 4) Let user edit the summary without making a commit yet.
+        # The trailer is added before the editor opens — same as commit mode,
+        # so the user sees (and can drop) it instead of it appearing only
+        # after the squash commit was already written.
+        if apply_signoff:
+            try:
+                summary_message = append_signoff(summary_message)
+            except RuntimeError as e:
+                log.error("%s", e)
+                sys.exit(1)
+
         log.info(
             "Opening editor for final squash commit message. Save = continue, exit w/o save = cancel."
         )
@@ -448,13 +458,6 @@ def squash_branch(
             final_message = tf_name.read_text(encoding="utf-8").strip()
         finally:
             tf_name.unlink(missing_ok=True)
-
-        if apply_signoff:
-            try:
-                final_message = append_signoff(final_message)
-            except RuntimeError as e:
-                log.error("%s", e)
-                sys.exit(1)
 
         # 5) Perform squash
         subprocess.run(["git", "reset", "--soft", merge_base], check=True)
