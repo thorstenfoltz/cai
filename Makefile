@@ -42,10 +42,10 @@ clean: ## Clean cache of uv and delete virtual environment
 
 lint:
 	@sh ./.linters/check_git_branch_name.sh
-	@npx mega-linter-runner
+	@npx mega-linter-runner@v10
 
 lint-fix: ## Lints the code using sqlfluff and fixes the issues
-	@npx mega-linter-runner --fix
+	@npx mega-linter-runner@v10 --fix
 
 test: ## Runs tests
 	@$(UV) run pytest

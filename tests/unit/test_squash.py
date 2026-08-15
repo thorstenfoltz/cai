@@ -240,6 +240,54 @@ def test_performs_soft_reset_and_commit(
     )
 
 
+def test_config_signoff_lands_in_editor_and_squash_commit(
+    mock_repo_root, clean_git_state, mock_generator
+) -> None:
+    """
+    `signoff: true` in the config applies in squash mode, and the trailer is
+    already in the message the editor opens (the temp file is read back, so
+    the committed message can only carry it if it was written before edit).
+    """
+    run_mock = MagicMock(return_value=MagicMock(returncode=0))
+
+    with (
+        patch("git_cai_cli.core.squash.find_git_root", return_value=mock_repo_root),
+        patch("subprocess.check_output", side_effect=clean_git_state),
+        patch(
+            "git_cai_cli.core.squash.load_config",
+            return_value={"default": "openai", "signoff": True},
+        ),
+        patch("git_cai_cli.core.squash.load_token", return_value="token"),
+        patch(
+            "git_cai_cli.core.squash.CommitMessageGenerator",
+            return_value=mock_generator,
+        ),
+        patch(
+            "git_cai_cli.core.gitutils.get_git_identity",
+            return_value=("Alice", "alice@example.com"),
+        ),
+        patch("git_cai_cli.core.squash.get_git_editor", return_value="true"),
+        patch("git_cai_cli.core.squash.sha256_of_file", side_effect=["a", "b"]),
+        patch("subprocess.run", run_mock),
+        patch("git_cai_cli.core.squash._has_upstream", return_value=False),
+    ):
+        squash_branch()
+
+    run_mock.assert_has_calls(
+        [
+            call(
+                [
+                    "git",
+                    "commit",
+                    "-m",
+                    "squash summary\n\nSigned-off-by: Alice <alice@example.com>",
+                ],
+                check=True,
+            )
+        ],
+    )
+
+
 def test_force_push_prompt_and_execution(
     mock_repo_root, clean_git_state, mock_generator
 ) -> None:

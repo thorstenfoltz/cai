@@ -9,6 +9,9 @@ on:
         description: "Release version (e.g. 0.6.5)"
         required: true
 
+permissions:
+  contents: read
+
 jobs:
   aur:
     runs-on: ubuntu-slim
@@ -48,8 +51,8 @@ jobs:
           echo "Downloading tag: ${TAG}"
 
           curl -fL \
-            -o cai-${VERSION}.tar.gz \
-            https://github.com/thorstenfoltz/cai/archive/refs/tags/${TAG}.tar.gz
+            -o "cai-${VERSION}.tar.gz" \
+            "https://github.com/thorstenfoltz/cai/archive/refs/tags/${TAG}.tar.gz"
 
       - name: Compute sha256sum
         id: sha

@@ -116,6 +116,20 @@ def test_append_signoff_when_other_signoff_already_present():
     )
 
 
+def test_append_signoff_separates_single_line_conventional_subject():
+    """A lone subject like ``feat: x`` matches the trailer pattern but is
+    not a trailer block — gluing the sign-off to it makes git drop the
+    trailer entirely (``git interpret-trailers --parse`` returns nothing)."""
+    out = append_signoff("feat: add signoff", identity=("Alice", "alice@example.com"))
+    assert out == "feat: add signoff\n\nSigned-off-by: Alice <alice@example.com>"
+
+
+def test_append_signoff_ignores_trailer_lookalike_at_end_of_body():
+    msg = "Add thing\n\nBody line\nNote: this is prose, not a trailer block"
+    out = append_signoff(msg, identity=("Alice", "alice@example.com"))
+    assert out == f"{msg}\n\nSigned-off-by: Alice <alice@example.com>"
+
+
 def test_append_signoff_on_empty_message_just_returns_trailer():
     out = append_signoff("", identity=("Alice", "alice@example.com"))
     assert out == "Signed-off-by: Alice <alice@example.com>"

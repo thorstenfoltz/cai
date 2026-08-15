@@ -1,0 +1,32 @@
+{
+  "checks": {
+    "annotations": false,
+    "archaism": false,
+    "cliches": true,
+    "dates_times": true,
+    "hedging": true,
+    "industrial_language": false,
+    "lexical_illusions": false,
+    "malapropisms": true,
+    "misc": true,
+    "misc.phrasal_adjectives": false,
+    "mixed_metaphors": true,
+    "mondegreens": true,
+    "needless_variants": false,
+    "nonwords": true,
+    "oxymorons": true,
+    "psychology": true,
+    "redundancy": true,
+    "restricted": false,
+    "skunked_terms": true,
+    "social_awareness": true,
+    "spelling": true,
+    "spelling.athletes": false,
+    "terms": true,
+    "typography": true,
+    "typography.symbols": false,
+    "uncomparables": true,
+    "weasel_words": true,
+    "weasel_words.very": false
+  }
+}

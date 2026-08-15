@@ -259,8 +259,15 @@ def append_signoff(message: str, identity: tuple[str, str] | None = None) -> str
     if not stripped:
         return trailer
 
-    last_line = stripped.rsplit("\n", 1)[-1]
-    if _TRAILER_LINE_RE.match(last_line):
+    # Only join an existing trailer block directly: a block is the final
+    # paragraph and must consist solely of ``Key: value`` lines. A message
+    # with a single paragraph never qualifies — a lone conventional subject
+    # ("feat: add x") looks like a trailer line, and gluing the sign-off to
+    # it makes git stop recognizing the trailer at all.
+    paragraphs = stripped.split("\n\n")
+    if len(paragraphs) > 1 and all(
+        _TRAILER_LINE_RE.match(line) for line in paragraphs[-1].splitlines()
+    ):
         return f"{stripped}\n{trailer}"
 
     return f"{stripped}\n\n{trailer}"

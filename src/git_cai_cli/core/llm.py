@@ -37,7 +37,9 @@ log = logging.getLogger(__name__)
 
 
 # Models that reject any non-default ``temperature`` (return HTTP 400).
-# Extend this list as new restricted models appear.
+# Pure fast path: it saves the rejected request. Models missing here are
+# still handled — ``_http_post`` retries once without the field — so add
+# an entry only when a warning shows up in practice.
 _TEMPERATURE_UNSUPPORTED_PATTERNS = [
     re.compile(r"^gpt-5", re.IGNORECASE),  # OpenAI GPT-5 family (incl. mini/nano)
     re.compile(r"^o[134](-|$)", re.IGNORECASE),  # OpenAI o1/o3/o4 reasoning series
@@ -123,14 +125,46 @@ def _get_http_session() -> requests.Session:
     return _build_retrying_session()
 
 
+def _strip_temperature(payload: Any) -> bool:
+    """Remove every ``temperature`` key from a request body, in place.
+
+    Providers nest it differently — top level for the OpenAI-compatible
+    APIs and Anthropic, ``generationConfig`` for Gemini, ``options`` for
+    Ollama — so recurse into nested dicts. Returns True if anything was
+    removed.
+    """
+    if not isinstance(payload, dict):
+        return False
+    removed = payload.pop("temperature", None) is not None
+    for value in payload.values():
+        if _strip_temperature(value):
+            removed = True
+    return removed
+
+
 def _http_post(*args, **kwargs):
     """POST via the module-level retrying session.
 
     Single patch-point for tests; never uses ``requests.post`` directly so
     every provider call benefits from urllib3 retry/backoff on transient
     failures (429 / 5xx).
+
+    Models that reject ``temperature`` answer 400 instead of ignoring the
+    field, and new ones keep appearing, so a hardcoded model list can only
+    ever be a fast path (see ``_TEMPERATURE_UNSUPPORTED_PATTERNS``). When
+    the provider's own error names the field, drop it and retry once
+    rather than failing the run.
     """
-    return _get_http_session().post(*args, **kwargs)
+    response = _get_http_session().post(*args, **kwargs)
+    if response.status_code == 400 and "temperature" in response.text.lower():
+        if _strip_temperature(kwargs.get("json")):
+            log.warning(
+                "Provider rejected the configured temperature (HTTP 400); "
+                "retrying without it. Remove 'temperature' from this "
+                "model's config block to skip the extra request."
+            )
+            response = _get_http_session().post(*args, **kwargs)
+    return response
 
 
 def load_prompt_file(
