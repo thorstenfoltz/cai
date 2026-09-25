@@ -14,11 +14,11 @@ from typing import Any, Callable
 
 import typer
 from git_cai_cli.core.config import (
-    TOKENLESS_PROVIDERS,
     apply_cli_overrides,
     apply_provider_overrides,
     load_config,
     load_token,
+    provider_requires_token,
 )
 from git_cai_cli.core.gitutils import find_git_root
 from git_cai_cli.core.secrets import SecretLeakError, format_findings
@@ -55,7 +55,7 @@ def prepare(
 
     provider = config["default"]
     token = load_token(config=config)
-    if provider not in TOKENLESS_PROVIDERS and not token:
+    if provider_requires_token(config, provider) and not token:
         # Logs where to put the token, never the token itself.
         # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         log.error(
@@ -94,7 +94,7 @@ def run_generation(
                     content,
                     system_prompt,
                     token=token,
-                    requires_token=provider not in TOKENLESS_PROVIDERS,
+                    requires_token=provider_requires_token(generator.config, provider),
                 )
         except SecretLeakError as leak:
             log.error("%s", format_findings(leak.findings))

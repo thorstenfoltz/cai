@@ -16,11 +16,11 @@ import typer
 from git_cai_cli.core.config import (
     DEFAULT_CONFIG,
     FALLBACK_CONFIG_FILE,
-    TOKENLESS_PROVIDERS,
     TOKENS_FILE,
     _find_repo_config,
     load_config,
     load_token,
+    provider_requires_token,
 )
 from git_cai_cli.core.gitutils import get_git_editor
 from git_cai_cli.core.validate import _validate_config_keys, _validate_style
@@ -85,10 +85,11 @@ def _run_check_impl(*, live: bool = False) -> int:
         _line(_FAIL, f"Provider '{provider}' block missing model")
         ok = False
     else:
-        _line(_OK, f"Default provider: {provider} (model {block.get('model')})")
+        via = f", {block['base_url']}" if block.get("base_url") else ""
+        _line(_OK, f"Default provider: {provider} (model {block.get('model')}{via})")
 
     # 4. Token for the active provider (unless tokenless), plus file permissions.
-    if provider in TOKENLESS_PROVIDERS:
+    if provider and not provider_requires_token(config, provider):
         _line(_OK, f"Provider '{provider}' needs no token")
     else:
         token = load_token(config=config)
@@ -183,7 +184,7 @@ def _live_probe(config: dict, provider: str) -> bool:
             generator.generate,
             tiny_diff,
             token=token,
-            requires_token=provider not in TOKENLESS_PROVIDERS,
+            requires_token=provider_requires_token(config, provider),
         )
         elapsed_ms = (time.perf_counter() - start) * 1000
         _line(_OK, f"Provider '{provider}' reachable ({elapsed_ms:.0f} ms)")

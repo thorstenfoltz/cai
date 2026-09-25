@@ -20,8 +20,10 @@ from git_cai_cli.core.config import (
     TOKENS_FILE,
     _find_repo_config,
     _serialize_config,
+    custom_providers,
     load_config,
     ordered_default_config,
+    provider_requires_token,
 )
 from git_cai_cli.core.languages import LANGUAGE_MAP
 
@@ -289,6 +291,25 @@ git cai -l style
                 else "token required"
             )
             lines.append(f"  {provider:<12} model: {model:<35} ({token_info})")
+
+        try:
+            config = load_config()
+        except (KeyError, ValueError, OSError):
+            return "\n".join(lines)
+        custom = custom_providers(config)
+        if custom:
+            lines.append("\nCustom providers (OpenAI compatible, from config):\n")
+            for provider in custom:
+                block = config[provider]
+                token_info = (
+                    "token required"
+                    if provider_requires_token(config, provider)
+                    else "no token required"
+                )
+                lines.append(
+                    f"  {provider:<12} model: {block.get('model', 'n/a'):<35} "
+                    f"({token_info}) {block['base_url']}"
+                )
         return "\n".join(lines)
 
     def list_models(self) -> str:

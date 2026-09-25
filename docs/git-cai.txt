@@ -73,7 +73,8 @@ First run / configuration (manual):
 - Add at least one API key to `~/.config/cai/tokens.yml` (created as a template if missing).
   The YAML keys are provider names (for example: `openai`, `anthropic`, `gemini`,
   `groq`, `xai`, `mistral`, `deepseek`).
-  If you use `ollama` as provider, no token is required.
+  If you use `ollama` as provider, no token is required. Custom providers use
+  their own name as key (see below).
 - In `~/.config/cai/cai_config.yml`, set `default:` to the provider you want and
   adjust the provider block (model/temperature) as needed.
 
@@ -88,6 +89,46 @@ Custom prompts (optional):
 
 - Generate prompt files in the current directory with `git cai -p`.
 - Point `prompt_file` / `squash_prompt_file` in `cai_config.yml` to your custom files.
+
+Custom OpenAI compatible providers (optional):
+
+- Any service speaking the OpenAI `/chat/completions` API (OpenRouter, Together,
+  Cerebras, GitHub Models, LiteLLM, vLLM, LM Studio, llama.cpp, ...) can be added
+  as a provider. Pick a name, add a block with `base_url` and `model`, and set
+  `default:` to that name:
+
+    default: openrouter
+    openrouter:
+      base_url: https://openrouter.ai/api/v1
+      model: meta-llama/llama-3.3-70b-instruct:free
+      temperature: 0        # optional
+      timeout: 60           # optional
+      max_output_tokens: 2048 # optional, cap on the reply length
+    lmstudio:
+      base_url: http://localhost:1234/v1
+      model: qwen2.5-coder
+      requires_token: false # optional, default true
+
+- `/chat/completions` is appended to `base_url` unless it is already there.
+- The API key goes into `~/.config/cai/tokens.yml` under the same name
+  (`openrouter: sk-or-...`). With `requires_token: false` no key is needed and
+  no `Authorization` header is sent.
+- The name works with `--provider` (`git cai -P lmstudio`), is listed by
+  `git cai -l provider`, and is offered by shell completion.
+- `max_output_tokens` is only sent when set. Useful for local servers whose
+  default reply limit truncates commit messages. It is sent as `max_tokens`,
+  or as `max_completion_tokens` for the `openai` block.
+- `base_url` also works in the built in blocks to route them through a proxy or
+  gateway. Use the same form as the vendor SDKs:
+  `openai`, `deepseek`, `groq`, `mistral`, `xai`: include the version,
+  e.g. `https://gateway.example/v1` (`/chat/completions` is appended);
+  `anthropic`: without version, e.g. `https://gateway.example`
+  (`/v1/messages` is appended);
+  `gemini`: without version, e.g. `https://gateway.example`
+  (`/v1beta/models/<model>:generateContent` is appended).
+  `ollama` keeps using the `OLLAMA_HOST` environment variable.
+- The secret scan stays active for custom providers, including local ones.
+  Set `secret_scan: false` to disable it.
 
 OPTIONS
 -------
@@ -349,7 +390,10 @@ git cai -I
 
 -i, --install-completion::
 Install shell completion for `git cai`. Supports bash, zsh, and fish.
-Completions cover all flags and provider names for `--provider`.
+Completions cover all flags and provider names for `--provider`, including
+custom providers from the active config (looked up on each TAB press, so new
+providers show up without reinstalling). Users of an older script need to run
+`git cai -i` once more to get this.
 +
 After installation, restart your terminal or source your shell configuration
 file for the completions to take effect.
@@ -361,8 +405,9 @@ git cai -i
 -k, --check::
 Run configuration diagnostics and exit. The check is offline by default: it
 reports which config is authoritative (repository, home, or built-in), validates
-the config keys, confirms the default provider has a model and a
-usable token, that the commit/squash/full-files/PR prompts resolve, and that the
+the config keys, confirms the default provider has a model (and shows its
+`base_url` if set) and a usable token (skipped for `ollama` and providers with
+`requires_token: false`), that the commit/squash/full-files/PR prompts resolve, and that the
 configured editor is on `PATH`. Exits non-zero if any check fails. Add `--ping`
 to also probe the active provider with a tiny live request.
 +
@@ -476,11 +521,14 @@ git cai -s --signoff
 Override the LLM provider for this invocation. The model and temperature
 from the configuration for that provider are used unless `--model` is also
 specified. Available providers: `anthropic`, `deepseek`, `gemini`, `groq`,
-`mistral`, `ollama`, `openai`, `xai`.
+`mistral`, `ollama`, `openai`, `xai`, plus any custom OpenAI compatible
+provider defined in the active config (see SETUP). Shell completion offers
+both.
 +
 ----
 git cai -P anthropic
 git cai -P groq -m llama-3.3-70b
+git cai -P openrouter
 ----
 
 -p, --generate-prompts::
@@ -941,7 +989,9 @@ Configuration file paths:
 provider::
 List all supported LLM providers. Each provider is shown with its default
 model and whether an API token is required. Providers that do not require a
-token (currently only `ollama`) are marked accordingly.
+token (`ollama`, and custom providers with `requires_token: false`) are
+marked accordingly. Custom OpenAI compatible providers from the active config
+follow in a separate section with their `base_url`.
 +
 ----
 git cai -l provider
@@ -960,6 +1010,11 @@ Supported providers:
   ollama       model: llama3.1                           (no token required)
   openai       model: gpt-5.4-mini                       (token required)
   xai          model: grok-4.3                           (token required)
+
+Custom providers (OpenAI compatible, from config):
+
+  lmstudio     model: qwen2.5-coder                       (no token required) http://localhost:1234/v1
+  openrouter   model: meta-llama/llama-3.3-70b-instruct:free (token required) https://openrouter.ai/api/v1
 ----
 
 style::
@@ -1019,7 +1074,8 @@ Available configuration keys:
   credential formats are flagged (private keys, AWS/GitHub/Slack/Google/OpenAI
   keys); obvious placeholders (values containing `example`, `sample`, `dummy`,
   and repeated-character filler) are ignored. Local providers (Ollama) skip the
-  scan, since nothing leaves the machine. When you confirm a flagged send in an
+  scan, since nothing leaves the machine. Custom providers are always scanned,
+  even with `requires_token: false`, since the diff may leave the machine. When you confirm a flagged send in an
   interactive commit (a false alarm), git-cai offers, per flagged file, to
   remember the decision: add the file to `.caiignore` (drop it from git-cai
   entirely), add it to `secret_scan_exclude` (keep sending it but skip its
@@ -1073,10 +1129,18 @@ Available configuration keys:
   the middle step).
 - `<provider>.model` -- model name for a specific provider
 - `<provider>.temperature` -- temperature for a specific provider
-- `anthropic.max_tokens` -- upper bound on Anthropic response tokens
-  (default `32768`)
-- `ollama.timeout` -- HTTP timeout in seconds for Ollama generation calls
-  (default `300`; overrides the global `timeout` for this provider only)
+- `<provider>.base_url` -- endpoint of a custom OpenAI compatible provider,
+  or a proxy/gateway for a built in one. OpenAI style providers include the
+  version (`https://gateway.example/v1`); `anthropic` and `gemini` take the
+  host without it (`https://gateway.example`). Must be an http(s) URL. Not
+  used by `ollama` (use `OLLAMA_HOST`).
+- `<provider>.requires_token` -- set to `false` for a custom provider that
+  needs no API key; no `Authorization` header is sent (default `true`)
+- `<provider>.max_output_tokens` -- upper bound on response tokens. For
+  `anthropic` the default is `32768` (`max_tokens` is still read as a legacy
+  alias). For OpenAI compatible providers it is only sent when set.
+- `<provider>.timeout` -- HTTP timeout in seconds for one provider,
+  overriding the global `timeout` (`ollama` defaults to `300`)
 - `stats` -- opt in to local-only usage analytics (`true`/`false`,
   default `false`). When enabled, every generation appends one row to
   `~/.local/share/git-cai/stats.db` capturing kind (`commit`, `amend`,
@@ -1232,6 +1296,12 @@ Override the provider for a single invocation:
 
 ----
 git cai -P anthropic
+----
+
+Use a custom OpenAI compatible provider defined in the config:
+
+----
+git cai -P lmstudio
 ----
 
 Override both provider and model:

@@ -20,6 +20,7 @@ Currently supported providers:
 - Mistral
 - DeepSeek
 - Ollama (local)
+- Any OpenAI compatible API (OpenRouter, Together, Cerebras, LM Studio, vLLM, llama.cpp, LiteLLM, ...) via `base_url`
 
 ---
 
@@ -29,6 +30,7 @@ Currently supported providers:
 - [pipx](https://pypi.org/project/pipx/)
 - Either:
   - Ollama installed and running locally, or
+  - A local OpenAI compatible server such as LM Studio or vLLM, or
   - An API key for at least one of the following providers:
   - OpenAI
   - Gemini (free tier available)
@@ -45,7 +47,7 @@ Currently supported providers:
 - Automatically detects added, modified, and deleted files
 - Generates meaningful, context-aware commit messages using an LLM
 - Seamless integration with Git
-- Supports multiple LLM providers and models
+- Supports multiple LLM providers and models, plus any OpenAI compatible endpoint
 - Global configuration with per-repository overrides
 - Interactive `--init` wizard for first-time setup (provider, token, language, style)
 - Repository-specific language, style, and model selection
@@ -64,7 +66,7 @@ Currently supported providers:
 - Optional large-diff guard (`max_diff_bytes`) that truncates oversized diffs before sending
 - Generation time measurement
 - Local-only usage analytics (per-provider commits, tokens, latency) with opt-in SQLite storage
-- Shell completion for bash, zsh, and fish
+- Shell completion for bash, zsh, and fish (including custom providers from your config)
 - Local secret scan that blocks the diff before it reaches the provider when likely credentials are detected
 - Configuration doctor (`--check`) that validates your setup offline, with an optional live provider probe (`--ping`)
 - Mixed code and documentation diffs are classified by the functional change rather than mislabelled as docs
@@ -159,6 +161,27 @@ Set your preferred LLM in `cai_config.yml` (Groq by default).
 
 If you want to use Ollama, install it, set `default: ollama` and configure the `ollama:` block (model/temperature). Ollama is automatically started when used.
 
+### Custom OpenAI compatible providers
+
+Any service speaking the OpenAI `/chat/completions` API can be added as a provider.
+Pick a name, add a block with `base_url` and `model`, and set `default:` to that name:
+
+```yaml
+default: openrouter
+openrouter:
+  base_url: https://openrouter.ai/api/v1
+  model: meta-llama/llama-3.3-70b-instruct:free
+lmstudio:
+  base_url: http://localhost:1234/v1
+  model: qwen2.5-coder
+  requires_token: false
+```
+
+The API key goes into `tokens.yml` under the same name (`openrouter: sk-or-...`).
+With `requires_token: false` no key is needed. `/chat/completions` is appended to
+`base_url` unless it is already there. The name works with `-P` / `--provider`
+and shows up in `git cai -l provider` and shell completion.
+
 ### Custom prompts (Markdown)
 
 The generated commit message is guided by prompt files.
@@ -218,6 +241,10 @@ git cai -g
 - `style` – tone or style of the commit message
 - `emoji` – enable or disable emojis
 - `load_tokens_from` – path to the file where API tokens are stored
+- `base_url` – per provider block: endpoint of a custom OpenAI compatible provider, or a proxy/gateway for a built in one.
+OpenAI style providers include the version (`https://gateway.example/v1`); `anthropic` and `gemini` take the host without it (`https://gateway.example`)
+- `requires_token` – per provider block: set to `false` for custom providers that need no API key; default `true`
+- `max_output_tokens` – per provider block: cap on the reply length for Anthropic and OpenAI compatible providers; only sent when set
 - `prompt_file` - path to the file where the prompt for the commit is stored
 - `squash_prompt_file` - path to the file where the prompt for the squash is stored
 - `full_files_prompt_file` - path to the prompt used when `-F` / `--full-files` attaches full file contents
@@ -235,7 +262,8 @@ git cai -g
 No diff content, commit messages, or file paths are stored — only metadata (provider, model, kind, repo name, token counts, latency, settings)
 - `signoff` – append a `Signed-off-by:` trailer (built from git `user.name` / `user.email`) to every commit message; default `false`
 - `secret_scan` – scan the outgoing diff for likely secrets and ask before sending; default `true`. Bypass once with `-B` / `--allow-secrets`,
-or disable entirely by setting it to `false`. Skipped for tokenless providers (Ollama), where nothing leaves the machine
+or disable entirely by setting it to `false`. Skipped for tokenless providers (Ollama), where nothing leaves the machine.
+Custom providers are always scanned, even with `requires_token: false`, since the diff may leave the machine
 
 ---
 
@@ -257,13 +285,13 @@ In addition to `git cai`, the following options are available:
 - `-H`, `--set-home` – set a config value in home config (`key=value`), always targets `~/.config/cai/`
 - `-h`, `--help` – show help and available commands
 - `-I`, `--init` – interactive setup wizard (writes home config and tokens.yml)
-- `-i`, `--install-completion` – install shell completion for bash, zsh, or fish
+- `-i`, `--install-completion` – install shell completion for bash, zsh, or fish. Rerun after upgrading to get custom provider completion
 - `-k`, `--check` – run configuration diagnostics offline (config source, provider, token, prompts, editor, style)
 - `-l`, `--list` – list available information. Valid types: `config`, `editor`, `language`, `model`, `path`, `provider`, `style`
 - `-m`, `--model` – override the model for this invocation (requires `-P`)
 - `-n`, `--ping` – with `--check`, also send a tiny request to the active provider to confirm reachability
 - `-o`, `--signoff` / `--no-signoff` – append a `Signed-off-by:` trailer (uses git `user.name` / `user.email`); applies to commit, amend, and squash modes
-- `-P`, `--provider` – override the LLM provider for this invocation
+- `-P`, `--provider` – override the LLM provider for this invocation (built in or custom; tab completion lists both)
 - `-p`, `--generate-prompts` – generate default `commit_prompt.md` and `squash_prompt.md` in the current directory (for customization)
 - `--print` – print the generated commit message to stdout and exit without committing (commit/amend modes only; mutually exclusive with `-c`)
 - `-q`, `--sql true|false` – override stats writing for this run (wins over the persisted `stats` config)
@@ -482,7 +510,8 @@ git cai -S secret_scan=false     # disable the scan persistently
 
 Obvious placeholders (`example`, `dummy`, repeated filler, and similar) are
 ignored to keep the noise down, and the scan is skipped entirely for tokenless
-providers such as Ollama, where nothing leaves the machine. In non-interactive
+providers such as Ollama, where nothing leaves the machine. Custom providers are
+always scanned, even with `requires_token: false`. In non-interactive
 runs (`-c` / `--crazy`, or no TTY) a detection aborts the send instead of
 prompting; re-run with `-B` to override.
 

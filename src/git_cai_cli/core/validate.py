@@ -4,6 +4,7 @@ Validation utilities for configuration settings
 
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 from git_cai_cli.core.secrets import SecretLeakError
@@ -83,7 +84,8 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
     - Only global keys (language, default, style, emoji) are validated explicitly
     - At least one provider block must be present
     - Each provider block must define 'model' ('temperature' is optional)
-    - Unknown top-level keys are rejected
+    - Unknown top-level keys are rejected, except mappings with a
+      ``base_url`` (custom OpenAI compatible providers)
     """
     log.debug("Validating configuration keys")
 
@@ -92,6 +94,14 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
     # reported as "missing" — they aren't part of the documented surface.
     internal_only_keys = {"stats_db_path", "secret_scan_exclude"}
     allowed_provider_keys = set(reference.keys()) - allowed_global_keys
+    # Custom OpenAI compatible providers: any extra mapping with a base_url.
+    allowed_provider_keys |= {
+        key
+        for key, value in config.items()
+        if key not in allowed_global_keys
+        and isinstance(value, dict)
+        and "base_url" in value
+    }
 
     config_keys = set(config.keys())
 
@@ -136,6 +146,22 @@ def _validate_config_keys(config: dict[str, Any], reference: dict[str, Any]) -> 
                 + "' missing required keys: "
                 + ", ".join(sorted(missing_provider_keys))
             )
+
+        if "base_url" in provider_block:
+            base_url = provider_block["base_url"]
+            parsed = urlparse(base_url) if isinstance(base_url, str) else None
+            if (
+                not parsed
+                or parsed.scheme not in ("http", "https")
+                or not parsed.netloc
+            ):
+                log.error("Provider '%s' has an invalid base_url", provider)
+                raise KeyError(
+                    "Provider '"
+                    + provider
+                    + "' base_url must be an http(s) URL, got: "
+                    + repr(base_url)
+                )
 
     log.debug("Configuration key validation completed successfully")
 

@@ -17,7 +17,7 @@ from typing import Any, Dict
 from urllib.parse import urlparse
 
 import requests
-from git_cai_cli.core.config import CONFIG_DIR
+from git_cai_cli.core.config import CONFIG_DIR, is_custom_provider
 from git_cai_cli.core.gitutils import classify_changed_paths, paths_from_diff
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.prompts_fallback import (
@@ -81,6 +81,17 @@ OPENAI_COMPATIBLE_URLS = {
     "mistral": "https://api.mistral.ai/v1/chat/completions",
     "xai": "https://api.x.ai/v1/chat/completions",
 }
+
+
+def _endpoint_url(block: Dict[str, Any], default_base: str, path: str) -> str:
+    """Join the provider's base URL and API ``path``.
+
+    A ``base_url`` in the provider block (custom providers, or proxies for
+    built ins) wins over ``default_base``; ``path`` is appended unless the
+    URL already ends with it.
+    """
+    base = (block.get("base_url") or default_base).rstrip("/")
+    return base if base.endswith(path) else base + path
 
 
 _RETRY_STATUS_CODES = (429, 500, 502, 503, 504)
@@ -967,12 +978,15 @@ class CommitMessageGenerator:
         }
 
         provider = self.default_model
-        if provider not in OPENAI_COMPATIBLE_URLS and provider not in model_dispatch:
+        openai_compatible = provider in OPENAI_COMPATIBLE_URLS or is_custom_provider(
+            self.config, provider
+        )
+        if not openai_compatible and provider not in model_dispatch:
             raise ValueError(f"Unknown model type: '{provider}'")
 
         log.debug("Using provider '%s' for generation.", provider)
 
-        if provider in OPENAI_COMPATIBLE_URLS:
+        if openai_compatible:
             return self.generate_openai_compatible(
                 content, provider, system_prompt_override=system_prompt
             )
@@ -994,18 +1008,19 @@ class CommitMessageGenerator:
         OpenAI, DeepSeek, Groq, xAI and Mistral all accept the same request
         body and return the same response envelope, so they share one
         implementation and differ only by the endpoint in
-        ``OPENAI_COMPATIBLE_URLS``.
+        ``OPENAI_COMPATIBLE_URLS``. Custom providers supply ``base_url``.
         """
-        url = OPENAI_COMPATIBLE_URLS[provider]
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}",
-        }
-
-        model = self.config[provider]["model"]
-        temperature = _resolve_temperature(
-            model, self.config[provider].get("temperature")
+        block = self.config[provider]
+        url = _endpoint_url(
+            block, OPENAI_COMPATIBLE_URLS.get(provider, ""), "/chat/completions"
         )
+        headers = {"Content-Type": "application/json"}
+        # Tokenless custom providers (``requires_token: false``) get no auth.
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+
+        model = block["model"]
+        temperature = _resolve_temperature(model, block.get("temperature"))
 
         log.debug("Using %s model '%s'.", provider, model)
 
@@ -1017,6 +1032,12 @@ class CommitMessageGenerator:
         request: dict[str, Any] = {"model": model, "messages": messages}
         if temperature is not None:
             request["temperature"] = temperature
+        # Opt in only: some local servers default to tiny outputs. OpenAI
+        # itself rejects ``max_tokens`` on reasoning models and wants
+        # ``max_completion_tokens``; everyone else knows ``max_tokens``.
+        if block.get("max_output_tokens"):
+            key = "max_completion_tokens" if provider == "openai" else "max_tokens"
+            request[key] = int(block["max_output_tokens"])
 
         start = time.perf_counter()
         response = _http_post(  # nosec B113
@@ -1052,7 +1073,9 @@ class CommitMessageGenerator:
         Shared Anthropic call for commit generation or commit history summarization.
         Uses direct HTTP API instead of the Anthropic SDK.
         """
-        url = "https://api.anthropic.com/v1/messages"
+        url = _endpoint_url(
+            self.config["anthropic"], "https://api.anthropic.com", "/v1/messages"
+        )
         headers = {
             "Content-Type": "application/json",
             "x-api-key": self.token,
@@ -1122,7 +1145,11 @@ class CommitMessageGenerator:
 
         log.debug("Using gemini model '%s'.", model)
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        url = _endpoint_url(
+            self.config["gemini"],
+            "https://generativelanguage.googleapis.com",
+            f"/v1beta/models/{model}:generateContent",
+        )
 
         headers = {
             "Content-Type": "application/json",

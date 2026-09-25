@@ -87,18 +87,8 @@ def test_zsh_script_has_all_flags():
 
 
 def test_zsh_script_has_provider_completions():
-    """The zsh script provides provider name completions for --provider."""
-    for provider in [
-        "anthropic",
-        "deepseek",
-        "gemini",
-        "groq",
-        "mistral",
-        "ollama",
-        "openai",
-        "xai",
-    ]:
-        assert provider in _ZSH_SCRIPT
+    """--provider completes from the CLI so custom providers show up."""
+    assert "git-cai --complete-providers" in _ZSH_SCRIPT
 
 
 def test_bash_script_has_all_flags():
@@ -143,18 +133,8 @@ def test_bash_script_has_all_flags():
 
 
 def test_bash_script_has_provider_completions():
-    """The bash script provides provider name completions for --provider / -P."""
-    for provider in [
-        "anthropic",
-        "deepseek",
-        "gemini",
-        "groq",
-        "mistral",
-        "ollama",
-        "openai",
-        "xai",
-    ]:
-        assert provider in _BASH_SCRIPT
+    """--provider / -P completes from the CLI so custom providers show up."""
+    assert "git-cai --complete-providers" in _BASH_SCRIPT
 
 
 def test_bash_script_completes_git_cai():
@@ -287,3 +267,8 @@ def test_install_unsupported_shell():
     ):
         install_completion()
     assert exc.value.exit_code == 1
+
+
+def test_fish_script_has_provider_completions():
+    """--provider completes from the CLI so custom providers show up."""
+    assert "git-cai --complete-providers" in _FISH_SCRIPT
