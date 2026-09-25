@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-08-06
+.\"      Date: 2026-09-25
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-08-06" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-09-25" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -150,7 +150,8 @@ Run \f(CRgit cai\fP once. If no config exists yet, git\-cai creates:
 Add at least one API key to \f(CR~/.config/cai/tokens.yml\fP (created as a template if missing).
 The YAML keys are provider names (for example: \f(CRopenai\fP, \f(CRanthropic\fP, \f(CRgemini\fP,
 \f(CRgroq\fP, \f(CRxai\fP, \f(CRmistral\fP, \f(CRdeepseek\fP).
-If you use \f(CRollama\fP as provider, no token is required.
+If you use \f(CRollama\fP as provider, no token is required. Custom providers use
+their own name as key (see below).
 .RE
 .sp
 .RS 4
@@ -213,6 +214,120 @@ Generate prompt files in the current directory with \f(CRgit cai \-p\fP.
 .  IP \(bu 2.3
 .\}
 Point \f(CRprompt_file\fP / \f(CRsquash_prompt_file\fP in \f(CRcai_config.yml\fP to your custom files.
+.RE
+.sp
+Custom OpenAI compatible providers (optional):
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Any service speaking the OpenAI \f(CR/chat/completions\fP API (OpenRouter, Together,
+Cerebras, GitHub Models, LiteLLM, vLLM, LM Studio, llama.cpp, .\|.\|.) can be added
+as a provider. Pick a name, add a block with \f(CRbase_url\fP and \f(CRmodel\fP, and set
+\f(CRdefault:\fP to that name:
+.sp
+.if n .RS 4
+.nf
+.fam C
+default: openrouter
+openrouter:
+  base_url: https://openrouter.ai/api/v1
+  model: meta\-llama/llama\-3.3\-70b\-instruct:free
+  temperature: 0\&        # optional
+  timeout: 60\&           # optional
+  max_output_tokens: 2048 # optional, cap on the reply length
+lmstudio:
+  base_url: http://localhost:1234/v1
+  model: qwen2.5\-coder
+  requires_token: false # optional, default true
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CR/chat/completions\fP is appended to \f(CRbase_url\fP unless it is already there.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+The API key goes into \f(CR~/.config/cai/tokens.yml\fP under the same name
+(\f(CRopenrouter: sk\-or\-...\fP). With \f(CRrequires_token: false\fP no key is needed and
+no \f(CRAuthorization\fP header is sent.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+The name works with \f(CR\-\-provider\fP (\f(CRgit cai \-P lmstudio\fP), is listed by
+\f(CRgit cai \-l provider\fP, and is offered by shell completion.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRmax_output_tokens\fP is only sent when set. Useful for local servers whose
+default reply limit truncates commit messages. It is sent as \f(CRmax_tokens\fP,
+or as \f(CRmax_completion_tokens\fP for the \f(CRopenai\fP block.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRbase_url\fP also works in the built in blocks to route them through a proxy or
+gateway. Use the same form as the vendor SDKs:
+\f(CRopenai\fP, \f(CRdeepseek\fP, \f(CRgroq\fP, \f(CRmistral\fP, \f(CRxai\fP: include the version,
+e.g. \f(CRhttps://gateway.example/v1\fP (\f(CR/chat/completions\fP is appended);
+\f(CRanthropic\fP: without version, e.g. \f(CRhttps://gateway.example\fP
+(\f(CR/v1/messages\fP is appended);
+\f(CRgemini\fP: without version, e.g. \f(CRhttps://gateway.example\fP
+(\f(CR/v1beta/models/<model>:generateContent\fP is appended).
+\f(CRollama\fP keeps using the \f(CROLLAMA_HOST\fP environment variable.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+The secret scan stays active for custom providers, including local ones.
+Set \f(CRsecret_scan: false\fP to disable it.
 .RE
 .SH "OPTIONS"
 .sp
@@ -583,7 +698,10 @@ git cai \-I
 \-i, \-\-install\-completion
 .RS 4
 Install shell completion for \f(CRgit cai\fP. Supports bash, zsh, and fish.
-Completions cover all flags and provider names for \f(CR\-\-provider\fP.
+Completions cover all flags and provider names for \f(CR\-\-provider\fP, including
+custom providers from the active config (looked up on each TAB press, so new
+providers show up without reinstalling). Users of an older script need to run
+\f(CRgit cai \-i\fP once more to get this.
 .sp
 After installation, restart your terminal or source your shell configuration
 file for the completions to take effect.
@@ -601,8 +719,9 @@ git cai \-i
 .RS 4
 Run configuration diagnostics and exit. The check is offline by default: it
 reports which config is authoritative (repository, home, or built\-in), validates
-the config keys, confirms the default provider has a model and a
-usable token, that the commit/squash/full\-files/PR prompts resolve, and that the
+the config keys, confirms the default provider has a model (and shows its
+\f(CRbase_url\fP if set) and a usable token (skipped for \f(CRollama\fP and providers with
+\f(CRrequires_token: false\fP), that the commit/squash/full\-files/PR prompts resolve, and that the
 configured editor is on \f(CRPATH\fP. Exits non\-zero if any check fails. Add \f(CR\-\-ping\fP
 to also probe the active provider with a tiny live request.
 .sp
@@ -762,13 +881,16 @@ git cai \-s \-\-signoff
 Override the LLM provider for this invocation. The model and temperature
 from the configuration for that provider are used unless \f(CR\-\-model\fP is also
 specified. Available providers: \f(CRanthropic\fP, \f(CRdeepseek\fP, \f(CRgemini\fP, \f(CRgroq\fP,
-\f(CRmistral\fP, \f(CRollama\fP, \f(CRopenai\fP, \f(CRxai\fP.
+\f(CRmistral\fP, \f(CRollama\fP, \f(CRopenai\fP, \f(CRxai\fP, plus any custom OpenAI compatible
+provider defined in the active config (see SETUP). Shell completion offers
+both.
 .sp
 .if n .RS 4
 .nf
 .fam C
 git cai \-P anthropic
 git cai \-P groq \-m llama\-3.3\-70b
+git cai \-P openrouter
 .fam
 .fi
 .if n .RE
@@ -1388,7 +1510,9 @@ provider
 .RS 4
 List all supported LLM providers. Each provider is shown with its default
 model and whether an API token is required. Providers that do not require a
-token (currently only \f(CRollama\fP) are marked accordingly.
+token (\f(CRollama\fP, and custom providers with \f(CRrequires_token: false\fP) are
+marked accordingly. Custom OpenAI compatible providers from the active config
+follow in a separate section with their \f(CRbase_url\fP.
 .sp
 .if n .RS 4
 .nf
@@ -1413,6 +1537,11 @@ Supported providers:
   ollama\&       model: llama3.1\&                           (no token required)
   openai\&       model: gpt\-5.4\-mini\&                       (token required)
   xai\&          model: grok\-4.3\&                           (token required)
+
+Custom providers (OpenAI compatible, from config):
+
+  lmstudio\&     model: qwen2.5\-coder\&                       (no token required) http://localhost:1234/v1
+  openrouter\&   model: meta\-llama/llama\-3.3\-70b\-instruct:free (token required) https://openrouter.ai/api/v1
 .fam
 .fi
 .if n .RE
@@ -1585,7 +1714,8 @@ match the send is blocked and you are asked to confirm (or pass
 credential formats are flagged (private keys, AWS/GitHub/Slack/Google/OpenAI
 keys); obvious placeholders (values containing \f(CRexample\fP, \f(CRsample\fP, \f(CRdummy\fP,
 and repeated\-character filler) are ignored. Local providers (Ollama) skip the
-scan, since nothing leaves the machine. When you confirm a flagged send in an
+scan, since nothing leaves the machine. Custom providers are always scanned,
+even with \f(CRrequires_token: false\fP, since the diff may leave the machine. When you confirm a flagged send in an
 interactive commit (a false alarm), git\-cai offers, per flagged file, to
 remember the decision: add the file to \f(CR.caiignore\fP (drop it from git\-cai
 entirely), add it to \f(CRsecret_scan_exclude\fP (keep sending it but skip its
@@ -1849,8 +1979,11 @@ the middle step).
 .  sp -1
 .  IP \(bu 2.3
 .\}
-\f(CRanthropic.max_tokens\fP \(em upper bound on Anthropic response tokens
-(default \f(CR32768\fP)
+\f(CR<provider>.base_url\fP \(em endpoint of a custom OpenAI compatible provider,
+or a proxy/gateway for a built in one. OpenAI style providers include the
+version (\f(CRhttps://gateway.example/v1\fP); \f(CRanthropic\fP and \f(CRgemini\fP take the
+host without it (\f(CRhttps://gateway.example\fP). Must be an http(s) URL. Not
+used by \f(CRollama\fP (use \f(CROLLAMA_HOST\fP).
 .RE
 .sp
 .RS 4
@@ -1861,8 +1994,33 @@ the middle step).
 .  sp -1
 .  IP \(bu 2.3
 .\}
-\f(CRollama.timeout\fP \(em HTTP timeout in seconds for Ollama generation calls
-(default \f(CR300\fP; overrides the global \f(CRtimeout\fP for this provider only)
+\f(CR<provider>.requires_token\fP \(em set to \f(CRfalse\fP for a custom provider that
+needs no API key; no \f(CRAuthorization\fP header is sent (default \f(CRtrue\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CR<provider>.max_output_tokens\fP \(em upper bound on response tokens. For
+\f(CRanthropic\fP the default is \f(CR32768\fP (\f(CRmax_tokens\fP is still read as a legacy
+alias). For OpenAI compatible providers it is only sent when set.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CR<provider>.timeout\fP \(em HTTP timeout in seconds for one provider,
+overriding the global \f(CRtimeout\fP (\f(CRollama\fP defaults to \f(CR300\fP)
 .RE
 .sp
 .RS 4
@@ -2121,6 +2279,16 @@ Override the provider for a single invocation:
 .nf
 .fam C
 git cai \-P anthropic
+.fam
+.fi
+.if n .RE
+.sp
+Use a custom OpenAI compatible provider defined in the config:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-P lmstudio
 .fam
 .fi
 .if n .RE

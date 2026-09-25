@@ -134,11 +134,11 @@ def run(
 
     # Lazy imports
     from git_cai_cli.core.config import (
-        TOKENLESS_PROVIDERS,
         apply_cli_overrides,
         apply_provider_overrides,
         load_config,
         load_token,
+        provider_requires_token,
     )
     from git_cai_cli.core.gitutils import (
         apply_diff_limit,
@@ -371,7 +371,7 @@ def run(
                         content,
                         system_prompt,
                         token=token,
-                        requires_token=provider not in TOKENLESS_PROVIDERS,
+                        requires_token=provider_requires_token(config, provider),
                     )
                 break
             except SecretLeakError as leak:

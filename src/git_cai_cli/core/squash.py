@@ -12,10 +12,10 @@ import time
 from pathlib import Path
 
 from git_cai_cli.core.config import (
-    TOKENLESS_PROVIDERS,
     apply_provider_overrides,
     load_config,
     load_token,
+    provider_requires_token,
 )
 from git_cai_cli.core.gitutils import (
     _has_upstream,
@@ -265,7 +265,7 @@ def squash_branch(
     provider = config["default"]
     token = load_token(config=config)
 
-    if provider not in TOKENLESS_PROVIDERS and not token:
+    if provider_requires_token(config, provider) and not token:
         log.error(
             "Missing %s token in %s/.config/cai/tokens.yml",  # nosemgrep
             provider,
@@ -303,7 +303,7 @@ def squash_branch(
                         content,
                         system_prompt,
                         token=token,
-                        requires_token=provider not in TOKENLESS_PROVIDERS,
+                        requires_token=provider_requires_token(config, provider),
                     )
             except SecretLeakError as leak:
                 log.error("%s", format_findings(leak.findings))
@@ -394,7 +394,7 @@ def squash_branch(
                     content,
                     system_prompt,
                     token=token,
-                    requires_token=provider not in TOKENLESS_PROVIDERS,
+                    requires_token=provider_requires_token(config, provider),
                 )
         except SecretLeakError as leak:
             log.error("%s", format_findings(leak.findings))

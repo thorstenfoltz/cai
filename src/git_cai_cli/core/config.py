@@ -102,6 +102,30 @@ TOKENLESS_PROVIDERS: set[str] = {
     "ollama"  # nosec B105 - local-only provider that doesn't use API tokens
 }
 
+
+def is_custom_provider(config: dict[str, Any], name: str) -> bool:
+    """True if ``name`` is a user defined OpenAI compatible provider block."""
+    block = config.get(name)
+    return (
+        name not in KNOWN_PROVIDERS
+        and isinstance(block, dict)
+        and isinstance(block.get("base_url"), str)
+    )
+
+
+def custom_providers(config: dict[str, Any]) -> list[str]:
+    """Names of all custom providers defined in ``config``, sorted."""
+    return sorted(k for k in config if is_custom_provider(config, k))
+
+
+def provider_requires_token(config: dict[str, Any], name: str) -> bool:
+    """False for tokenless built ins and blocks with ``requires_token: false``."""
+    if name in TOKENLESS_PROVIDERS:
+        return False
+    block = config.get(name)
+    return not (isinstance(block, dict) and block.get("requires_token") is False)
+
+
 TOKEN_TEMPLATE = {
     "anthropic": "PUT-YOUR-ANTHROPIC-TOKEN-HERE",
     "deepseek": "PUT-YOUR-DEEPSEEK-TOKEN-HERE",
@@ -417,7 +441,7 @@ def load_token(
     tokens_file.parent.mkdir(parents=True, exist_ok=True)
     key_name = config["default"]
 
-    if key_name in TOKENLESS_PROVIDERS:
+    if not provider_requires_token(config, key_name):
         log.info("Provider '%s' does not require a token.", key_name)
         return None
 
@@ -532,6 +556,21 @@ KNOWN_PROVIDERS = frozenset(
         "ollama",
     }
 )
+
+
+def completion_provider_names() -> list[str]:
+    """Built in plus custom provider names for shell completion.
+
+    Read only on purpose: runs on every TAB press, so it must not validate,
+    log, or create a default config the way ``load_config`` does.
+    """
+    path = _find_repo_config() or FALLBACK_CONFIG_FILE
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        data = None
+    custom = custom_providers(data) if isinstance(data, dict) else []
+    return sorted(KNOWN_PROVIDERS) + custom
 
 
 def _parse_config_value(raw: str) -> Any:
@@ -745,15 +784,16 @@ def apply_provider_overrides(
         raise typer.Exit(code=1)
 
     if provider_override:
-        if provider_override not in KNOWN_PROVIDERS:
+        if provider_override not in KNOWN_PROVIDERS and not is_custom_provider(
+            config, provider_override
+        ):
+            available = ", ".join(sorted(KNOWN_PROVIDERS) + custom_providers(config))
             log.error(
-                "Unknown provider '%s'. Available: %s",
-                provider_override,
-                ", ".join(sorted(KNOWN_PROVIDERS)),
+                "Unknown provider '%s'. Available: %s", provider_override, available
             )
             typer.echo(
                 f"Error: Unknown provider '{provider_override}'. "
-                f"Available: {', '.join(sorted(KNOWN_PROVIDERS))}",
+                f"Available: {available}",
                 err=True,
             )
             raise typer.Exit(code=1)

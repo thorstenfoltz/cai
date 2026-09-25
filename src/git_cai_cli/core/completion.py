@@ -19,6 +19,11 @@ log = logging.getLogger(__name__)
 _ZSH_SCRIPT = """\
 #compdef git-cai
 
+# Built in plus custom providers from the active config.
+_git_cai_providers() {
+  compadd -- ${(f)"$(git-cai --complete-providers 2>/dev/null)"}
+}
+
 _git-cai() {
   local -a options
   options=(
@@ -39,7 +44,7 @@ _git-cai() {
     '(-l --list)'{-l,--list}'[List information]:type:(config editor language model path provider style)'
     '(-m --model)'{-m,--model}'[Override model (requires --provider)]:model:'
     '(-o --signoff)'{-o,--signoff}'[Append a Signed-off-by trailer]'
-    '(-P --provider)'{-P,--provider}'[Override LLM provider]:provider:(anthropic deepseek gemini groq mistral ollama openai xai)'
+    '(-P --provider)'{-P,--provider}'[Override LLM provider]:provider:_git_cai_providers'
     '(-p --generate-prompts)'{-p,--generate-prompts}'[Generate default prompts]'
     '--print[Print the generated message to stdout and exit]'
     '(-q --sql)'{-q,--sql}'[Override stats writing for this run]:value:(true false)'
@@ -84,7 +89,8 @@ _git_cai_completion() {
           --json --reset-stats --style --language --emoji --no-emoji"
 
     if [[ "$prev" == "--provider" || "$prev" == "-P" ]]; then
-        local providers="anthropic deepseek gemini groq mistral ollama openai xai"
+        # Built in plus custom providers from the active config.
+        local providers="$(git-cai --complete-providers 2>/dev/null)"
         COMPREPLY=( $(compgen -W "$providers" -- "$cur") )
         return 0
     fi
@@ -133,7 +139,7 @@ complete -c git-cai -s i -l install-completion -d 'Install shell completion'
 complete -c git-cai -s l -l list -d 'List information' -x -a 'config editor language model path provider style'
 complete -c git-cai -s m -l model -d 'Override model' -r
 complete -c git-cai -s o -l signoff -d 'Append a Signed-off-by trailer'
-complete -c git-cai -s P -l provider -d 'Override LLM provider' -r -a 'anthropic deepseek gemini groq mistral ollama openai xai'
+complete -c git-cai -s P -l provider -d 'Override LLM provider' -x -a '(git-cai --complete-providers 2>/dev/null)'
 complete -c git-cai -s p -l generate-prompts -d 'Generate default prompts'
 complete -c git-cai -l print -d 'Print the generated message and exit'
 complete -c git-cai -s q -l sql -d 'Override stats writing for this run' -r -a 'true false'

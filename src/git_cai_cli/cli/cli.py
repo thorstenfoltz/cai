@@ -29,6 +29,10 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         help="Install shell completion for git-cai",
         is_eager=True,
     ),
+    # Called by the installed completion scripts on TAB after --provider.
+    complete_providers: bool = typer.Option(
+        False, "--complete-providers", hidden=True, is_eager=True
+    ),
     amend: bool = typer.Option(
         False, "-A", "--amend", help="Regenerate and amend the last commit message"
     ),
@@ -256,6 +260,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         from git_cai_cli._version import __version__
 
         typer.echo(f"cai version: {__version__}")
+        raise typer.Exit()
+
+    if complete_providers:
+        from git_cai_cli.core.config import completion_provider_names
+
+        typer.echo("\n".join(completion_provider_names()))
         raise typer.Exit()
 
     if install_completion:
