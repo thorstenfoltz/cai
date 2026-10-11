@@ -68,3 +68,25 @@ def test_git_diff_excluding_integration(temp_git_repo):
 
     assert any("file1.txt" in h for h in headers)
     assert not any("file2.txt" in h for h in headers)
+
+
+def test_git_diff_excluding_from_subdirectory_sees_whole_repo(temp_git_repo):
+    """Run from a subdirectory: every staged file is included (the commit
+    takes them all) and root `.caiignore` patterns still match."""
+    (temp_git_repo / ".caiignore").write_text("/file2.txt\n")
+    sub = temp_git_repo / "sub"
+    sub.mkdir()
+    (sub / "inner.txt").write_text("inner\n")
+    (temp_git_repo / "file1.txt").write_text("changed 1\n")
+    (temp_git_repo / "file2.txt").write_text("changed 2\n")
+    subprocess.run(["git", "add", "."], cwd=temp_git_repo, check=True)
+
+    diff = git_diff_excluding(
+        repo_root=temp_git_repo,
+        run_cmd=lambda *args, **kwargs: subprocess.run(*args, cwd=sub, **kwargs),
+    )
+    headers = [line for line in diff.splitlines() if line.startswith("diff --git")]
+
+    assert any("sub/inner.txt" in h for h in headers)
+    assert any("file1.txt" in h for h in headers)
+    assert not any("file2.txt" in h for h in headers)

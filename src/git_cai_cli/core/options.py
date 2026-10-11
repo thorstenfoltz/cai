@@ -104,14 +104,10 @@ class CliManager:
         print(f"⬆️  Update available: {current_version} → {latest_version}")
 
         if not auto_confirm:
-            choice = (
-                input(
-                    "Do you want to update now using 'pipx upgrade git-cai-cli'? [yes/no]: "
-                )
-                .strip()
-                .lower()
-            )
-            if choice not in ("y", "yes"):
+            if not typer.confirm(
+                "Do you want to update now using 'pipx upgrade git-cai-cli'?",
+                default=None,
+            ):
                 print("❌ Update cancelled.")
                 return
 

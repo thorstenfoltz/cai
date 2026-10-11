@@ -124,7 +124,7 @@ def _write_tokens_file(provider: str, token: str, tokens_path: Path) -> None:
 
         if provider in tokens and not typer.confirm(
             f"A {provider} token already exists in {tokens_path}. Overwrite?",
-            default=False,
+            default=None,
         ):
             typer.echo("Keeping existing token.")
             return
@@ -178,7 +178,7 @@ def run_init_wizard(
     try:
         if config_path.exists() and config_path.stat().st_size > 0:
             if not typer.confirm(
-                f"\n{config_path} already exists. Overwrite?", default=False
+                f"\n{config_path} already exists. Overwrite?", default=None
             ):
                 typer.echo("Aborted. Existing configuration left untouched.")
                 return 0
@@ -186,7 +186,7 @@ def run_init_wizard(
         provider = _pick_provider()
         language = _pick_language()
         style = _pick_style()
-        emoji = typer.confirm("Use emoji in commit messages?", default=True)
+        emoji = typer.confirm("Use emoji in commit messages?", default=None)
 
         if provider not in TOKENLESS_PROVIDERS:
             token = _read_token(provider)
@@ -205,6 +205,6 @@ def run_init_wizard(
             "and run 'git cai'."
         )
         return 0
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, typer.Abort):
         typer.echo("\nAborted.", err=True)
         return 130
