@@ -75,7 +75,7 @@ def test_check_and_update_user_declines(capsys) -> None:
     with (
         patch("git_cai_cli.core.options.version", return_value="1.0.0"),
         patch("git_cai_cli.core.options.requests.get", return_value=response),
-        patch("builtins.input", return_value="no"),
+        patch("typer.confirm", return_value=False),
     ):
         manager.check_and_update()
 

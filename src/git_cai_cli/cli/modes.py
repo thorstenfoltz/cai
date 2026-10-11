@@ -163,9 +163,10 @@ def validate_options(
         )
         raise typer.Exit(code=1)
 
-    if files and mode not in (Mode.COMMIT, Mode.AMEND):
+    # AMEND regenerates from the last commit's diff and never reads --files.
+    if files and mode is not Mode.COMMIT:
         typer.echo(
-            "Error: --files can only be used in COMMIT or AMEND mode.",
+            "Error: --files can only be used in COMMIT mode.",
             err=True,
         )
         raise typer.Exit(code=1)

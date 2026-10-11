@@ -181,7 +181,7 @@ def test_get_current_branch_not_in_repo():
 
 def test_git_diff_excluding_reads_ignore_file_and_excludes_patterns(tmp_path):
     """
-    git_diff_excluding() should append :!pattern for each line in .caiignore.
+    git_diff_excluding() should append :(top,exclude)pattern for each line in .caiignore.
     """
     repo_root = tmp_path
     ignore_file = repo_root / ".caiignore"
@@ -193,8 +193,8 @@ def test_git_diff_excluding_reads_ignore_file_and_excludes_patterns(tmp_path):
 
     def fake_run(cmd, capture_output, text, check):
         # Ensure ignore patterns were added
-        assert ":!*.pyc" in cmd
-        assert ":!build/" in cmd
+        assert ":(top,exclude)*.pyc" in cmd
+        assert ":(top,exclude)build/" in cmd
         return mock_proc
 
     output = git_diff_excluding(repo_root, run_cmd=fake_run)
@@ -252,7 +252,7 @@ def test_git_diff_excluding_no_caiignore(tmp_path):
 
     def fake_run(cmd, **kwargs):
         # No :! patterns should be in the command
-        assert not any(arg.startswith(":!") for arg in cmd)
+        assert not any(arg.startswith(":(top,exclude)") for arg in cmd)
         mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.stdout = "diff output"
@@ -270,7 +270,7 @@ def test_git_diff_excluding_empty_caiignore(tmp_path):
     (repo_root / ".caiignore").write_text("# only comments\n\n")
 
     def fake_run(cmd, **kwargs):
-        assert not any(arg.startswith(":!") for arg in cmd)
+        assert not any(arg.startswith(":(top,exclude)") for arg in cmd)
         mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.stdout = "diff output"
@@ -305,13 +305,13 @@ def test_git_diff_excluding_with_files_filter(tmp_path):
     assert "a.py" in captured_cmd
     assert "b.py" in captured_cmd
     # Excludes still apply
-    assert ":!*.pyc" in captured_cmd
-    # The generic `.` pathspec must NOT be present when files are passed
-    assert "." not in captured_cmd
+    assert ":(top,exclude)*.pyc" in captured_cmd
+    # The whole-repo `:/` pathspec must NOT be present when files are passed
+    assert ":/" not in captured_cmd
 
 
-def test_git_diff_excluding_without_files_uses_dot(tmp_path):
-    """When `files` is None, `.` is used as pathspec."""
+def test_git_diff_excluding_without_files_uses_repo_root(tmp_path):
+    """When `files` is None, `:/` (whole repo) is used as pathspec."""
     repo_root = tmp_path
 
     captured_cmd = []
@@ -325,8 +325,8 @@ def test_git_diff_excluding_without_files_uses_dot(tmp_path):
 
     git_diff_excluding(repo_root, run_cmd=fake_run)
 
-    # Make sure it contains `.` as the generic pathspec
-    assert "." in captured_cmd
+    # Whole repo, not just the cwd subtree
+    assert ":/" in captured_cmd
 
 
 # ------------------------------------------------------------------------------

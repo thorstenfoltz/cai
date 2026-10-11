@@ -328,12 +328,18 @@ def git_diff_excluding(
     """Run `git diff --cached` honoring `.caiignore` and an optional file whitelist."""
     exclude_files = _load_caiignore_patterns(repo_root)
 
+    # `:/` and `top` anchor pathspecs at the repo root, so running from a
+    # subdirectory still sees every staged file (the commit includes them all)
+    # and `.caiignore` patterns match relative to the root. `files` stay
+    # relative to the user's cwd, as typed. A leading `/` is dropped: `top`
+    # already anchors at the root, and in long form it would mean an
+    # absolute path that silently matches nothing.
     cmd = ["git", "diff", "--cached", "--"]
     if files:
         cmd.extend(files)
     else:
-        cmd.append(".")
-    cmd.extend(f":!{pattern}" for pattern in exclude_files)
+        cmd.append(":/")
+    cmd.extend(f":(top,exclude){pattern.lstrip('/')}" for pattern in exclude_files)
 
     result = run_cmd(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -423,13 +429,15 @@ def collect_staged_file_contents(
     """
     exclude_patterns = _load_caiignore_patterns(repo_root)
 
+    # Same pathspec rules as git_diff_excluding: whole repo by default,
+    # `files` relative to the user's cwd. Output names are root-relative.
     cmd = ["git", "diff", "--cached", "--name-only", "--"]
     if files:
         cmd.extend(files)
     else:
-        cmd.append(".")
+        cmd.append(":/")
 
-    result = run_cmd(cmd, capture_output=True, text=True, check=False, cwd=repo_root)
+    result = run_cmd(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         log.error("git diff --name-only failed: %s", result.stderr.strip())
         return ""

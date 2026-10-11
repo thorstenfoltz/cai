@@ -11,6 +11,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import typer
 from git_cai_cli.core.config import (
     apply_provider_overrides,
     load_config,
@@ -140,8 +141,7 @@ def _resolve_squash_target(squash_arg: str) -> str:
                 count,
                 branch_commits,
             )
-            choice = input("Continue anyway? [yes/no]: ").strip().lower()
-            if choice not in ("y", "yes"):
+            if not typer.confirm("Continue anyway?", default=None):
                 log.info("Squash cancelled.")
                 sys.exit(0)
 
@@ -472,8 +472,7 @@ def squash_branch(
                 "    git push --force-with-lease\n\n"
                 "This is a safe force-push that prevents overwriting others' commits.\n\n"
             )
-            choice = input("Shall I execute it for you now? [yes/no]: ").strip().lower()
-            if choice in ("y", "yes"):
+            if typer.confirm("Shall I execute it for you now?", default=None):
                 push_result = subprocess.run(
                     ["git", "push", "--force-with-lease"],
                     capture_output=True,

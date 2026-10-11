@@ -2,7 +2,6 @@
 Unit tests for git_cai_cli.core.squash.squash_branch function.
 """
 
-import builtins
 import subprocess
 import typing
 from pathlib import Path
@@ -311,7 +310,7 @@ def test_force_push_prompt_and_execution(
         patch("git_cai_cli.core.squash.sha256_of_file", side_effect=["a", "b"]),
         patch("subprocess.run", run_mock),
         patch("git_cai_cli.core.squash._has_upstream", return_value=True),
-        patch.object(builtins, "input", return_value="yes"),
+        patch("typer.confirm", return_value=True),
     ):
         squash_branch()
 
@@ -352,7 +351,7 @@ def test_force_push_failure_is_handled(
         patch("git_cai_cli.core.squash.sha256_of_file", side_effect=["a", "b"]),
         patch("subprocess.run", run_mock),
         patch("git_cai_cli.core.squash._has_upstream", return_value=True),
-        patch.object(builtins, "input", return_value="yes"),
+        patch("typer.confirm", return_value=True),
     ):
         squash_branch()
 
@@ -399,7 +398,7 @@ def test_resolve_squash_target_number_exceeds_branch_warns() -> None:
         patch("git_cai_cli.core.squash._count_total_commits", return_value=20),
         patch("git_cai_cli.core.squash._get_branch_base", return_value="BASE"),
         patch("git_cai_cli.core.squash._count_commits_on_branch", return_value=3),
-        patch.object(builtins, "input", return_value="no"),
+        patch("typer.confirm", return_value=False),
         pytest.raises(SystemExit),
     ):
         _resolve_squash_target("5")
@@ -411,7 +410,7 @@ def test_resolve_squash_target_number_exceeds_branch_continues() -> None:
         patch("git_cai_cli.core.squash._count_total_commits", return_value=20),
         patch("git_cai_cli.core.squash._get_branch_base", return_value="BASE"),
         patch("git_cai_cli.core.squash._count_commits_on_branch", return_value=3),
-        patch.object(builtins, "input", return_value="yes"),
+        patch("typer.confirm", return_value=True),
         patch("subprocess.check_output", return_value="def456\n"),
     ):
         result = _resolve_squash_target("5")

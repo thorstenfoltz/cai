@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-09-25
+.\"      Date: 2026-10-11
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-09-25" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-10-11" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -606,7 +606,8 @@ Useful when a working tree contains unrelated staged changes and the commit
 should focus on a subset of them, or when you want the LLM to concentrate
 on a specific file.
 .sp
-Cannot be used with \f(CR\-\-list\fP, \f(CR\-\-update\fP, or \f(CR\-\-squash\fP.
+Only valid in the default commit mode; cannot be used with \f(CR\-\-amend\fP,
+\f(CR\-\-list\fP, \f(CR\-\-update\fP, or \f(CR\-\-squash\fP.
 .sp
 .if n .RS 4
 .nf

@@ -82,7 +82,7 @@ def _route_false_alarm(findings: list, repo_root: Path | None) -> None:
             err=True,
         )
         typer.echo("  3) skip — send it this once; remember nothing", err=True)
-        choice = typer.prompt("Choose", default="3").strip()
+        choice = typer.prompt("Choose", default="3", err=True).strip()
 
         if choice == "1":
             if repo_root is None:
@@ -384,7 +384,9 @@ def run(
                     )
                     raise typer.Exit(code=1)
                 if not typer.confirm(
-                    "Send this content to the provider anyway?", default=False
+                    "Send this content to the provider anyway?",
+                    default=None,
+                    err=True,
                 ):
                     typer.echo("Aborted. Nothing was sent.", err=True)
                     raise typer.Exit(code=1)

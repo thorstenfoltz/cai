@@ -83,7 +83,6 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         "--list",
         "-l",
         help="List information (e.g. languages, styles, providers, config)",
-        is_flag=True,
     ),
     list_arg: str = typer.Argument(
         None, help="Optional argument for --list or --squash (see docs)"

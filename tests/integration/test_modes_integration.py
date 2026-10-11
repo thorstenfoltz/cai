@@ -174,10 +174,10 @@ def test_validate_options_valid_combinations():
 
 @pytest.mark.parametrize(
     "bad_mode",
-    [Mode.LIST, Mode.UPDATE, Mode.SQUASH],
+    [Mode.LIST, Mode.UPDATE, Mode.SQUASH, Mode.AMEND],
 )
-def test_validate_options_files_rejected_outside_commit_amend(bad_mode, capsys):
-    """--files must be rejected in LIST/UPDATE/SQUASH modes."""
+def test_validate_options_files_rejected_outside_commit(bad_mode, capsys):
+    """--files must be rejected outside COMMIT (AMEND never reads it)."""
     with pytest.raises(typer.Exit) as exc:
         modes.validate_options(
             mode=bad_mode,
@@ -188,7 +188,7 @@ def test_validate_options_files_rejected_outside_commit_amend(bad_mode, capsys):
             files=["x.py"],
         )
     captured = capsys.readouterr()
-    assert "--files can only be used in COMMIT or AMEND mode." in captured.err
+    assert "--files can only be used in COMMIT mode." in captured.err
     assert exc.value.exit_code == 1
 
 
@@ -201,16 +201,4 @@ def test_validate_options_files_allowed_in_commit_mode():
         help_flag=False,
         version_flag=False,
         files=["src/foo.py", "src/bar.py"],
-    )
-
-
-def test_validate_options_files_allowed_in_amend_mode():
-    """--files is allowed in AMEND mode."""
-    modes.validate_options(
-        mode=Mode.AMEND,
-        stage_tracked=False,
-        enable_debug=False,
-        help_flag=False,
-        version_flag=False,
-        files=["src/foo.py"],
     )
