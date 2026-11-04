@@ -1447,6 +1447,7 @@ def test_http_post_does_not_retry_on_unrelated_400():
 def test_model_rejects_temperature_openai_gpt5():
     assert _model_rejects_temperature("gpt-5.4-mini") is True
     assert _model_rejects_temperature("gpt-5.2") is True
+    assert _model_rejects_temperature("gpt-6-luna") is True
     assert _model_rejects_temperature("o3-mini") is True
 
 
@@ -1456,15 +1457,19 @@ def test_model_rejects_temperature_anthropic_opus_new():
     assert _model_rejects_temperature("claude-opus-5-1") is True
 
 
+def test_model_rejects_temperature_anthropic_haiku_new():
+    assert _model_rejects_temperature("claude-haiku-5-5") is True
+
+
 def test_model_accepts_temperature_kept_models():
     for m in (
         "claude-haiku-4-5",
         "openai/gpt-oss-20b",
-        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash-lite",
         "grok-4.3",
-        "deepseek-chat",
+        "deepseek-flash",
         "codestral-2508",
-        "llama3.1",
+        "gemma4:e2b",
     ):
         assert _model_rejects_temperature(m) is False
 

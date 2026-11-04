@@ -360,7 +360,7 @@ provider keys.
 git cai -H language=de
 git cai -H default=anthropic
 git cai -H emoji=false
-git cai -H groq.model=llama-3.3-70b
+git cai -H groq.model=openai/gpt-oss-120b
 ----
 
 -h, --help::
@@ -455,7 +455,7 @@ identifier for that provider.
 +
 ----
 git cai -P openai -m gpt-4o
-git cai -P anthropic -m claude-haiku-4-5
+git cai -P anthropic -m claude-haiku-5-5
 git cai -P ollama -m mistral
 ----
 
@@ -528,7 +528,7 @@ both.
 +
 ----
 git cai -P anthropic
-git cai -P groq -m llama-3.3-70b
+git cai -P groq -m openai/gpt-oss-120b
 git cai -P openrouter
 ----
 
@@ -662,7 +662,7 @@ become integers or floats, everything else stays a string.
 ----
 git cai -S default=anthropic
 git cai -S emoji=false
-git cai -S groq.model=llama-3.3-70b
+git cai -S groq.model=openai/gpt-oss-120b
 git cai -S openai.temperature=0.7
 git cai -S conventional=true
 ----
@@ -695,9 +695,10 @@ git cai -s a1b2c3d
 
 -T, --timeout SECONDS::
 Override the HTTP timeout for the LLM call in this invocation. The default
-is 30 seconds for remote providers and 300 seconds for Ollama (since local
-generation can be significantly slower). The override applies uniformly to
-whichever provider is selected for this run.
+is 30 seconds for remote providers, 60 seconds for Gemini (Flash Lite can queue
+for up to 30 seconds) and 300 seconds for Ollama (since local generation can be
+significantly slower). The override applies uniformly to whichever provider is
+selected for this run, including those with their own `<provider>.timeout`.
 +
 To change the default permanently, set `timeout: <seconds>` in
 `cai_config.yml` or the home config:
@@ -707,11 +708,12 @@ git cai -H timeout=60
 git cai -S timeout=45
 ----
 +
-Ollama keeps its own timeout under `ollama.timeout` (default 300). Override
-it separately:
+Ollama and Gemini keep their own timeouts under `ollama.timeout` (default 300)
+and `gemini.timeout` (default 60). Override them separately:
 +
 ----
 git cai -H ollama.timeout=600
+git cai -H gemini.timeout=90
 ----
 +
 ----
@@ -938,13 +940,13 @@ Example output:
 ----
 Default models:
 
-  anthropic    → claude-haiku-4-5
-  deepseek     → deepseek-chat
-  gemini       → gemini-3.1-flash-lite
+  anthropic    → claude-haiku-5-5
+  deepseek     → deepseek-flash
+  gemini       → gemini-3.5-flash-lite
   groq         → openai/gpt-oss-20b
   mistral      → codestral-2508
-  ollama       → llama3.1
-  openai       → gpt-5.4-mini
+  ollama       → gemma4:e2b
+  openai       → gpt-6-luna
   xai          → grok-4.3
 ----
 
@@ -1003,13 +1005,13 @@ Example output:
 ----
 Supported providers:
 
-  anthropic    model: claude-haiku-4-5                    (token required)
-  deepseek     model: deepseek-chat                      (token required)
-  gemini       model: gemini-3.1-flash-lite              (token required)
+  anthropic    model: claude-haiku-5-5                   (token required)
+  deepseek     model: deepseek-flash                     (token required)
+  gemini       model: gemini-3.5-flash-lite              (token required)
   groq         model: openai/gpt-oss-20b                 (token required)
   mistral      model: codestral-2508                     (token required)
-  ollama       model: llama3.1                           (no token required)
-  openai       model: gpt-5.4-mini                       (token required)
+  ollama       model: gemma4:e2b                         (no token required)
+  openai       model: gpt-6-luna                         (token required)
   xai          model: grok-4.3                           (token required)
 
 Custom providers (OpenAI compatible, from config):
@@ -1141,7 +1143,8 @@ Available configuration keys:
   `anthropic` the default is `32768` (`max_tokens` is still read as a legacy
   alias). For OpenAI compatible providers it is only sent when set.
 - `<provider>.timeout` -- HTTP timeout in seconds for one provider,
-  overriding the global `timeout` (`ollama` defaults to `300`)
+  overriding the global `timeout` (`ollama` defaults to `300`, `gemini` to `60`).
+  The `--timeout` flag overrides both.
 - `stats` -- opt in to local-only usage analytics (`true`/`false`,
   default `false`). When enabled, every generation appends one row to
   `~/.local/share/git-cai/stats.db` capturing kind (`commit`, `amend`,
@@ -1315,7 +1318,7 @@ Change a value in the repo config:
 
 ----
 git cai -S default=anthropic
-git cai -S groq.model=llama-3.3-70b
+git cai -S groq.model=openai/gpt-oss-120b
 git cai -S emoji=false
 ----
 

@@ -249,7 +249,7 @@ def test_list_providers_shows_default_models() -> None:
     """
     manager = CliManager()
     output = manager.list_providers()
-    assert "llama3.1" in output  # ollama default model
+    assert "gemma4:e2b" in output  # ollama default model
 
 
 def test_list_models_contains_all_providers() -> None:

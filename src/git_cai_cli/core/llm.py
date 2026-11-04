@@ -41,10 +41,11 @@ log = logging.getLogger(__name__)
 # still handled — ``_http_post`` retries once without the field — so add
 # an entry only when a warning shows up in practice.
 _TEMPERATURE_UNSUPPORTED_PATTERNS = [
-    re.compile(r"^gpt-5", re.IGNORECASE),  # OpenAI GPT-5 family (incl. mini/nano)
+    re.compile(r"^gpt-[5-9]", re.IGNORECASE),  # OpenAI GPT-5+ (incl. mini/nano/luna)
     re.compile(r"^o[134](-|$)", re.IGNORECASE),  # OpenAI o1/o3/o4 reasoning series
     re.compile(r"opus-4-[7-9]", re.IGNORECASE),  # Anthropic Opus 4.7 / 4.8 / 4.9
     re.compile(r"opus-[5-9]", re.IGNORECASE),  # Anthropic Opus 5+
+    re.compile(r"haiku-[5-9]", re.IGNORECASE),  # Anthropic Haiku 5+
 ]
 
 

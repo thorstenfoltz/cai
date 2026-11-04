@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-11
+.\"      Date: 2026-11-04
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-10-11" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-11-04" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -656,7 +656,7 @@ provider keys.
 git cai \-H language=de
 git cai \-H default=anthropic
 git cai \-H emoji=false
-git cai \-H groq.model=llama\-3.3\-70b
+git cai \-H groq.model=openai/gpt\-oss\-120b
 .fam
 .fi
 .if n .RE
@@ -789,7 +789,7 @@ identifier for that provider.
 .nf
 .fam C
 git cai \-P openai \-m gpt\-4o
-git cai \-P anthropic \-m claude\-haiku\-4\-5
+git cai \-P anthropic \-m claude\-haiku\-5\-5
 git cai \-P ollama \-m mistral
 .fam
 .fi
@@ -890,7 +890,7 @@ both.
 .nf
 .fam C
 git cai \-P anthropic
-git cai \-P groq \-m llama\-3.3\-70b
+git cai \-P groq \-m openai/gpt\-oss\-120b
 git cai \-P openrouter
 .fam
 .fi
@@ -1066,7 +1066,7 @@ become integers or floats, everything else stays a string.
 .fam C
 git cai \-S default=anthropic
 git cai \-S emoji=false
-git cai \-S groq.model=llama\-3.3\-70b
+git cai \-S groq.model=openai/gpt\-oss\-120b
 git cai \-S openai.temperature=0.7
 git cai \-S conventional=true
 .fam
@@ -1109,9 +1109,10 @@ git cai \-s a1b2c3d
 \-T, \-\-timeout SECONDS
 .RS 4
 Override the HTTP timeout for the LLM call in this invocation. The default
-is 30 seconds for remote providers and 300 seconds for Ollama (since local
-generation can be significantly slower). The override applies uniformly to
-whichever provider is selected for this run.
+is 30 seconds for remote providers, 60 seconds for Gemini (Flash Lite can queue
+for up to 30 seconds) and 300 seconds for Ollama (since local generation can be
+significantly slower). The override applies uniformly to whichever provider is
+selected for this run, including those with their own \f(CR<provider>.timeout\fP.
 .sp
 To change the default permanently, set \f(CRtimeout: <seconds>\fP in
 \f(CRcai_config.yml\fP or the home config:
@@ -1125,13 +1126,14 @@ git cai \-S timeout=45
 .fi
 .if n .RE
 .sp
-Ollama keeps its own timeout under \f(CRollama.timeout\fP (default 300). Override
-it separately:
+Ollama and Gemini keep their own timeouts under \f(CRollama.timeout\fP (default 300)
+and \f(CRgemini.timeout\fP (default 60). Override them separately:
 .sp
 .if n .RS 4
 .nf
 .fam C
 git cai \-H ollama.timeout=600
+git cai \-H gemini.timeout=90
 .fam
 .fi
 .if n .RE
@@ -1441,13 +1443,13 @@ Example output:
 .fam C
 Default models:
 
-  anthropic\&    → claude\-haiku\-4\-5
-  deepseek\&     → deepseek\-chat
-  gemini\&       → gemini\-3.1\-flash\-lite
+  anthropic\&    → claude\-haiku\-5\-5
+  deepseek\&     → deepseek\-flash
+  gemini\&       → gemini\-3.5\-flash\-lite
   groq\&         → openai/gpt\-oss\-20b
   mistral\&      → codestral\-2508
-  ollama\&       → llama3.1
-  openai\&       → gpt\-5.4\-mini
+  ollama\&       → gemma4:e2b
+  openai\&       → gpt\-6\-luna
   xai\&          → grok\-4.3
 .fam
 .fi
@@ -1530,13 +1532,13 @@ Example output:
 .fam C
 Supported providers:
 
-  anthropic\&    model: claude\-haiku\-4\-5\&                    (token required)
-  deepseek\&     model: deepseek\-chat\&                      (token required)
-  gemini\&       model: gemini\-3.1\-flash\-lite\&              (token required)
+  anthropic\&    model: claude\-haiku\-5\-5\&                   (token required)
+  deepseek\&     model: deepseek\-flash\&                     (token required)
+  gemini\&       model: gemini\-3.5\-flash\-lite\&              (token required)
   groq\&         model: openai/gpt\-oss\-20b\&                 (token required)
   mistral\&      model: codestral\-2508\&                     (token required)
-  ollama\&       model: llama3.1\&                           (no token required)
-  openai\&       model: gpt\-5.4\-mini\&                       (token required)
+  ollama\&       model: gemma4:e2b\&                         (no token required)
+  openai\&       model: gpt\-6\-luna\&                         (token required)
   xai\&          model: grok\-4.3\&                           (token required)
 
 Custom providers (OpenAI compatible, from config):
@@ -2021,7 +2023,8 @@ alias). For OpenAI compatible providers it is only sent when set.
 .  IP \(bu 2.3
 .\}
 \f(CR<provider>.timeout\fP \(em HTTP timeout in seconds for one provider,
-overriding the global \f(CRtimeout\fP (\f(CRollama\fP defaults to \f(CR300\fP)
+overriding the global \f(CRtimeout\fP (\f(CRollama\fP defaults to \f(CR300\fP, \f(CRgemini\fP to \f(CR60\fP).
+The \f(CR\-\-timeout\fP flag overrides both.
 .RE
 .sp
 .RS 4
@@ -2310,7 +2313,7 @@ Change a value in the repo config:
 .nf
 .fam C
 git cai \-S default=anthropic
-git cai \-S groq.model=llama\-3.3\-70b
+git cai \-S groq.model=openai/gpt\-oss\-120b
 git cai \-S emoji=false
 .fam
 .fi

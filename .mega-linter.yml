@@ -54,7 +54,7 @@ LINTER_RULES_PATH: .linters
 LOG_LEVEL: INFO
 MARKDOWN_DEFAULT_STYLE: markdownlint
 # Pins the Docker image for local runs to the version the CI workflow pins.
-MEGALINTER_VERSION: v10.0.0
+MEGALINTER_VERSION: v10.2.0
 PARALLEL: true
 PRINT_ALPACA: false
 PYTHON_BANDIT_RULES_PATH: .linters
