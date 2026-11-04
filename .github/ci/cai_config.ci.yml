@@ -6,14 +6,13 @@ load_tokens_from: /home/runner/work/.config/cai/tokens.yml
 timeout: 30
 full_files: false
 anthropic:
-  model: claude-haiku-4-5
-  temperature: 0
+  model: claude-haiku-5-5
   max_tokens: 32768
 deepseek:
-  model: deepseek-chat
+  model: deepseek-flash
   temperature: 0
 gemini:
-  model: gemini-3.1-flash-lite
+  model: gemini-3.5-flash-lite
   temperature: 0
 groq:
   model: openai/gpt-oss-20b
@@ -22,11 +21,11 @@ mistral:
   model: codestral-2508
   temperature: 0
 ollama:
-  model: llama3.1
+  model: gemma4:e2b
   temperature: 0
   timeout: 300
 openai:
-  model: gpt-5.4-mini
+  model: gpt-6-luna
 xai:
   model: grok-4.3
   temperature: 0

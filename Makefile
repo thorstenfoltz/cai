@@ -1,10 +1,13 @@
 #!/usr/bin/make -f
 
-PIP := pipx
 UV := uv
 SHELL := /bin/bash
+MEGALINTER_VERSION := $(shell sed -n 's/^MEGALINTER_VERSION: *//p' .mega-linter.yml)
+MEGALINTER_IMAGE := ghcr.io/oxsecurity/megalinter:$(MEGALINTER_VERSION)
+# --platform: the image is amd64 only. z: relabels the mount on SELinux hosts, ignored elsewhere.
+MEGALINTER_RUN := docker run --rm --platform linux/amd64 -v "$(CURDIR):/tmp/lint:rw,z"
 
-.PHONY: help lint check-docker check-npx lint-fix add-lint-hook clean test
+.PHONY: help lint check-docker lint-fix add-lint-hook clean test
 
 help: ## Shows this help message
 	@echo "Available commands:"
@@ -27,25 +30,16 @@ check-docker: ## Checks if docker is installed
 		docker --version; \
 	fi
 
-check-npx: ## Checks if npx is installed
-	@if ! command -v npx &> /dev/null; then \
-		echo "npx is not installed. Please install it."; \
-		exit 1; \
-	else \
-		echo "npx version:"; \
-		npx --version; \
-	fi
-
 clean: ## Clean cache of uv and delete virtual environment
 	@$(UV) cache clean
 	@rm -rf .venv
 
-lint:
+lint: ## Checks the branch name and runs MegaLinter
 	@sh ./.linters/check_git_branch_name.sh
-	@npx mega-linter-runner@v10
+	@$(MEGALINTER_RUN) $(MEGALINTER_IMAGE)
 
-lint-fix: ## Lints the code using sqlfluff and fixes the issues
-	@npx mega-linter-runner@v10 --fix
+lint-fix: ## Runs MegaLinter and applies its fixes
+	@$(MEGALINTER_RUN) -e APPLY_FIXES=all $(MEGALINTER_IMAGE)
 
 test: ## Runs tests
 	@$(UV) run pytest

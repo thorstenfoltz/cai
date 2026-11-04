@@ -494,6 +494,18 @@ def test_apply_cli_overrides_timeout_none_preserves_existing():
     assert cfg["timeout"] == 45
 
 
+def test_apply_cli_overrides_timeout_beats_provider_timeout():
+    """--timeout must outrank <provider>.timeout without mutating shared blocks."""
+    from git_cai_cli.core.llm import CommitMessageGenerator
+
+    shared_block = {"model": "m", "timeout": 60}
+    cfg = {"timeout": 30, "gemini": shared_block}
+    apply_cli_overrides(cfg, timeout_override=7)
+    assert CommitMessageGenerator(None, cfg, "gemini")._timeout("gemini") == 7
+    assert cfg["gemini"]["model"] == "m"
+    assert shared_block["timeout"] == 60
+
+
 def test_apply_cli_overrides_full_files_true_sets_true():
     cfg = {"full_files": False}
     apply_cli_overrides(cfg, full_files_override=True)

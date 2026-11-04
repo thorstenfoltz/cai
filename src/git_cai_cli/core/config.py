@@ -35,19 +35,26 @@ TOKENS_FILE = CONFIG_DIR / "tokens.yml"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "anthropic": {
-        "model": "claude-haiku-4-5",
-        "temperature": 0,
+        "model": "claude-haiku-5-5",
         # ``max_tokens`` is still read as a legacy alias (see llm.py)
         "max_output_tokens": 32768,
     },
-    "openai": {"model": "gpt-5.6-luna"},
-    "deepseek": {"model": "deepseek-chat", "temperature": 0},
-    "gemini": {"model": "gemini-3.1-flash-lite", "temperature": 0},
+    "openai": {"model": "gpt-6-luna"},
+    "deepseek": {"model": "deepseek-flash", "temperature": 0},
+    "gemini": {
+        "model": "gemini-3.5-flash-lite",
+        "temperature": 0,
+        # Flash Lite was measured taking up to 30 seconds server side, even for
+        # a single word reply, so the global 30 second timeout is too tight.
+        "timeout": 60,
+    },
     "groq": {"model": "openai/gpt-oss-20b", "temperature": 0},
     "xai": {"model": "grok-4.3", "temperature": 0},
+    # Not the cheapest on the list: ministral-3b wrapped messages in code
+    # fences and ministral-8b added a warning line, both unfit for a commit.
     "mistral": {"model": "codestral-2508", "temperature": 0},
     "ollama": {
-        "model": "llama3.1",
+        "model": "gemma4:e2b",
         "temperature": 0,
         "timeout": 300,
         "startup_timeout": 8,
@@ -733,6 +740,11 @@ def apply_cli_overrides(
         config["branch_context"] = branch_context
     if timeout_override is not None:
         config["timeout"] = timeout_override
+        # The flag outranks ``<provider>.timeout``, which is checked first when
+        # resolving. Rebuild instead of pop: blocks may be shared with DEFAULT_CONFIG.
+        for name, block in list(config.items()):
+            if isinstance(block, dict) and "timeout" in block:
+                config[name] = {k: v for k, v in block.items() if k != "timeout"}
     if full_files_override is not None:
         config["full_files"] = full_files_override
     if sql_override is not None:
