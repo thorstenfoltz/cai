@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-11-04
+.\"      Date: 2026-11-06
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-11-04" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-11-06" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -1829,9 +1829,11 @@ the diff (\f(CRtrue\fP/\f(CRfalse\fP, default \f(CRfalse\fP)
 .  IP \(bu 2.3
 .\}
 \f(CRmax_diff_bytes\fP \(em maximum size (in UTF\-8 bytes) of the diff/commit\-log
-sent to the LLM. When the input exceeds this, it is truncated and a marker
-line is appended so the model knows it was cut. \f(CR0\fP (the default) means no
-limit. Useful to avoid context\-window errors on very large staged changes.
+sent to the LLM. When the input exceeds this, the largest files are shortened
+first so every file stays represented, and marker lines tell the model what
+was cut. \f(CR0\fP (the default) means no limit. You rarely need this for very
+large staged changes: when a provider rejects the input as too large, git\-cai
+shortens it the same way, warns, and retries up to two times.
 .RE
 .sp
 .RS 4

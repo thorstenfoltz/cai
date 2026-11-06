@@ -17,6 +17,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from git_cai_cli.core.gitutils import (
     append_to_caiignore,
     changed_files_range,
@@ -106,6 +107,55 @@ def test_truncate_diff_handles_multibyte_boundary():
     # 10 bytes -> 3 full euro signs (9 bytes), partial 4th dropped.
     assert out.startswith("€€€")
     assert "diff truncated" in out
+
+
+def _file_diff(name: str, body: str) -> str:
+    return f"diff --git a/{name} b/{name}\n--- a/{name}\n+++ b/{name}\n{body}\n"
+
+
+def test_truncate_diff_keeps_files_after_a_huge_one():
+    """A plain tail cut would lose every file sorted after the huge one."""
+    first = _file_diff("a.py", "+first change")
+    huge = _file_diff("docs.md", "+" + "x" * 100_000)
+    last = _file_diff("src/z.py", "+last change")
+
+    out, truncated = truncate_diff(first + huge + last, 10_000)
+
+    assert truncated is True
+    assert first in out
+    assert last in out
+    assert "diff --git a/docs.md b/docs.md" in out
+    assert len(out.encode("utf-8")) < 10_200
+
+
+def test_truncate_diff_splits_budget_evenly_between_big_files():
+    diff = _file_diff("a.py", "+" + "x" * 100_000)
+    diff += _file_diff("b.py", "+" + "y" * 100_000)
+
+    out, _ = truncate_diff(diff, 10_000)
+
+    assert out.count("x") == pytest.approx(out.count("y"), abs=20)
+    assert 4_500 < out.count("x") < 5_000
+
+
+def test_truncate_diff_keeps_author_context():
+    diff = _file_diff("big.py", "+" + "x" * 100_000)
+    context = "--- Additional context from the author ---\nwhy this changed"
+
+    out, _ = truncate_diff(f"{diff}\n\n{context}", 1_000)
+
+    assert context in out
+
+
+def test_truncate_diff_cuts_full_file_dump_before_the_diff():
+    diff = _file_diff("a.py", "+change")
+    dump = "\n\n--- Full file contents ---\n" + "x" * 100_000
+
+    out, _ = truncate_diff(diff + dump, 1_000)
+
+    assert diff in out
+    assert "--- Full file contents ---" in out
+    assert "x" * 1_000 not in out
 
 
 # ------------------------------------------------------------------------------
