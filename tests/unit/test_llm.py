@@ -2,10 +2,13 @@
 Unit tests for git_cai_cli.core.llm module.
 """
 
+import json
 import logging
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from git_cai_cli.core.llm import (
     CommitMessageGenerator,
     _http_post,
@@ -134,6 +137,195 @@ def test_dispatch_invalid_model(generator):
     generator.default_model = "unknown"
     with pytest.raises(ValueError):
         generator._dispatch_generate("diff", "prompt")
+
+
+# oversized input: shorten and retry
+OPENAI_OVERFLOW = (
+    "Input tokens exceed the configured limit of 922000 tokens. "
+    "Your messages resulted in 1346101 tokens. "
+    "Please reduce the length of the messages."
+)
+
+
+def _api_response(status, body):
+    response = requests.Response()
+    response.status_code = status
+    response._content = json.dumps(body).encode()
+    return response
+
+
+def _rejected(message=OPENAI_OVERFLOW, status=400):
+    return _api_response(status, {"error": {"message": message}})
+
+
+def _accepted():
+    return _api_response(200, {"choices": [{"message": {"content": "short message"}}]})
+
+
+def _two_file_diff():
+    return "".join(
+        f"diff --git a/{name} b/{name}\n+{'x' * 50_000}\n"
+        for name in ("docs.md", "src/main.py")
+    )
+
+
+def _dispatch(generator, responses, diff):
+    """Dispatch against canned responses; return the result and each sent input."""
+    mock_post = MagicMock(side_effect=responses)
+    with patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post):
+        result = generator._dispatch_generate(diff, "sys")
+    return result, [
+        call.kwargs["json"]["messages"][-1]["content"]
+        for call in mock_post.call_args_list
+    ]
+
+
+def test_overflow_retries_with_every_file_still_present(generator):
+    diff = _two_file_diff()
+
+    result, sent = _dispatch(generator, [_rejected(), _accepted()], diff)
+
+    assert result == "short message"
+    assert sent[0] == diff
+    assert len(sent) == 2
+    assert "diff --git a/docs.md b/docs.md" in sent[1]
+    assert "diff --git a/src/main.py b/src/main.py" in sent[1]
+
+
+@pytest.mark.parametrize(
+    ("message", "status", "limit", "actual"),
+    [
+        (OPENAI_OVERFLOW, 400, 922_000, 1_346_101),
+        (
+            (
+                "Input tokens exceed the configured limit of 922,000 tokens. "
+                "Your messages resulted in 1,346,101 tokens."
+            ),
+            400,
+            922_000,
+            1_346_101,
+        ),
+        (
+            "prompt is too long: 1346101 tokens > 1000000 maximum",
+            400,
+            1_000_000,
+            1_346_101,
+        ),
+        (
+            (
+                "Request too large for model `grok-20250514` on tokens: "
+                "Limit 6000, Requested 12000"
+            ),
+            413,
+            6_000,
+            12_000,
+        ),
+        (
+            (
+                "The input token count (1346101) exceeds the maximum number of "
+                "tokens allowed (1048576)."
+            ),
+            400,
+            1_048_576,
+            1_346_101,
+        ),
+        (
+            (
+                "This model's maximum context length is 65536 tokens. However, you "
+                "requested 100000 tokens (99000 in the messages, 1000 in the "
+                "completion). Please reduce the length of the messages or completion."
+            ),
+            400,
+            65_536,
+            100_000,
+        ),
+        (
+            (
+                "This model's maximum prompt length is 131072 but the request "
+                "contains 200000 tokens."
+            ),
+            400,
+            131_072,
+            200_000,
+        ),
+        (
+            (
+                "Prompt contains 200000 tokens, too large for model with 131072 "
+                "maximum context length"
+            ),
+            400,
+            131_072,
+            200_000,
+        ),
+        (
+            (
+                "Request too large for model `llama-3.3-70b` on tokens per minute "
+                "(TPM): Limit 6000, Requested 12000"
+            ),
+            413,
+            6_000,
+            12_000,
+        ),
+    ],
+)
+def test_overflow_shrinks_by_what_the_provider_reports(
+    generator, message, status, limit, actual
+):
+    diff = _two_file_diff()
+
+    _, sent = _dispatch(generator, [_rejected(message, status), _accepted()], diff)
+
+    assert len(sent[1]) == pytest.approx(len(diff) * limit / actual * 0.9, abs=200)
+
+
+def test_overflow_without_numbers_halves_the_input(generator):
+    diff = _two_file_diff()
+    rejected = _rejected("Request payload is too large", 413)
+
+    _, sent = _dispatch(generator, [rejected, _accepted()], diff)
+
+    assert len(sent[1]) == pytest.approx(len(diff) * 0.5, abs=200)
+
+
+def test_overflow_second_retry_cuts_from_the_original_diff(generator):
+    """Cutting the first retry's text again would misreport what is omitted."""
+    second = "Limit of 900000 tokens exceeded. You sent 1000000 tokens."
+    diff = _two_file_diff()
+
+    _, sent = _dispatch(generator, [_rejected(), _rejected(second), _accepted()], diff)
+
+    assert len(sent) == 3
+    assert len(sent[2]) < len(sent[1])
+    omitted = sum(map(int, re.findall(r"(\d+) bytes omitted", sent[2])))
+    assert omitted == pytest.approx(len(diff) - len(sent[2]), abs=200)
+
+
+def test_overflow_gives_up_after_two_retries(generator):
+    mock_post = MagicMock(side_effect=[_rejected() for _ in range(5)])
+
+    with (
+        patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post),
+        pytest.raises(requests.HTTPError),
+    ):
+        generator._dispatch_generate(_two_file_diff(), "sys")
+
+    assert mock_post.call_count == 3
+
+
+@pytest.mark.parametrize(
+    ("message", "status"),
+    [("Invalid model", 400), (OPENAI_OVERFLOW, 429), ("Bad gateway", 502)],
+)
+def test_other_errors_are_not_retried(generator, message, status):
+    mock_post = MagicMock(side_effect=[_rejected(message, status), _accepted()])
+
+    with (
+        patch(f"{CommitMessageGenerator.__module__}._http_post", mock_post),
+        pytest.raises(requests.HTTPError),
+    ):
+        generator._dispatch_generate(_two_file_diff(), "sys")
+
+    assert mock_post.call_count == 1
 
 
 # test openai

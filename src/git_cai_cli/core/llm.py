@@ -18,7 +18,11 @@ from urllib.parse import urlparse
 
 import requests
 from git_cai_cli.core.config import CONFIG_DIR, is_custom_provider
-from git_cai_cli.core.gitutils import classify_changed_paths, paths_from_diff
+from git_cai_cli.core.gitutils import (
+    classify_changed_paths,
+    paths_from_diff,
+    shorten_diff,
+)
 from git_cai_cli.core.languages import LANGUAGE_MAP
 from git_cai_cli.core.prompts_fallback import (
     HARDCODED_CHANGELOG_PROMPT,
@@ -30,6 +34,7 @@ from git_cai_cli.core.prompts_fallback import (
     HARDCODED_SPLIT_PROMPT,
     HARDCODED_SQUASH_PROMPT,
 )
+from git_cai_cli.core.validate import _extract_api_error_message
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -177,6 +182,37 @@ def _http_post(*args, **kwargs):
             )
             response = _get_http_session().post(*args, **kwargs)
     return response
+
+
+# Model limits change too often for a table, and the provider's rejection
+# names them, so an oversized request is shortened and retried instead.
+_OVERFLOW_STATUS_CODES = (400, 413, 422)
+_OVERFLOW_RE = re.compile(
+    r"too (?:long|large)|exceed|maximum (?:context|prompt)|reduce the length",
+    re.IGNORECASE,
+)
+# Skips numbers glued to a name or version, like a date in a model name.
+_OVERFLOW_SIZE_RE = re.compile(r"(?<![\w.-])\d[\d,]{2,}\b")
+_OVERFLOW_RETRIES = 2
+
+
+def _overflow_shrink_factor(exc: requests.HTTPError) -> float | None:
+    """Return how much to shrink the input after a "too many tokens" rejection.
+
+    ``None`` means ``exc`` is some other error. Providers word the rejection
+    differently, but the first two numbers are the limit and the actual size,
+    and the smaller one is the limit. Without them, halve the input.
+    """
+    response = exc.response
+    if response is None or response.status_code not in _OVERFLOW_STATUS_CODES:
+        return None
+    message = _extract_api_error_message(response)
+    if not _OVERFLOW_RE.search(message):
+        return None
+    sizes = [int(n.replace(",", "")) for n in _OVERFLOW_SIZE_RE.findall(message)[:2]]
+    if len(sizes) < 2 or sizes[0] == sizes[1]:
+        return 0.5
+    return 0.9 * min(sizes) / max(sizes)
 
 
 def load_prompt_file(
@@ -968,7 +1004,8 @@ class CommitMessageGenerator:
     def _dispatch_generate(self, content: str, system_prompt: str) -> str:
         """
         Route to the right provider. ``system_prompt`` comes from the
-        matching ``_build_*_prompt``; ``content`` is the git output.
+        matching ``_build_*_prompt``; ``content`` is the git output. Input the
+        provider rejects as too large is shortened and retried.
         """
         self._scan_for_secrets(content)
 
@@ -987,12 +1024,30 @@ class CommitMessageGenerator:
 
         log.debug("Using provider '%s' for generation.", provider)
 
-        if openai_compatible:
-            return self.generate_openai_compatible(
-                content, provider, system_prompt_override=system_prompt
-            )
+        def call_provider(text: str) -> str:
+            if openai_compatible:
+                return self.generate_openai_compatible(
+                    text, provider, system_prompt_override=system_prompt
+                )
+            return model_dispatch[provider](text, system_prompt_override=system_prompt)
 
-        return model_dispatch[provider](content, system_prompt_override=system_prompt)
+        sent = content
+        for _ in range(_OVERFLOW_RETRIES):
+            try:
+                return call_provider(sent)
+            except requests.HTTPError as exc:
+                factor = _overflow_shrink_factor(exc)
+                if factor is None:
+                    raise
+            target = int(len(sent.encode("utf-8")) * factor)
+            log.warning(
+                "The input is too large for this model. Retrying with the largest "
+                "files shortened to about %d bytes in total, so the result may "
+                "miss details from the cut parts.",
+                target,
+            )
+            sent = shorten_diff(content, target)
+        return call_provider(sent)
 
     # ---------------------------
     # MODEL CALLS

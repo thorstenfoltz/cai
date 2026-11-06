@@ -1099,9 +1099,11 @@ Available configuration keys:
 - `full_files` -- send full working-tree contents of staged files alongside
   the diff (`true`/`false`, default `false`)
 - `max_diff_bytes` -- maximum size (in UTF-8 bytes) of the diff/commit-log
-  sent to the LLM. When the input exceeds this, it is truncated and a marker
-  line is appended so the model knows it was cut. `0` (the default) means no
-  limit. Useful to avoid context-window errors on very large staged changes.
+  sent to the LLM. When the input exceeds this, the largest files are shortened
+  first so every file stays represented, and marker lines tell the model what
+  was cut. `0` (the default) means no limit. You rarely need this for very
+  large staged changes: when a provider rejects the input as too large, git-cai
+  shortens it the same way, warns, and retries up to two times.
 - `pr_to_file` -- when running `--PR`, write the generated PR description
   to a Markdown file in the repository root instead of printing it to
   stdout (`true`/`false`, default `false`)

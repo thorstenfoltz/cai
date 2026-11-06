@@ -349,26 +349,55 @@ def git_diff_excluding(
     return result.stdout
 
 
+# Where an independently trimmable part of an LLM payload starts: one file's
+# diff, or a block appended after the diff. A stray match inside file content
+# only creates one more part, which is harmless.
+_PAYLOAD_PART_RE = re.compile(
+    r"^(?=diff --git "
+    r"|--- (?:Full file contents|Additional context from the author) ---)",
+    re.MULTILINE,
+)
+
+
+def shorten_diff(diff: str, max_bytes: int) -> str:
+    """Cut ``diff`` to about ``max_bytes`` UTF-8 bytes, largest parts first.
+
+    Parts below their fair share stay whole and the others split what is left,
+    so every file keeps its header and the start of its changes. Text without
+    file headers (a commit log) is one part, which makes this a plain tail cut.
+    Each cut adds a short marker, so the result can slightly exceed the limit.
+    """
+    parts = [part.encode("utf-8") for part in _PAYLOAD_PART_RE.split(diff) if part]
+    remaining = max_bytes
+    shares = [0] * len(parts)
+    by_size = sorted(range(len(parts)), key=lambda i: len(parts[i]))
+    for position, index in enumerate(by_size):
+        shares[index] = min(len(parts[index]), remaining // (len(parts) - position))
+        remaining -= shares[index]
+
+    shortened = []
+    for part, share in zip(parts, shares):
+        # errors="ignore" drops a multibyte character split by the byte slice.
+        text = part[:share].decode("utf-8", errors="ignore")
+        if share < len(part):
+            text += f"\n[... {len(part) - share} bytes omitted ...]\n"
+        shortened.append(text)
+    return "".join(shortened)
+
+
 def truncate_diff(diff: str, max_bytes: int) -> tuple[str, bool]:
-    """Truncate ``diff`` to at most ``max_bytes`` UTF-8 bytes.
+    """Truncate ``diff`` to about ``max_bytes`` UTF-8 bytes.
 
     A ``max_bytes`` of 0 (or negative) means "no limit" and the diff is
     returned unchanged — preserving the default behavior. When truncation
     occurs, a marker line is appended so both the LLM and the user know the
     input was cut. Returns ``(possibly_truncated_diff, was_truncated)``.
     """
-    if max_bytes <= 0:
+    if max_bytes <= 0 or len(diff.encode("utf-8")) <= max_bytes:
         return diff, False
 
-    encoded = diff.encode("utf-8")
-    if len(encoded) <= max_bytes:
-        return diff, False
-
-    # Cut on a UTF-8 safe boundary: decoding with errors="ignore" drops any
-    # partial trailing multibyte sequence left by the byte-level slice.
-    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
     marker = f"\n\n[... diff truncated: exceeded max_diff_bytes={max_bytes} ...]"
-    return truncated + marker, True
+    return shorten_diff(diff, max_bytes) + marker, True
 
 
 def apply_diff_limit(text: str, config: dict, *, label: str = "Input") -> str:
