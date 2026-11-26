@@ -18,11 +18,14 @@ from git_cai_cli.core.config import (
     FALLBACK_CONFIG_FILE,
     TOKENS_FILE,
     _find_repo_config,
+    apply_provider_overrides,
     load_config,
     load_token,
     provider_requires_token,
+    uses_subscription,
 )
 from git_cai_cli.core.gitutils import get_git_editor
+from git_cai_cli.core.subscription import SUBSCRIPTION_CLIS, missing_cli_message
 from git_cai_cli.core.validate import _validate_config_keys, _validate_style
 
 log = logging.getLogger(__name__)
@@ -69,6 +72,7 @@ def _run_check_impl(*, live: bool = False) -> int:
     try:
         config = load_config()
         _validate_config_keys(config, DEFAULT_CONFIG)
+        apply_provider_overrides(config, None, None)
         _line(_OK, "Config keys valid")
     except (KeyError, ValueError, OSError) as exc:
         _line(_FAIL, f"Config invalid: {exc}")
@@ -88,8 +92,17 @@ def _run_check_impl(*, live: bool = False) -> int:
         via = f", {block['base_url']}" if block.get("base_url") else ""
         _line(_OK, f"Default provider: {provider} (model {block.get('model')}{via})")
 
-    # 4. Token for the active provider (unless tokenless), plus file permissions.
-    if provider and not provider_requires_token(config, provider):
+    # 4. CLI (subscription) or token (unless tokenless) of the active provider,
+    # plus token file permissions.
+    if provider and uses_subscription(config, provider):
+        missing = missing_cli_message(provider)
+        command = SUBSCRIPTION_CLIS[provider].command
+        if missing:
+            _line(_FAIL, missing)
+            ok = False
+        else:
+            _line(_OK, f"Subscription via '{command}', no token needed")
+    elif provider and not provider_requires_token(config, provider):
         _line(_OK, f"Provider '{provider}' needs no token")
     else:
         token = load_token(config=config)

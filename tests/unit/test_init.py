@@ -56,7 +56,7 @@ def test_wizard_writes_config_and_tokens_for_provider_requiring_key(
 
     driver = _InputDriver(
         prompts=["openai", "en", "professional"],
-        confirms=[True],  # emoji
+        confirms=[True, False],  # emoji, subscription
         passwords=["sk-test-123"],
     )
     _install(monkeypatch, driver)
@@ -160,7 +160,7 @@ def test_wizard_preserves_other_providers_in_tokens_file(tmp_path, monkeypatch):
 
     driver = _InputDriver(
         prompts=["openai", "en", "professional"],
-        confirms=[True],  # emoji
+        confirms=[True, False],  # emoji, subscription
         passwords=["sk-openai-new"],
     )
     _install(monkeypatch, driver)

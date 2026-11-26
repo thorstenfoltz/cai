@@ -54,6 +54,8 @@ _git-cai() {
     '(-s --squash)'{-s,--squash}'[Squash commits on this branch]'
     '(-T --timeout)'{-T,--timeout}'[HTTP timeout in seconds]:seconds:'
     '(-t --time)'{-t,--time}'[Measure generation time]'
+    '(-U --subscription)'{-U,--subscription}'[Use the subscription instead of the API]'
+    '(-K --no-subscription)'{-K,--no-subscription}'[Use the API instead of the subscription]'
     '(-u --update)'{-u,--update}'[Check for updates]'
     '(-v --version)'{-v,--version}'[Show version]'
     '(-x --context)'{-x,--context}'[Provide extra context for the LLM]:context:'
@@ -85,6 +87,7 @@ _git_cai_completion() {
           -i --install-completion -l --list -m --model -o --signoff \\
           -P --provider -p --generate-prompts --print -q --sql \\
           -r --PR --base -S --set -s --squash -T --timeout -t --time \\
+          -U --subscription -K --no-subscription \\
           -u --update -v --version -x --context -z --stats --since \\
           --json --reset-stats --style --language --emoji --no-emoji"
 
@@ -149,6 +152,8 @@ complete -c git-cai -s S -l set -d 'Set config value in repo config' -r
 complete -c git-cai -s s -l squash -d 'Squash commits on this branch'
 complete -c git-cai -s T -l timeout -d 'HTTP timeout in seconds' -r
 complete -c git-cai -s t -l time -d 'Measure generation time'
+complete -c git-cai -s U -l subscription -d 'Use the subscription instead of the API'
+complete -c git-cai -s K -l no-subscription -d 'Use the API instead of the subscription'
 complete -c git-cai -s u -l update -d 'Check for updates'
 complete -c git-cai -s v -l version -d 'Show version'
 complete -c git-cai -s x -l context -d 'Provide extra context for the LLM' -r

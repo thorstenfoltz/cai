@@ -21,6 +21,7 @@ import typer
 import yaml
 from git_cai_cli.core.gitutils import find_git_root
 from git_cai_cli.core.languages import ALLOWED_LANGUAGES
+from git_cai_cli.core.subscription import SUBSCRIPTION_CLIS
 from git_cai_cli.core.validate import (
     _validate_config_keys,
     _validate_language,
@@ -40,6 +41,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_output_tokens": 32768,
     },
     "openai": {"model": "gpt-6-luna"},
+    # Subscription only. The CLI needs about 10 seconds even for a tiny diff.
+    "copilot": {"model": "auto", "timeout": 60},
     "deepseek": {"model": "deepseek-flash", "temperature": 0},
     "gemini": {
         "model": "gemini-3.5-flash-lite",
@@ -60,7 +63,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "startup_timeout": 8,
     },
     "language": "en",
-    "default": "groq",
+    "default": "anthropic",
+    "subscription": False,
     "style": "professional",
     "emoji": True,
     "load_tokens_from": TOKENS_FILE,
@@ -111,10 +115,15 @@ TOKENLESS_PROVIDERS: set[str] = {
 
 
 def is_custom_provider(config: dict[str, Any], name: str) -> bool:
-    """True if ``name`` is a user defined OpenAI compatible provider block."""
+    """True if ``name`` is a user defined OpenAI compatible provider block.
+
+    A built in without an API of its own (``copilot``) counts too, so configs
+    that already used that name for a custom endpoint keep working.
+    """
     block = config.get(name)
+    cli = SUBSCRIPTION_CLIS.get(name)
     return (
-        name not in KNOWN_PROVIDERS
+        (name not in KNOWN_PROVIDERS or (cli is not None and not cli.has_api))
         and isinstance(block, dict)
         and isinstance(block.get("base_url"), str)
     )
@@ -125,9 +134,28 @@ def custom_providers(config: dict[str, Any]) -> list[str]:
     return sorted(k for k in config if is_custom_provider(config, k))
 
 
+def uses_subscription(config: dict[str, Any], name: str) -> bool:
+    """True if ``name`` is called through its CLI instead of its API."""
+    cli = SUBSCRIPTION_CLIS.get(name)
+    if cli is None:
+        return False
+    if config.get("subscription") is True:
+        return True
+    return not cli.has_api and not is_custom_provider(config, name)
+
+
+def provider_access(name: str) -> str:
+    """How a built in provider is paid for, as shown in provider lists."""
+    if name in SUBSCRIPTION_CLIS:
+        if SUBSCRIPTION_CLIS[name].has_api:
+            return "token or subscription"
+        return "subscription, no token required"
+    return "no token required" if name in TOKENLESS_PROVIDERS else "token required"
+
+
 def provider_requires_token(config: dict[str, Any], name: str) -> bool:
-    """False for tokenless built ins and blocks with ``requires_token: false``."""
-    if name in TOKENLESS_PROVIDERS:
+    """False for tokenless built ins, subscriptions and ``requires_token: false``."""
+    if name in TOKENLESS_PROVIDERS or uses_subscription(config, name):
         return False
     block = config.get(name)
     return not (isinstance(block, dict) and block.get("requires_token") is False)
@@ -505,6 +533,7 @@ def ordered_default_config(
 
     priority_keys = [
         "default",
+        "subscription",
         "language",
         "style",
         "emoji",
@@ -561,6 +590,7 @@ KNOWN_PROVIDERS = frozenset(
         "mistral",
         "deepseek",
         "ollama",
+        "copilot",
     }
 )
 
@@ -577,7 +607,7 @@ def completion_provider_names() -> list[str]:
     except (OSError, yaml.YAMLError):
         data = None
     custom = custom_providers(data) if isinstance(data, dict) else []
-    return sorted(KNOWN_PROVIDERS) + custom
+    return sorted(KNOWN_PROVIDERS) + [n for n in custom if n not in KNOWN_PROVIDERS]
 
 
 def _parse_config_value(raw: str) -> Any:
@@ -769,18 +799,40 @@ def apply_cli_overrides(
         config["emoji"] = emoji_override
 
 
+def _apply_subscription_override(config: dict, enabled: bool) -> None:
+    """Apply --subscription/--no-subscription, or exit if it cannot be honored."""
+    config["subscription"] = enabled
+    provider = config["default"]
+    if uses_subscription(config, provider) == enabled:
+        return
+    if enabled:
+        available = ", ".join(sorted(SUBSCRIPTION_CLIS))
+        error = (
+            f"Provider '{provider}' cannot be used with a subscription. "
+            f"Available: {available}"
+        )
+    else:
+        error = f"Provider '{provider}' has no API, only a subscription."
+    typer.echo(f"Error: {error}", err=True)
+    raise typer.Exit(code=1)
+
+
 def apply_provider_overrides(
     config: dict,
     provider_override: str | None,
     model_override: str | None,
     temperature_override: float | None = None,
+    subscription_override: bool | None = None,
 ) -> None:
     """
-    Apply --provider, --model and --temperature overrides to the config
-    dict in-place.
+    Apply --provider, --model, --temperature and --subscription overrides
+    to the config dict in-place.
 
     ``temperature_override`` is provider-scoped (like ``--model``): it
     sets ``config[<active provider>]["temperature"]`` for this run only.
+
+    A built in provider without a block, as in a config written before that
+    provider existed, gets its bundled default block.
 
     Raises typer.Exit on validation errors.
     """
@@ -812,6 +864,18 @@ def apply_provider_overrides(
 
         config["default"] = provider_override
         log.info("Provider overridden to '%s'.", provider_override)
+
+    if subscription_override is not None:
+        _apply_subscription_override(config, subscription_override)
+
+    # For the API, --model below builds a minimal block of its own.
+    active = config.get("default")
+    if (
+        active in KNOWN_PROVIDERS
+        and active not in config
+        and (not model_override or uses_subscription(config, active))
+    ):
+        config[active] = dict(DEFAULT_CONFIG[active])
 
     if model_override:
         provider = config["default"]

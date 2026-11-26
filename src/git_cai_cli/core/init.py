@@ -20,12 +20,14 @@ from git_cai_cli.core.config import (
     DEFAULT_CONFIG,
     FALLBACK_CONFIG_FILE,
     KNOWN_PROVIDERS,
-    TOKENLESS_PROVIDERS,
     TOKENS_FILE,
     _serialize_config,
     ordered_default_config,
+    provider_access,
+    provider_requires_token,
 )
 from git_cai_cli.core.languages import LANGUAGE_MAP
+from git_cai_cli.core.subscription import SUBSCRIPTION_CLIS
 
 log = logging.getLogger(__name__)
 
@@ -48,10 +50,8 @@ def _pick_provider() -> str:
     for idx, name in enumerate(providers, start=1):
         block = DEFAULT_CONFIG.get(name, {})
         model = block.get("model", "n/a") if isinstance(block, dict) else "n/a"
-        token_info = (
-            "no token required" if name in TOKENLESS_PROVIDERS else "token required"
-        )
-        typer.echo(f"  {idx}. {name:<10} default model: {model}  ({token_info})")
+        access = provider_access(name)
+        typer.echo(f"  {idx}. {name:<10} default model: {model}  ({access})")
 
     while True:
         raw = typer.prompt(
@@ -147,14 +147,16 @@ def _write_config_file(
     language: str,
     style: str,
     emoji: bool,
+    subscription: bool,
 ) -> None:
     # Same full surface as `git cai -g`: every setting is written out with
     # its default, so users can see and edit what exists. The wizard's
-    # answers override the four keys it asked about.
+    # answers override the keys it asked about.
     config: dict[str, Any] = _serialize_config(ordered_default_config())
     config.update(
         {
             "default": provider,
+            "subscription": subscription,
             "language": language,
             "style": style,
             "emoji": emoji,
@@ -188,7 +190,16 @@ def run_init_wizard(
         style = _pick_style()
         emoji = typer.confirm("Use emoji in commit messages?", default=None)
 
-        if provider not in TOKENLESS_PROVIDERS:
+        subscription = False
+        cli = SUBSCRIPTION_CLIS.get(provider)
+        if cli and cli.has_api:
+            subscription = typer.confirm(
+                f"Use your {cli.label} subscription through the '{cli.command}' "
+                "command instead of an API key?",
+                default=None,
+            )
+
+        if provider_requires_token({"subscription": subscription}, provider):
             token = _read_token(provider)
             _write_tokens_file(provider, token, tokens_path)
             typer.echo(f"  Wrote token to {tokens_path} (mode 0600).")
@@ -196,8 +207,10 @@ def run_init_wizard(
             typer.echo(
                 f"  Provider '{provider}' does not need a token — skipping token entry."
             )
+            if cli:
+                typer.echo(f"  Log in with '{cli.login}' if you have not yet.")
 
-        _write_config_file(config_path, provider, language, style, emoji)
+        _write_config_file(config_path, provider, language, style, emoji, subscription)
         typer.echo(f"  Wrote config to {config_path}.")
 
         typer.echo(

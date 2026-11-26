@@ -17,6 +17,7 @@ pr_file_name: PR_DESCRIPTION.md
 pr_prompt_file: "/home/thorsten/.config/cai/pr_prompt.md"
 stats: true
 signoff: true
+subscription: true
 anthropic:
   model: claude-haiku-5-5
   max_tokens: 32768

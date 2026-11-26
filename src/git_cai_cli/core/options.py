@@ -16,13 +16,13 @@ from git_cai_cli.core.config import (
     DEFAULT_CONFIG,
     FALLBACK_CONFIG_FILE,
     KNOWN_PROVIDERS,
-    TOKENLESS_PROVIDERS,
     TOKENS_FILE,
     _find_repo_config,
     _serialize_config,
     custom_providers,
     load_config,
     ordered_default_config,
+    provider_access,
     provider_requires_token,
 )
 from git_cai_cli.core.languages import LANGUAGE_MAP
@@ -281,12 +281,8 @@ git cai -l style
         for provider in sorted(KNOWN_PROVIDERS):
             block = DEFAULT_CONFIG.get(provider, {})
             model = block.get("model", "n/a") if isinstance(block, dict) else "n/a"
-            token_info = (
-                "no token required"
-                if provider in TOKENLESS_PROVIDERS
-                else "token required"
-            )
-            lines.append(f"  {provider:<12} model: {model:<35} ({token_info})")
+            access = provider_access(provider)
+            lines.append(f"  {provider:<12} model: {model:<35} ({access})")
 
         try:
             config = load_config()

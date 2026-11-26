@@ -33,6 +33,7 @@ def prepare(
     model_override: str | None,
     temperature_override: float | None,
     sql_override: bool | None,
+    subscription_override: bool | None = None,
 ) -> tuple[Path, dict[str, Any], str, str | None]:
     """Resolve repo root, config, provider, and token for a read-only mode.
 
@@ -48,7 +49,11 @@ def prepare(
 
     config = load_config()
     apply_provider_overrides(
-        config, provider_override, model_override, temperature_override
+        config,
+        provider_override,
+        model_override,
+        temperature_override,
+        subscription_override,
     )
     apply_cli_overrides(config, sql_override=sql_override)
     stats_module.log_state(config)

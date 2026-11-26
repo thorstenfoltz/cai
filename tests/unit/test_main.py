@@ -205,6 +205,7 @@ def test_known_providers_set_is_complete():
         "mistral",
         "deepseek",
         "ollama",
+        "copilot",
     }
     assert KNOWN_PROVIDERS == expected
 

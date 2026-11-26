@@ -35,6 +35,7 @@ SYNOPSIS
         [-S KEY=VALUE | --set KEY=VALUE]
         [-s [N|HASH] | --squash [N|HASH]]
         [-T SECONDS | --timeout SECONDS] [-t | --time]
+        [-U | --subscription | -K | --no-subscription]
         [-u | --update] [-v | --version] [-w | --split]
         [-x CONTEXT | --context CONTEXT] [-y STYLE | --style STYLE]
         [-z | --stats] [--since YYYY-MM-DD] [--json] [--reset-stats]
@@ -59,8 +60,9 @@ SETUP
 Guided setup (recommended):
 
 - Run `git cai --init` (or `-I`). The interactive wizard asks for a
-  default provider, language, style, and emoji preference, then
-  collects the API key (hidden input). It writes
+  default provider, language, style, and emoji preference, and for Claude
+  and OpenAI whether to use a subscription. It then collects the API key
+  (hidden input) if one is needed. It writes
   `~/.config/cai/cai_config.yml` and, for providers that need one,
   `~/.config/cai/tokens.yml` with mode `0600`. Existing token entries
   for other providers are preserved.
@@ -73,8 +75,8 @@ First run / configuration (manual):
 - Add at least one API key to `~/.config/cai/tokens.yml` (created as a template if missing).
   The YAML keys are provider names (for example: `openai`, `anthropic`, `gemini`,
   `groq`, `xai`, `mistral`, `deepseek`).
-  If you use `ollama` as provider, no token is required. Custom providers use
-  their own name as key (see below).
+  If you use `ollama` as provider or a subscription (see below), no token is
+  required. Custom providers use their own name as key (see below).
 - In `~/.config/cai/cai_config.yml`, set `default:` to the provider you want and
   adjust the provider block (model/temperature) as needed.
 
@@ -89,6 +91,35 @@ Custom prompts (optional):
 
 - Generate prompt files in the current directory with `git cai -p`.
 - Point `prompt_file` / `squash_prompt_file` in `cai_config.yml` to your custom files.
+
+Subscription instead of API (optional):
+
+- A Claude, OpenAI (ChatGPT) or GitHub Copilot subscription can be used instead
+  of an API token. git-cai then calls the official command line tool of the
+  vendor, which must be installed and logged in:
+
+    Provider    Command   Log in with
+    anthropic   claude    claude auth login
+    openai      codex     codex login
+    copilot     copilot   copilot login
+
+- Set `subscription: true` in `cai_config.yml`, or pass `--subscription` (`-U`)
+  for a single run. The default is `false`, which uses the API.
+- `copilot` has no API, so it always uses the subscription. All other providers
+  ignore the setting and keep using their API.
+- The model comes from the provider block, as with the API. With
+  `copilot.model: auto`, the default, Copilot picks the model.
+- If the command is not installed, git-cai stops and explains how to install it.
+  It never switches to the API or to another provider on its own.
+- API credentials in the environment (such as `ANTHROPIC_API_KEY`,
+  `OPENAI_API_KEY`, `CODEX_API_KEY`, and `COPILOT_PROVIDER_*`) are hidden from
+  the command, because it would bill the API account instead.
+- The command runs in an empty directory. `claude` and `copilot` run without
+  tools. `codex` keeps a few built in ones, but runs in its read only sandbox and
+  without shell, web search, plugins, and connected ChatGPT apps.
+- `temperature`, `base_url`, and `max_output_tokens` do not apply. The secret
+  scan stays active, since the diff leaves the machine.
+- Every request counts against the usage limits of the subscription.
 
 Custom OpenAI compatible providers (optional):
 
@@ -374,8 +405,9 @@ providers that require one) `~/.config/cai/tokens.yml` with mode
 `0600`.
 +
 The wizard asks for a default provider, language, commit-message
-style, whether to use emoji, and — for providers other than `ollama`
-— the API key. Input for the API key is hidden while you type.
+style, whether to use emoji, whether to use a subscription (`anthropic` and
+`openai`), and the API key if the choice needs one. Input for the API key is
+hidden while you type.
 +
 If `~/.config/cai/cai_config.yml` already exists, the wizard prompts
 before overwriting it. Existing entries in `tokens.yml` for other
@@ -403,12 +435,28 @@ file for the completions to take effect.
 git cai -i
 ----
 
+-K, --no-subscription::
+Use the API for this invocation even when the persisted config has
+`subscription: true`. The provider then needs its API token as usual. This is
+an error for `copilot`, which has no API. See `--subscription` (`-U`). To
+disable the subscription permanently:
++
+----
+git cai -H subscription=false
+----
++
+----
+git cai -K
+git cai -K -P anthropic
+----
+
 -k, --check::
 Run configuration diagnostics and exit. The check is offline by default: it
 reports which config is authoritative (repository, home, or built-in), validates
 the config keys, confirms the default provider has a model (and shows its
 `base_url` if set) and a usable token (skipped for `ollama` and providers with
-`requires_token: false`), that the commit/squash/full-files/PR prompts resolve, and that the
+`requires_token: false`; with a subscription it checks that the command is
+installed instead), that the commit/squash/full-files/PR prompts resolve, and that the
 configured editor is on `PATH`. Exits non-zero if any check fails. Add `--ping`
 to also probe the active provider with a tiny live request.
 +
@@ -521,7 +569,7 @@ git cai -s --signoff
 -P, --provider PROVIDER::
 Override the LLM provider for this invocation. The model and temperature
 from the configuration for that provider are used unless `--model` is also
-specified. Available providers: `anthropic`, `deepseek`, `gemini`, `groq`,
+specified. Available providers: `anthropic`, `copilot`, `deepseek`, `gemini`, `groq`,
 `mistral`, `ollama`, `openai`, `xai`, plus any custom OpenAI compatible
 provider defined in the active config (see SETUP). Shell completion offers
 both.
@@ -694,9 +742,9 @@ git cai -s a1b2c3d
 ----
 
 -T, --timeout SECONDS::
-Override the HTTP timeout for the LLM call in this invocation. The default
-is 30 seconds for remote providers, 60 seconds for Gemini (Flash Lite can queue
-for up to 30 seconds) and 300 seconds for Ollama (since local generation can be
+Override the timeout for the LLM call in this invocation. The default
+is 30 seconds for remote providers, 60 seconds for Copilot and for Gemini (Flash
+Lite can queue for up to 30 seconds) and 300 seconds for Ollama (since local generation can be
 significantly slower). The override applies uniformly to whichever provider is
 selected for this run, including those with their own `<provider>.timeout`.
 +
@@ -708,8 +756,9 @@ git cai -H timeout=60
 git cai -S timeout=45
 ----
 +
-Ollama and Gemini keep their own timeouts under `ollama.timeout` (default 300)
-and `gemini.timeout` (default 60). Override them separately:
+Ollama, Gemini and Copilot keep their own timeouts under `ollama.timeout`
+(default 300), `gemini.timeout` and `copilot.timeout` (default 60). Override them
+separately:
 +
 ----
 git cai -H ollama.timeout=600
@@ -731,6 +780,23 @@ Can also be enabled permanently via `measure_time: true` in
 +
 ----
 git cai -t
+----
+
+-U, --subscription::
+Use the Claude (`anthropic`), OpenAI (`openai`) or GitHub Copilot (`copilot`)
+subscription for this invocation instead of the API. The request goes through
+the command line tool of the vendor, so no API token is needed. A provider
+without a subscription is an error. See SETUP and `--no-subscription` (`-K`).
+To enable it permanently:
++
+----
+git cai -H subscription=true
+----
++
+----
+git cai -U
+git cai -U -P openai
+git cai -P copilot
 ----
 
 -u, --update::
@@ -885,13 +951,14 @@ Example output:
 ----
 Active configuration:
 
-  default: groq
+  default: anthropic
+  subscription: false
   language: en
   style: professional
   emoji: true
-  groq:
-    model: openai/gpt-oss-20b
-    temperature: 0
+  anthropic:
+    model: claude-haiku-5-5
+    max_output_tokens: 32768
   ...
 ----
 
@@ -941,6 +1008,7 @@ Example output:
 Default models:
 
   anthropic    → claude-haiku-5-5
+  copilot      → auto
   deepseek     → deepseek-flash
   gemini       → gemini-3.5-flash-lite
   groq         → openai/gpt-oss-20b
@@ -991,8 +1059,8 @@ Configuration file paths:
 
 provider::
 List all supported LLM providers. Each provider is shown with its default
-model and whether an API token is required. Providers that do not require a
-token (`ollama`, and custom providers with `requires_token: false`) are
+model and whether it needs an API token or can use a subscription. Providers
+that do not require a token (`ollama`, `copilot`, and custom providers with `requires_token: false`) are
 marked accordingly. Custom OpenAI compatible providers from the active config
 follow in a separate section with their `base_url`.
 +
@@ -1005,13 +1073,14 @@ Example output:
 ----
 Supported providers:
 
-  anthropic    model: claude-haiku-5-5                   (token required)
+  anthropic    model: claude-haiku-5-5                   (token or subscription)
+  copilot      model: auto                               (subscription, no token required)
   deepseek     model: deepseek-flash                     (token required)
   gemini       model: gemini-3.5-flash-lite              (token required)
   groq         model: openai/gpt-oss-20b                 (token required)
   mistral      model: codestral-2508                     (token required)
   ollama       model: gemma4:e2b                         (no token required)
-  openai       model: gpt-6-luna                         (token required)
+  openai       model: gpt-6-luna                         (token or subscription)
   xai          model: grok-4.3                           (token required)
 
 Custom providers (OpenAI compatible, from config):
@@ -1063,7 +1132,10 @@ in cai_config.yml
 
 Available configuration keys:
 
-- `default` -- default LLM provider name
+- `default` -- default LLM provider name (default `anthropic`)
+- `subscription` -- use the Claude, OpenAI or Copilot subscription through the
+  command line tool of the vendor instead of the API (`true`/`false`, default
+  `false`). Ignored by providers without a subscription. See SETUP.
 - `language` -- language for commit messages (e.g., `en`, `de`, `fr`)
 - `style` -- tone of the commit message (`professional`, `neutral`, `friendly`,
   `funny`, `excited`, `sarcastic`, `apologetic`, `academic`)
@@ -1095,7 +1167,7 @@ Available configuration keys:
 - `squash_prompt_file` -- path to the squash prompt Markdown file
 - `token_logging` -- log token usage after each LLM call (`true`/`false`)
 - `measure_time` -- log generation time (`true`/`false`)
-- `timeout` -- HTTP timeout in seconds for remote LLM calls (default `30`)
+- `timeout` -- timeout in seconds for remote LLM calls (default `30`)
 - `full_files` -- send full working-tree contents of staged files alongside
   the diff (`true`/`false`, default `false`)
 - `max_diff_bytes` -- maximum size (in UTF-8 bytes) of the diff/commit-log
@@ -1145,7 +1217,8 @@ Available configuration keys:
   `anthropic` the default is `32768` (`max_tokens` is still read as a legacy
   alias). For OpenAI compatible providers it is only sent when set.
 - `<provider>.timeout` -- HTTP timeout in seconds for one provider,
-  overriding the global `timeout` (`ollama` defaults to `300`, `gemini` to `60`).
+  overriding the global `timeout` (`ollama` defaults to `300`, `gemini` and
+  `copilot` to `60`).
   The `--timeout` flag overrides both.
 - `stats` -- opt in to local-only usage analytics (`true`/`false`,
   default `false`). When enabled, every generation appends one row to
@@ -1302,6 +1375,14 @@ Override the provider for a single invocation:
 
 ----
 git cai -P anthropic
+----
+
+Use a subscription instead of the API:
+
+----
+git cai -U
+git cai -U -P openai
+git cai -P copilot
 ----
 
 Use a custom OpenAI compatible provider defined in the config:

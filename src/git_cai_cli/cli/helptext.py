@@ -32,6 +32,7 @@ Flags:
   -h, --help               Show this help message or opens manual
   -I, --init               Interactive setup wizard (writes home config and tokens.yml)
   -i, --install-completion Install shell completion for git-cai
+  -K, --no-subscription    Use the API instead of the subscription (API key)
   -k, --check              Run configuration diagnostics (offline; add --ping for a live probe)
   -L, --language CODE      Override the commit message language (e.g. de, fr, none)
   -l, --list [TYPE]        List information. TYPE: config, editor, language,
@@ -54,6 +55,7 @@ Flags:
                            Hash: squash up to and including that commit
   -T, --timeout SECONDS    HTTP timeout in seconds (overrides config; default 30)
   -t, --time               Measure and log commit message generation time
+  -U, --subscription       Use the Claude, OpenAI or Copilot subscription instead of the API
   -u, --update             Check for updates
   -v, --version            Show installed version
   -w, --split              Suggest how to break the staged change into several commits

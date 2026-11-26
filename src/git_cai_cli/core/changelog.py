@@ -31,6 +31,7 @@ def run_changelog(
     context: str | None = None,
     sql_override: bool | None = None,
     allow_secrets: bool = False,
+    subscription_override: bool | None = None,
 ) -> None:
     """
     Generate an "Unreleased" changelog section for the commits since the last tag.
@@ -42,9 +43,14 @@ def run_changelog(
         time_flag: Whether to log generation time.
         context: Optional. Extra context for the LLM.
         allow_secrets: Bypass the local secret scan.
+        subscription_override: Use the subscription (True) or the API (False).
     """
     repo_root, config, provider, token = prepare(
-        provider_override, model_override, temperature_override, sql_override
+        provider_override,
+        model_override,
+        temperature_override,
+        sql_override,
+        subscription_override,
     )
 
     tag = last_git_tag()

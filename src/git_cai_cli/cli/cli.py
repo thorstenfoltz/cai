@@ -248,6 +248,12 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         "--allow-secrets",
         help="Bypass the local secret scan and send the diff even if a likely secret is detected.",
     ),
+    subscription: bool | None = typer.Option(
+        None,
+        "--subscription/--no-subscription",
+        "-U/-K",
+        help="Use the Claude, OpenAI or Copilot subscription through its CLI instead of the API. Use --no-subscription to force the API when the persisted config enables it.",
+    ),
 ):
     """
     CLI entry point for git-cai-cli.
@@ -401,6 +407,7 @@ def callback(  # pylint: disable=too-many-arguments,too-many-positional-argument
         emoji_override=emoji,
         live_check=ping,
         allow_secrets=allow_secrets,
+        subscription_override=subscription,
     )
 
 

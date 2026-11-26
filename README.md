@@ -20,7 +20,10 @@ Currently supported providers:
 - Mistral
 - DeepSeek
 - Ollama (local)
+- GitHub Copilot (subscription only)
 - Any OpenAI compatible API (OpenRouter, Together, Cerebras, LM Studio, vLLM, llama.cpp, LiteLLM, ...) via `base_url`
+
+Anthropic and OpenAI can also run on a Claude or ChatGPT subscription instead of an API key.
 
 ---
 
@@ -31,6 +34,7 @@ Currently supported providers:
 - Either:
   - Ollama installed and running locally, or
   - A local OpenAI compatible server such as LM Studio or vLLM, or
+  - A Claude, ChatGPT or GitHub Copilot subscription with the command line tool of the vendor installed and logged in, or
   - An API key for at least one of the following providers:
   - OpenAI
   - Gemini (free tier available)
@@ -48,6 +52,7 @@ Currently supported providers:
 - Generates meaningful, context-aware commit messages using an LLM
 - Seamless integration with Git
 - Supports multiple LLM providers and models, plus any OpenAI compatible endpoint
+- Claude, ChatGPT or GitHub Copilot subscription instead of an API key (`--subscription`)
 - Global configuration with per-repository overrides
 - Interactive `--init` wizard for first-time setup (provider, token, language, style)
 - Repository-specific language, style, and model selection
@@ -131,7 +136,8 @@ git cai --init     # or: git cai -I
 ```
 
 It asks for a default provider, language, style, and emoji preference,
-then collects the API key (input is hidden while you type). The wizard
+and for Claude and OpenAI whether to use a subscription. It then collects
+the API key if one is needed (input is hidden while you type). The wizard
 writes `~/.config/cai/cai_config.yml` and, for providers that need one,
 `~/.config/cai/tokens.yml` with mode `0600`. Existing entries for other
 providers in `tokens.yml` are preserved. `--init` only writes home-scope
@@ -157,7 +163,7 @@ It also creates three Markdown prompt files:
 Don't be scared the first run will show an error. It only misses a token.
 Add your provider API keys to `tokens.yml`. Once configured, cai will reuse them automatically.
 Optional for each repository a file containing tokens can be set.
-Set your preferred LLM in `cai_config.yml` (Groq by default).
+Set your preferred LLM in `cai_config.yml` (Anthropic by default).
 
 If you want to use Ollama, install it, set `default: ollama` and configure the `ollama:` block (model/temperature). Ollama is automatically started when used.
 
@@ -181,6 +187,36 @@ The API key goes into `tokens.yml` under the same name (`openrouter: sk-or-...`)
 With `requires_token: false` no key is needed. `/chat/completions` is appended to
 `base_url` unless it is already there. The name works with `-P` / `--provider`
 and shows up in `git cai -l provider` and shell completion.
+
+### Subscription instead of an API key
+
+A Claude, OpenAI (ChatGPT) or GitHub Copilot subscription can be used instead
+of an API token. cai then calls the official command line tool of the vendor,
+which must be installed and logged in:
+
+| Provider    | Command   | Log in with         |
+|-------------|-----------|---------------------|
+| `anthropic` | `claude`  | `claude auth login` |
+| `openai`    | `codex`   | `codex login`       |
+| `copilot`   | `copilot` | `copilot login`     |
+
+```sh
+git cai -H subscription=true     # enable persistently in the home config
+git cai -U                       # use the subscription for this run
+git cai -U -P openai             # with another provider
+git cai -P copilot               # Copilot always uses the subscription
+git cai -K                       # use the API for this run despite subscription: true
+```
+
+`copilot` has no API, so it always uses the subscription and `-K` is an error
+for it. Providers without a subscription ignore `subscription: true`, but `-U`
+with them is an error. If the command is not installed, cai stops and explains
+how to install it; it never switches to the API or to another provider on its
+own. API credentials in the environment (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+`CODEX_API_KEY`, `COPILOT_PROVIDER_*`) are hidden from the command, so the API
+account is not billed. `temperature`, `base_url` and `max_output_tokens` do not
+apply, the secret scan stays active, and every request counts against the usage
+limits of the subscription.
 
 ### Custom prompts (Markdown)
 
@@ -234,6 +270,7 @@ git cai -g
 ### Available configuration options
 
 - `default` – default LLM provider
+- `subscription` – use the Claude, OpenAI or Copilot subscription through the command line tool of the vendor instead of the API; default `false`. Ignored by providers without a subscription
 - `model` – model to use for the selected provider  
   (note: not all models may be compatible)
 - `temperature` – controls how creative the generated messages are
@@ -286,6 +323,7 @@ In addition to `git cai`, the following options are available:
 - `-h`, `--help` – show help and available commands
 - `-I`, `--init` – interactive setup wizard (writes home config and tokens.yml)
 - `-i`, `--install-completion` – install shell completion for bash, zsh, or fish. Rerun after upgrading to get custom provider completion
+- `-K`, `--no-subscription` – use the API for this invocation even when the config has `subscription: true` (error for `copilot`)
 - `-k`, `--check` – run configuration diagnostics offline (config source, provider, token, prompts, editor, style)
 - `-l`, `--list` – list available information. Valid types: `config`, `editor`, `language`, `model`, `path`, `provider`, `style`
 - `-m`, `--model` – override the model for this invocation (requires `-P`)
@@ -308,6 +346,7 @@ In addition to `git cai`, the following options are available:
 - `-e`, `--emoji` / `--no-emoji` – override emoji usage for this invocation (use `--no-emoji` to disable when config enables it)
 - `-T`, `--timeout` `SECONDS` – HTTP timeout for this invocation (overrides config)
 - `-t`, `--time` – measure and log commit message generation time
+- `-U`, `--subscription` – use the Claude, OpenAI or Copilot subscription for this invocation instead of the API (no token needed)
 - `-u`, `--update` – check for updates
 - `-v`, `--version` – show the installed version
 - `-x`, `--context` – provide extra context for the LLM (e.g. ticket number, reason for change)

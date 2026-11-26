@@ -2,12 +2,12 @@
 .\"     Title: git-cai
 .\"    Author: Thorsten Foltz
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-11-06
+.\"      Date: 2026-11-26
 .\"    Manual: \ \&
 .\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "GIT\-CAI" "1" "2026-11-06" "\ \&" "\ \&"
+.TH "GIT\-CAI" "1" "2026-11-26" "\ \&" "\ \&"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -57,6 +57,7 @@ git-cai \- AI\-powered commit message generator
         [\-S KEY=VALUE | \-\-set KEY=VALUE]
         [\-s [N|HASH] | \-\-squash [N|HASH]]
         [\-T SECONDS | \-\-timeout SECONDS] [\-t | \-\-time]
+        [\-U | \-\-subscription | \-K | \-\-no\-subscription]
         [\-u | \-\-update] [\-v | \-\-version] [\-w | \-\-split]
         [\-x CONTEXT | \-\-context CONTEXT] [\-y STYLE | \-\-style STYLE]
         [\-z | \-\-stats] [\-\-since YYYY\-MM\-DD] [\-\-json] [\-\-reset\-stats]
@@ -117,8 +118,9 @@ Guided setup (recommended):
 .  IP \(bu 2.3
 .\}
 Run \f(CRgit cai \-\-init\fP (or \f(CR\-I\fP). The interactive wizard asks for a
-default provider, language, style, and emoji preference, then
-collects the API key (hidden input). It writes
+default provider, language, style, and emoji preference, and for Claude
+and OpenAI whether to use a subscription. It then collects the API key
+(hidden input) if one is needed. It writes
 \f(CR~/.config/cai/cai_config.yml\fP and, for providers that need one,
 \f(CR~/.config/cai/tokens.yml\fP with mode \f(CR0600\fP. Existing token entries
 for other providers are preserved.
@@ -150,8 +152,8 @@ Run \f(CRgit cai\fP once. If no config exists yet, git\-cai creates:
 Add at least one API key to \f(CR~/.config/cai/tokens.yml\fP (created as a template if missing).
 The YAML keys are provider names (for example: \f(CRopenai\fP, \f(CRanthropic\fP, \f(CRgemini\fP,
 \f(CRgroq\fP, \f(CRxai\fP, \f(CRmistral\fP, \f(CRdeepseek\fP).
-If you use \f(CRollama\fP as provider, no token is required. Custom providers use
-their own name as key (see below).
+If you use \f(CRollama\fP as provider or a subscription (see below), no token is
+required. Custom providers use their own name as key (see below).
 .RE
 .sp
 .RS 4
@@ -214,6 +216,129 @@ Generate prompt files in the current directory with \f(CRgit cai \-p\fP.
 .  IP \(bu 2.3
 .\}
 Point \f(CRprompt_file\fP / \f(CRsquash_prompt_file\fP in \f(CRcai_config.yml\fP to your custom files.
+.RE
+.sp
+Subscription instead of API (optional):
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+A Claude, OpenAI (ChatGPT) or GitHub Copilot subscription can be used instead
+of an API token. git\-cai then calls the official command line tool of the
+vendor, which must be installed and logged in:
+.sp
+.if n .RS 4
+.nf
+.fam C
+Provider\&    Command\&   Log in with
+anthropic\&   claude\&    claude auth login
+openai\&      codex\&     codex login
+copilot\&     copilot\&   copilot login
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Set \f(CRsubscription: true\fP in \f(CRcai_config.yml\fP, or pass \f(CR\-\-subscription\fP (\f(CR\-U\fP)
+for a single run. The default is \f(CRfalse\fP, which uses the API.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRcopilot\fP has no API, so it always uses the subscription. All other providers
+ignore the setting and keep using their API.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+The model comes from the provider block, as with the API. With
+\f(CRcopilot.model: auto\fP, the default, Copilot picks the model.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+If the command is not installed, git\-cai stops and explains how to install it.
+It never switches to the API or to another provider on its own.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+API credentials in the environment (such as \f(CRANTHROPIC_API_KEY\fP,
+\f(CROPENAI_API_KEY\fP, \f(CRCODEX_API_KEY\fP, and \f(CRCOPILOT_PROVIDER_*\fP) are hidden from
+the command, because it would bill the API account instead.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+The command runs in an empty directory. \f(CRclaude\fP and \f(CRcopilot\fP run without
+tools. \f(CRcodex\fP keeps a few built in ones, but runs in its read only sandbox and
+without shell, web search, plugins, and connected ChatGPT apps.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRtemperature\fP, \f(CRbase_url\fP, and \f(CRmax_output_tokens\fP do not apply. The secret
+scan stays active, since the diff leaves the machine.
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+Every request counts against the usage limits of the subscription.
 .RE
 .sp
 Custom OpenAI compatible providers (optional):
@@ -676,8 +801,9 @@ providers that require one) \f(CR~/.config/cai/tokens.yml\fP with mode
 \f(CR0600\fP.
 .sp
 The wizard asks for a default provider, language, commit\-message
-style, whether to use emoji, and — for providers other than \f(CRollama\fP
-— the API key. Input for the API key is hidden while you type.
+style, whether to use emoji, whether to use a subscription (\f(CRanthropic\fP and
+\f(CRopenai\fP), and the API key if the choice needs one. Input for the API key is
+hidden while you type.
 .sp
 If \f(CR~/.config/cai/cai_config.yml\fP already exists, the wizard prompts
 before overwriting it. Existing entries in \f(CRtokens.yml\fP for other
@@ -716,13 +842,39 @@ git cai \-i
 .if n .RE
 .RE
 .sp
+\-K, \-\-no\-subscription
+.RS 4
+Use the API for this invocation even when the persisted config has
+\f(CRsubscription: true\fP. The provider then needs its API token as usual. This is
+an error for \f(CRcopilot\fP, which has no API. See \f(CR\-\-subscription\fP (\f(CR\-U\fP). To
+disable the subscription permanently:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-H subscription=false
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-K
+git cai \-K \-P anthropic
+.fam
+.fi
+.if n .RE
+.RE
+.sp
 \-k, \-\-check
 .RS 4
 Run configuration diagnostics and exit. The check is offline by default: it
 reports which config is authoritative (repository, home, or built\-in), validates
 the config keys, confirms the default provider has a model (and shows its
 \f(CRbase_url\fP if set) and a usable token (skipped for \f(CRollama\fP and providers with
-\f(CRrequires_token: false\fP), that the commit/squash/full\-files/PR prompts resolve, and that the
+\f(CRrequires_token: false\fP; with a subscription it checks that the command is
+installed instead), that the commit/squash/full\-files/PR prompts resolve, and that the
 configured editor is on \f(CRPATH\fP. Exits non\-zero if any check fails. Add \f(CR\-\-ping\fP
 to also probe the active provider with a tiny live request.
 .sp
@@ -881,7 +1033,7 @@ git cai \-s \-\-signoff
 .RS 4
 Override the LLM provider for this invocation. The model and temperature
 from the configuration for that provider are used unless \f(CR\-\-model\fP is also
-specified. Available providers: \f(CRanthropic\fP, \f(CRdeepseek\fP, \f(CRgemini\fP, \f(CRgroq\fP,
+specified. Available providers: \f(CRanthropic\fP, \f(CRcopilot\fP, \f(CRdeepseek\fP, \f(CRgemini\fP, \f(CRgroq\fP,
 \f(CRmistral\fP, \f(CRollama\fP, \f(CRopenai\fP, \f(CRxai\fP, plus any custom OpenAI compatible
 provider defined in the active config (see SETUP). Shell completion offers
 both.
@@ -1108,9 +1260,9 @@ git cai \-s a1b2c3d
 .sp
 \-T, \-\-timeout SECONDS
 .RS 4
-Override the HTTP timeout for the LLM call in this invocation. The default
-is 30 seconds for remote providers, 60 seconds for Gemini (Flash Lite can queue
-for up to 30 seconds) and 300 seconds for Ollama (since local generation can be
+Override the timeout for the LLM call in this invocation. The default
+is 30 seconds for remote providers, 60 seconds for Copilot and for Gemini (Flash
+Lite can queue for up to 30 seconds) and 300 seconds for Ollama (since local generation can be
 significantly slower). The override applies uniformly to whichever provider is
 selected for this run, including those with their own \f(CR<provider>.timeout\fP.
 .sp
@@ -1126,8 +1278,9 @@ git cai \-S timeout=45
 .fi
 .if n .RE
 .sp
-Ollama and Gemini keep their own timeouts under \f(CRollama.timeout\fP (default 300)
-and \f(CRgemini.timeout\fP (default 60). Override them separately:
+Ollama, Gemini and Copilot keep their own timeouts under \f(CRollama.timeout\fP
+(default 300), \f(CRgemini.timeout\fP and \f(CRcopilot.timeout\fP (default 60). Override them
+separately:
 .sp
 .if n .RS 4
 .nf
@@ -1161,6 +1314,33 @@ Can also be enabled permanently via \f(CRmeasure_time: true\fP in
 .nf
 .fam C
 git cai \-t
+.fam
+.fi
+.if n .RE
+.RE
+.sp
+\-U, \-\-subscription
+.RS 4
+Use the Claude (\f(CRanthropic\fP), OpenAI (\f(CRopenai\fP) or GitHub Copilot (\f(CRcopilot\fP)
+subscription for this invocation instead of the API. The request goes through
+the command line tool of the vendor, so no API token is needed. A provider
+without a subscription is an error. See SETUP and \f(CR\-\-no\-subscription\fP (\f(CR\-K\fP).
+To enable it permanently:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-H subscription=true
+.fam
+.fi
+.if n .RE
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-U
+git cai \-U \-P openai
+git cai \-P copilot
 .fam
 .fi
 .if n .RE
@@ -1366,13 +1546,14 @@ Example output:
 .fam C
 Active configuration:
 
-  default: groq
+  default: anthropic
+  subscription: false
   language: en
   style: professional
   emoji: true
-  groq:
-    model: openai/gpt\-oss\-20b
-    temperature: 0
+  anthropic:
+    model: claude\-haiku\-5\-5
+    max_output_tokens: 32768
   ...
 .fam
 .fi
@@ -1444,6 +1625,7 @@ Example output:
 Default models:
 
   anthropic\&    → claude\-haiku\-5\-5
+  copilot\&      → auto
   deepseek\&     → deepseek\-flash
   gemini\&       → gemini\-3.5\-flash\-lite
   groq\&         → openai/gpt\-oss\-20b
@@ -1512,8 +1694,8 @@ Configuration file paths:
 provider
 .RS 4
 List all supported LLM providers. Each provider is shown with its default
-model and whether an API token is required. Providers that do not require a
-token (\f(CRollama\fP, and custom providers with \f(CRrequires_token: false\fP) are
+model and whether it needs an API token or can use a subscription. Providers
+that do not require a token (\f(CRollama\fP, \f(CRcopilot\fP, and custom providers with \f(CRrequires_token: false\fP) are
 marked accordingly. Custom OpenAI compatible providers from the active config
 follow in a separate section with their \f(CRbase_url\fP.
 .sp
@@ -1532,13 +1714,14 @@ Example output:
 .fam C
 Supported providers:
 
-  anthropic\&    model: claude\-haiku\-5\-5\&                   (token required)
+  anthropic\&    model: claude\-haiku\-5\-5\&                   (token or subscription)
+  copilot\&      model: auto\&                               (subscription, no token required)
   deepseek\&     model: deepseek\-flash\&                     (token required)
   gemini\&       model: gemini\-3.5\-flash\-lite\&              (token required)
   groq\&         model: openai/gpt\-oss\-20b\&                 (token required)
   mistral\&      model: codestral\-2508\&                     (token required)
   ollama\&       model: gemma4:e2b\&                         (no token required)
-  openai\&       model: gpt\-6\-luna\&                         (token required)
+  openai\&       model: gpt\-6\-luna\&                         (token or subscription)
   xai\&          model: grok\-4.3\&                           (token required)
 
 Custom providers (OpenAI compatible, from config):
@@ -1643,7 +1826,20 @@ Available configuration keys:
 .  sp -1
 .  IP \(bu 2.3
 .\}
-\f(CRdefault\fP \(em default LLM provider name
+\f(CRdefault\fP \(em default LLM provider name (default \f(CRanthropic\fP)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.  sp -1
+.  IP \(bu 2.3
+.\}
+\f(CRsubscription\fP \(em use the Claude, OpenAI or Copilot subscription through the
+command line tool of the vendor instead of the API (\f(CRtrue\fP/\f(CRfalse\fP, default
+\f(CRfalse\fP). Ignored by providers without a subscription. See SETUP.
 .RE
 .sp
 .RS 4
@@ -1805,7 +2001,7 @@ the repository \f(CRcai_config.yml\fP if one exists, otherwise the home config.
 .  sp -1
 .  IP \(bu 2.3
 .\}
-\f(CRtimeout\fP \(em HTTP timeout in seconds for remote LLM calls (default \f(CR30\fP)
+\f(CRtimeout\fP \(em timeout in seconds for remote LLM calls (default \f(CR30\fP)
 .RE
 .sp
 .RS 4
@@ -2025,7 +2221,8 @@ alias). For OpenAI compatible providers it is only sent when set.
 .  IP \(bu 2.3
 .\}
 \f(CR<provider>.timeout\fP \(em HTTP timeout in seconds for one provider,
-overriding the global \f(CRtimeout\fP (\f(CRollama\fP defaults to \f(CR300\fP, \f(CRgemini\fP to \f(CR60\fP).
+overriding the global \f(CRtimeout\fP (\f(CRollama\fP defaults to \f(CR300\fP, \f(CRgemini\fP and
+\f(CRcopilot\fP to \f(CR60\fP).
 The \f(CR\-\-timeout\fP flag overrides both.
 .RE
 .sp
@@ -2285,6 +2482,18 @@ Override the provider for a single invocation:
 .nf
 .fam C
 git cai \-P anthropic
+.fam
+.fi
+.if n .RE
+.sp
+Use a subscription instead of the API:
+.sp
+.if n .RS 4
+.nf
+.fam C
+git cai \-U
+git cai \-U \-P openai
+git cai \-P copilot
 .fam
 .fi
 .if n .RE
