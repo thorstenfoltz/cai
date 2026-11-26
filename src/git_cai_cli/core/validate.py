@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import requests
 from git_cai_cli.core.secrets import SecretLeakError
+from git_cai_cli.core.subscription import SubscriptionError
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ ALLOWED_GLOBAL_KEYS = frozenset(
         "conventional",
         "language",
         "default",
+        "subscription",
         "style",
         "emoji",
         "load_tokens_from",
@@ -238,6 +240,10 @@ def _validate_llm_call(
     except SecretLeakError:
         # A local secret-scan block is a user-facing decision, not an LLM
         # failure — let the caller handle the confirm/abort flow.
+        raise
+
+    except SubscriptionError:
+        # Already worded for the user, a traceback would only bury it.
         raise
 
     except requests.HTTPError as exc:

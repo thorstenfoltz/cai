@@ -46,6 +46,7 @@ def run_pr(
     context: str | None = None,
     sql_override: bool | None = None,
     allow_secrets: bool = False,
+    subscription_override: bool | None = None,
 ) -> None:
     """
     Generate a PR description for the current branch.
@@ -55,6 +56,7 @@ def run_pr(
         model_override: Optional. Model override for this invocation.
         time_flag: Whether to log generation time.
         base_override: Optional. Explicit base branch (e.g. "develop").
+        subscription_override: Optional. Subscription (True) or API (False).
         context: Optional. Extra context for the LLM.
     """
     repo_root = find_git_root()
@@ -64,7 +66,11 @@ def run_pr(
 
     config = load_config()
     apply_provider_overrides(
-        config, provider_override, model_override, temperature_override
+        config,
+        provider_override,
+        model_override,
+        temperature_override,
+        subscription_override,
     )
 
     from git_cai_cli.core import stats as stats_module

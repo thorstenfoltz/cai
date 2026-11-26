@@ -17,7 +17,11 @@ from typing import Any, Dict
 from urllib.parse import urlparse
 
 import requests
-from git_cai_cli.core.config import CONFIG_DIR, is_custom_provider
+from git_cai_cli.core.config import (
+    CONFIG_DIR,
+    is_custom_provider,
+    uses_subscription,
+)
 from git_cai_cli.core.gitutils import (
     classify_changed_paths,
     paths_from_diff,
@@ -33,6 +37,11 @@ from git_cai_cli.core.prompts_fallback import (
     HARDCODED_RELEASE_PROMPT,
     HARDCODED_SPLIT_PROMPT,
     HARDCODED_SQUASH_PROMPT,
+)
+from git_cai_cli.core.subscription import (
+    SubscriptionError,
+    is_input_too_large,
+    run_subscription,
 )
 from git_cai_cli.core.validate import _extract_api_error_message
 from requests.adapters import HTTPAdapter
@@ -196,13 +205,17 @@ _OVERFLOW_SIZE_RE = re.compile(r"(?<![\w.-])\d[\d,]{2,}\b")
 _OVERFLOW_RETRIES = 2
 
 
-def _overflow_shrink_factor(exc: requests.HTTPError) -> float | None:
+def _overflow_shrink_factor(
+    exc: requests.HTTPError | SubscriptionError,
+) -> float | None:
     """Return how much to shrink the input after a "too many tokens" rejection.
 
     ``None`` means ``exc`` is some other error. Providers word the rejection
     differently, but the first two numbers are the limit and the actual size,
     and the smaller one is the limit. Without them, halve the input.
     """
+    if isinstance(exc, SubscriptionError):
+        return 0.5 if is_input_too_large(exc) else None
     response = exc.response
     if response is None or response.status_code not in _OVERFLOW_STATUS_CODES:
         return None
@@ -374,7 +387,7 @@ class CommitMessageGenerator:
 
         temperature_val: float | None = None
         block = cfg.get(provider)
-        if isinstance(block, dict):
+        if isinstance(block, dict) and not uses_subscription(cfg, provider):
             temp = block.get("temperature")
             if isinstance(temp, (int, float)):
                 model_name = block.get("model", "")
@@ -483,7 +496,13 @@ class CommitMessageGenerator:
         detail at DEBUG.
         """
         model = (self.config.get(self.default_model) or {}).get("model")
-        log.info("Using provider '%s' (model '%s').", self.default_model, model)
+        via = "subscription" if self._uses_subscription() else "API"
+        log.info(
+            "Using provider '%s' (model '%s', %s).", self.default_model, model, via
+        )
+
+    def _uses_subscription(self) -> bool:
+        return uses_subscription(self.config, self.default_model)
 
     def send(self, content: str, system_prompt: str) -> str:
         """Run the secret scan and dispatch a prebuilt request to the LLM.
@@ -1019,12 +1038,19 @@ class CommitMessageGenerator:
         openai_compatible = provider in OPENAI_COMPATIBLE_URLS or is_custom_provider(
             self.config, provider
         )
-        if not openai_compatible and provider not in model_dispatch:
+        subscription = self._uses_subscription()
+        if (
+            not subscription
+            and not openai_compatible
+            and provider not in model_dispatch
+        ):
             raise ValueError(f"Unknown model type: '{provider}'")
 
         log.debug("Using provider '%s' for generation.", provider)
 
         def call_provider(text: str) -> str:
+            if subscription:
+                return self.generate_subscription(text, provider, system_prompt)
             if openai_compatible:
                 return self.generate_openai_compatible(
                     text, provider, system_prompt_override=system_prompt
@@ -1035,7 +1061,7 @@ class CommitMessageGenerator:
         for _ in range(_OVERFLOW_RETRIES):
             try:
                 return call_provider(sent)
-            except requests.HTTPError as exc:
+            except (requests.HTTPError, SubscriptionError) as exc:
                 factor = _overflow_shrink_factor(exc)
                 if factor is None:
                     raise
@@ -1052,6 +1078,25 @@ class CommitMessageGenerator:
     # ---------------------------
     # MODEL CALLS
     # ---------------------------
+
+    def generate_subscription(
+        self, content: str, provider: str, system_prompt: str
+    ) -> str:
+        """Call ``provider`` through its CLI, see ``core.subscription``."""
+        block = self.config[provider]
+        if block.get("temperature") is not None:
+            log.warning(
+                "Subscriptions do not support temperature; "
+                "ignoring configured temperature=%s.",
+                block["temperature"],
+            )
+        start = time.perf_counter()
+        text, tokens_in, tokens_out = run_subscription(
+            provider, block["model"], content, system_prompt, self._timeout(provider)
+        )
+        self._last_latency_ms = int((time.perf_counter() - start) * 1000)
+        self._log_token_usage(provider, tokens_in, tokens_out)
+        return text
 
     def generate_openai_compatible(
         self,

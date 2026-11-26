@@ -124,6 +124,7 @@ def run(
     emoji_override: bool | None = None,
     live_check: bool = False,
     allow_secrets: bool = False,
+    subscription_override: bool | None = None,
 ) -> None:
     """
     Main function to run the Git CAI CLI tool.
@@ -200,6 +201,7 @@ def run(
             sql_override=sql_override,
             signoff=signoff,
             allow_secrets=allow_secrets,
+            subscription_override=subscription_override,
         )
         return
 
@@ -215,6 +217,7 @@ def run(
             context=context,
             sql_override=sql_override,
             allow_secrets=allow_secrets,
+            subscription_override=subscription_override,
         )
         return
 
@@ -230,6 +233,7 @@ def run(
             context=context,
             sql_override=sql_override,
             allow_secrets=allow_secrets,
+            subscription_override=subscription_override,
         )
         return
 
@@ -244,6 +248,7 @@ def run(
             context=context,
             sql_override=sql_override,
             allow_secrets=allow_secrets,
+            subscription_override=subscription_override,
         )
         return
 
@@ -258,6 +263,7 @@ def run(
             context=context,
             sql_override=sql_override,
             allow_secrets=allow_secrets,
+            subscription_override=subscription_override,
         )
         return
 
@@ -272,6 +278,7 @@ def run(
             context=context,
             sql_override=sql_override,
             allow_secrets=allow_secrets,
+            subscription_override=subscription_override,
         )
         return
 
@@ -289,7 +296,11 @@ def run(
 
     config = load_config()
     apply_provider_overrides(
-        config, provider_override, model_override, temperature_override
+        config,
+        provider_override,
+        model_override,
+        temperature_override,
+        subscription_override,
     )
     apply_cli_overrides(
         config,

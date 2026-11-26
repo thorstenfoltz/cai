@@ -211,6 +211,7 @@ def squash_branch(
     sql_override: bool | None = None,
     signoff: bool | None = None,
     allow_secrets: bool = False,
+    subscription_override: bool | None = None,
 ) -> None:
     """
     Squash commits in the current branch into a single commit with an LLM-generated message.
@@ -219,6 +220,7 @@ def squash_branch(
         squash_arg: Optional. A number (squash last N commits) or a commit hash
                     (squash up to and including that commit). If None, squash all
                     commits since the branch diverged.
+        subscription_override: Optional. Subscription (True) or API (False).
         context: Optional. Extra context for the LLM (e.g. ticket number, reason for change).
     """
     repo_root = find_git_root()
@@ -244,9 +246,13 @@ def squash_branch(
 
     config = load_config()
 
-    # Apply provider/model/temperature overrides
+    # Apply provider/model/temperature/subscription overrides
     apply_provider_overrides(
-        config, provider_override, model_override, temperature_override
+        config,
+        provider_override,
+        model_override,
+        temperature_override,
+        subscription_override,
     )
 
     # `--sql true|false` honored in squash mode too: stats writing

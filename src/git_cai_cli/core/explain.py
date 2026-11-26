@@ -31,6 +31,7 @@ def run_explain(
     context: str | None = None,
     sql_override: bool | None = None,
     allow_secrets: bool = False,
+    subscription_override: bool | None = None,
 ) -> None:
     """
     Explain the staged diff, or the diff of ``rev`` when given.
@@ -43,9 +44,14 @@ def run_explain(
         time_flag: Whether to log generation time.
         context: Optional. Extra context for the LLM.
         allow_secrets: Bypass the local secret scan.
+        subscription_override: Use the subscription (True) or the API (False).
     """
     repo_root, config, provider, token = prepare(
-        provider_override, model_override, temperature_override, sql_override
+        provider_override,
+        model_override,
+        temperature_override,
+        sql_override,
+        subscription_override,
     )
 
     if rev:
